@@ -35,6 +35,27 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # State management
+  flutter_riverpod: ^3.0.3
+
+  # Encrypted database
+  sqflite_sqlcipher: ^3.4.0
+
+  # Bluetooth Low Energy
+  flutter_blue_plus: ^2.0.2
+
+  # Line chart visualization
+  fl_chart: ^1.1.1
+
+  # Settings persistence
+  shared_preferences: ^2.2.0
+
+  # Future export capability
+  csv: ^6.0.0
+
+  # Permission management
+  permission_handler: ^12.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
