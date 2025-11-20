@@ -1,0 +1,316 @@
+import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:path/path.dart';
+import '../models/heart_rate_reading.dart';
+import '../models/workout_session.dart';
+
+/// Service for managing the encrypted local database.
+///
+/// This service handles all database operations including session management,
+/// heart rate reading storage, and settings persistence. The database is
+/// encrypted using SQLCipher to protect user privacy.
+///
+/// Uses singleton pattern to ensure only one database instance exists.
+class DatabaseService {
+  // Singleton instance
+  static final DatabaseService instance = DatabaseService._internal();
+
+  // Database instance
+  Database? _database;
+
+  // Testing database factory (set by tests to use sqflite_common_ffi)
+  DatabaseFactory? _testDatabaseFactory;
+
+  // Database configuration
+  static const String _databaseName = 'workout_tracker.db';
+  static const String _databasePassword = 'hr_monitor_db_key';
+  static const int _databaseVersion = 1;
+
+  // Table names
+  static const String _tableHeartRateReadings = 'heart_rate_readings';
+  static const String _tableWorkoutSessions = 'workout_sessions';
+  static const String _tableAppSettings = 'app_settings';
+
+  // Private constructor for singleton
+  DatabaseService._internal();
+
+  /// Gets the database instance, initializing it if necessary.
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+
+  /// Initializes the database with encryption.
+  Future<Database> _initDatabase() async {
+    // If test factory is set, use it for testing
+    if (_testDatabaseFactory != null) {
+      return await _testDatabaseFactory!.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: _databaseVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        ),
+      );
+    }
+
+    // Production database with encryption
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, _databaseName);
+
+    return await openDatabase(
+      path,
+      version: _databaseVersion,
+      password: _databasePassword,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  /// Creates the database schema on first initialization.
+  Future<void> _onCreate(Database db, int version) async {
+    // Create heart_rate_readings table
+    await db.execute('''
+      CREATE TABLE $_tableHeartRateReadings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        bpm INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES $_tableWorkoutSessions (id)
+      )
+    ''');
+
+    // Create indexes on heart_rate_readings for fast querying
+    await db.execute('''
+      CREATE INDEX idx_hr_session_id
+      ON $_tableHeartRateReadings (session_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_hr_timestamp
+      ON $_tableHeartRateReadings (timestamp)
+    ''');
+
+    // Create workout_sessions table
+    await db.execute('''
+      CREATE TABLE $_tableWorkoutSessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        start_time INTEGER NOT NULL,
+        end_time INTEGER,
+        device_name TEXT NOT NULL,
+        avg_hr INTEGER,
+        min_hr INTEGER,
+        max_hr INTEGER
+      )
+    ''');
+
+    // Create index on workout_sessions for chronological ordering
+    await db.execute('''
+      CREATE INDEX idx_session_start_time
+      ON $_tableWorkoutSessions (start_time)
+    ''');
+
+    // Create app_settings table
+    await db.execute('''
+      CREATE TABLE $_tableAppSettings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+  }
+
+  /// Handles database schema upgrades for future versions.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Handle migrations here when schema changes in future versions
+    // For now, we're at version 1, so no migrations needed
+  }
+
+  /// Creates a new workout session.
+  ///
+  /// [deviceName] is the name of the connected heart rate monitor.
+  /// Returns the ID of the newly created session.
+  Future<int> createSession(String deviceName) async {
+    final db = await database;
+    final session = WorkoutSession(
+      startTime: DateTime.now(),
+      deviceName: deviceName,
+    );
+
+    return await db.insert(_tableWorkoutSessions, session.toMap());
+  }
+
+  /// Ends a workout session by setting the end time and statistics.
+  ///
+  /// [sessionId] is the ID of the session to end.
+  /// [avgHr], [minHr], and [maxHr] are the calculated session statistics.
+  Future<void> endSession({
+    required int sessionId,
+    required int avgHr,
+    required int minHr,
+    required int maxHr,
+  }) async {
+    final db = await database;
+    await db.update(
+      _tableWorkoutSessions,
+      {
+        'end_time': DateTime.now().millisecondsSinceEpoch,
+        'avg_hr': avgHr,
+        'min_hr': minHr,
+        'max_hr': maxHr,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  /// Inserts a heart rate reading into the database.
+  ///
+  /// [sessionId] is the ID of the session this reading belongs to.
+  /// [timestamp] is when the reading was captured.
+  /// [bpm] is the heart rate in beats per minute.
+  /// Returns the ID of the newly inserted reading.
+  Future<int> insertHeartRateReading(
+    int sessionId,
+    DateTime timestamp,
+    int bpm,
+  ) async {
+    final db = await database;
+    final reading = HeartRateReading(
+      sessionId: sessionId,
+      timestamp: timestamp,
+      bpm: bpm,
+    );
+
+    return await db.insert(_tableHeartRateReadings, reading.toMap());
+  }
+
+  /// Retrieves all heart rate readings for a specific session.
+  ///
+  /// [sessionId] is the ID of the session to query.
+  /// Returns a list of readings ordered by timestamp.
+  Future<List<HeartRateReading>> getReadingsBySession(int sessionId) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableHeartRateReadings,
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'timestamp ASC',
+    );
+
+    return maps.map((map) => HeartRateReading.fromMap(map)).toList();
+  }
+
+  /// Retrieves heart rate readings for a session within a time range.
+  ///
+  /// [sessionId] is the ID of the session to query.
+  /// [startTime] and [endTime] define the time window.
+  /// Returns a list of readings ordered by timestamp.
+  Future<List<HeartRateReading>> getReadingsBySessionAndTimeRange(
+    int sessionId,
+    DateTime startTime,
+    DateTime endTime,
+  ) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableHeartRateReadings,
+      where: 'session_id = ? AND timestamp >= ? AND timestamp <= ?',
+      whereArgs: [
+        sessionId,
+        startTime.millisecondsSinceEpoch,
+        endTime.millisecondsSinceEpoch,
+      ],
+      orderBy: 'timestamp ASC',
+    );
+
+    return maps.map((map) => HeartRateReading.fromMap(map)).toList();
+  }
+
+  /// Gets the current active session (session without end_time).
+  ///
+  /// Returns the most recent session that hasn't been ended,
+  /// or null if no active session exists.
+  Future<WorkoutSession?> getCurrentSession() async {
+    final db = await database;
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'end_time IS NULL',
+      orderBy: 'start_time DESC',
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return WorkoutSession.fromMap(maps.first);
+  }
+
+  /// Gets a session by its ID.
+  ///
+  /// Returns the session or null if not found.
+  Future<WorkoutSession?> getSessionById(int sessionId) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'id = ?',
+      whereArgs: [sessionId],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return WorkoutSession.fromMap(maps.first);
+  }
+
+  /// Retrieves a setting value by key.
+  ///
+  /// Returns the setting value or null if not found.
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableAppSettings,
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return maps.first['value'] as String?;
+  }
+
+  /// Stores or updates a setting value.
+  ///
+  /// Uses REPLACE to insert or update the setting atomically.
+  Future<void> setSetting(String key, String value) async {
+    final db = await database;
+    await db.insert(_tableAppSettings, {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Initializes a fresh in-memory database for testing.
+  ///
+  /// This method is used by tests to avoid affecting the production database.
+  /// Tests must provide a DatabaseFactory (e.g., from sqflite_common_ffi).
+  Future<void> initializeForTesting(DatabaseFactory factory) async {
+    _testDatabaseFactory = factory;
+    await closeForTesting();
+    _database = await _initDatabase();
+  }
+
+  /// Closes the database connection for testing cleanup.
+  Future<void> closeForTesting() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+    _testDatabaseFactory = null;
+  }
+
+  /// Closes the database connection.
+  ///
+  /// Should be called when the app is shutting down.
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+}

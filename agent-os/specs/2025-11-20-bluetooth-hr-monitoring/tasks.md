@@ -68,34 +68,34 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 2: Database Layer & Models
-**Dependencies:** Task Group 1
+**Dependencies:** Task Group 1 (COMPLETED)
 **Complexity:** Medium
 **Estimated Time:** 2-3 hours
 
-- [ ] 2.0 Implement encrypted database and data models
-  - [ ] 2.1 Write 2-8 focused tests for database layer
+- [x] 2.0 Implement encrypted database and data models
+  - [x] 2.1 Write 2-8 focused tests for database layer
     - Limit to 2-8 highly focused tests maximum
     - Test only critical behaviors: database initialization, session creation, reading insertion, query by session
     - Skip exhaustive coverage of all methods and edge cases
     - Create test/services/database_service_test.dart
-  - [ ] 2.2 Create heart rate reading model
+  - [x] 2.2 Create heart rate reading model
     - Create lib/models/heart_rate_reading.dart
     - Fields: id (int), sessionId (int), timestamp (DateTime), bpm (int)
     - Add toMap() and fromMap() methods for database serialization
     - Add validation: bpm must be 30-250 range
-  - [ ] 2.3 Create session model
+  - [x] 2.3 Create session model
     - Create lib/models/workout_session.dart
     - Fields: id (int), startTime (DateTime), endTime (DateTime?), deviceName (String), avgHr (int?), minHr (int?), maxHr (int?)
     - Add toMap() and fromMap() methods
     - Add calculateStatistics() method to compute avg/min/max from readings
     - Add getDuration() method returning Duration
-  - [ ] 2.4 Create database service with encryption
+  - [x] 2.4 Create database service with encryption
     - Create lib/services/database_service.dart
     - Implement singleton pattern
     - Use sqflite_sqlcipher for encryption (password: hardcoded for now, "hr_monitor_db_key")
     - Create database initialization with migrations support
     - Database file: workout_tracker.db in app documents directory
-  - [ ] 2.5 Define database schema
+  - [x] 2.5 Define database schema
     - Create table: heart_rate_readings
       - Columns: id (INTEGER PRIMARY KEY), session_id (INTEGER), timestamp (INTEGER), bpm (INTEGER)
       - Index on session_id for fast querying
@@ -106,7 +106,7 @@ This tasks list follows a bottom-up implementation approach:
     - Create table: app_settings
       - Columns: key (TEXT PRIMARY KEY), value (TEXT)
       - Store: user_age, chart_window_seconds, last_connected_device_id
-  - [ ] 2.6 Implement database CRUD operations
+  - [x] 2.6 Implement database CRUD operations
     - createSession(deviceName): Create new session, return session ID
     - endSession(sessionId, avgHr, minHr, maxHr): Update session end time and stats
     - insertHeartRateReading(sessionId, timestamp, bpm): Insert reading
@@ -115,7 +115,7 @@ This tasks list follows a bottom-up implementation approach:
     - getCurrentSession(): Return most recent session without end_time
     - getSetting(key): Get setting value
     - setSetting(key, value): Store/update setting
-  - [ ] 2.7 Ensure database layer tests pass
+  - [x] 2.7 Ensure database layer tests pass
     - Run ONLY the 2-8 tests written in 2.1
     - Verify database initializes with encryption
     - Verify sessions and readings can be created and retrieved

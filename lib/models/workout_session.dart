@@ -1,0 +1,143 @@
+/// Represents a workout session with heart rate monitoring.
+///
+/// A session begins when a device connects and ends when it disconnects.
+/// Session statistics (average, min, max HR) are calculated and stored
+/// when the session ends.
+class WorkoutSession {
+  /// Unique identifier for this session in the database.
+  /// Null for new sessions before they're inserted.
+  final int? id;
+
+  /// The timestamp when this session started (device connected).
+  /// Stored as Unix timestamp (milliseconds since epoch) in database.
+  final DateTime startTime;
+
+  /// The timestamp when this session ended (device disconnected).
+  /// Null if the session is still active.
+  /// Stored as Unix timestamp (milliseconds since epoch) in database.
+  final DateTime? endTime;
+
+  /// The name of the Bluetooth device used for this session.
+  /// Can be "Demo Mode" for simulated sessions.
+  final String deviceName;
+
+  /// Average heart rate for the entire session in BPM.
+  /// Calculated and stored when the session ends.
+  /// Null for active sessions.
+  final int? avgHr;
+
+  /// Minimum heart rate recorded during the session in BPM.
+  /// Calculated and stored when the session ends.
+  /// Null for active sessions.
+  final int? minHr;
+
+  /// Maximum heart rate recorded during the session in BPM.
+  /// Calculated and stored when the session ends.
+  /// Null for active sessions.
+  final int? maxHr;
+
+  /// Creates a workout session instance.
+  WorkoutSession({
+    this.id,
+    required this.startTime,
+    this.endTime,
+    required this.deviceName,
+    this.avgHr,
+    this.minHr,
+    this.maxHr,
+  });
+
+  /// Calculates the duration of this session.
+  ///
+  /// If the session is still active (no end time), returns the duration
+  /// from start time to now. Otherwise, returns the duration from start
+  /// to end time.
+  Duration getDuration() {
+    final end = endTime ?? DateTime.now();
+    return end.difference(startTime);
+  }
+
+  /// Checks if this session is currently active (not ended).
+  bool get isActive => endTime == null;
+
+  /// Converts this session to a map for database storage.
+  ///
+  /// Timestamps are converted to Unix timestamps (milliseconds since epoch)
+  /// for efficient storage and querying.
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'start_time': startTime.millisecondsSinceEpoch,
+      'end_time': endTime?.millisecondsSinceEpoch,
+      'device_name': deviceName,
+      'avg_hr': avgHr,
+      'min_hr': minHr,
+      'max_hr': maxHr,
+    };
+  }
+
+  /// Creates a session instance from a database map.
+  ///
+  /// Reconstructs DateTimes from the stored Unix timestamps.
+  factory WorkoutSession.fromMap(Map<String, dynamic> map) {
+    return WorkoutSession(
+      id: map['id'] as int?,
+      startTime: DateTime.fromMillisecondsSinceEpoch(map['start_time'] as int),
+      endTime: map['end_time'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['end_time'] as int)
+          : null,
+      deviceName: map['device_name'] as String,
+      avgHr: map['avg_hr'] as int?,
+      minHr: map['min_hr'] as int?,
+      maxHr: map['max_hr'] as int?,
+    );
+  }
+
+  /// Creates a copy of this session with updated fields.
+  ///
+  /// Used to update session statistics when ending a session.
+  WorkoutSession copyWith({
+    int? id,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? deviceName,
+    int? avgHr,
+    int? minHr,
+    int? maxHr,
+  }) {
+    return WorkoutSession(
+      id: id ?? this.id,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      deviceName: deviceName ?? this.deviceName,
+      avgHr: avgHr ?? this.avgHr,
+      minHr: minHr ?? this.minHr,
+      maxHr: maxHr ?? this.maxHr,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'WorkoutSession(id: $id, startTime: $startTime, endTime: $endTime, '
+        'deviceName: $deviceName, avgHr: $avgHr, minHr: $minHr, maxHr: $maxHr)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is WorkoutSession &&
+        other.id == id &&
+        other.startTime == startTime &&
+        other.endTime == endTime &&
+        other.deviceName == deviceName &&
+        other.avgHr == avgHr &&
+        other.minHr == minHr &&
+        other.maxHr == maxHr;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(id, startTime, endTime, deviceName, avgHr, minHr, maxHr);
+  }
+}
