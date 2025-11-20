@@ -1,0 +1,54 @@
+# Pre-commit hooks for Flutter project
+# Install pre-commit: pip install pre-commit
+# Setup hooks: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Security - detect secrets and sensitive information
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.29.1
+    hooks:
+      - id: gitleaks
+
+  # Dart/Flutter specific
+  - repo: local
+    hooks:
+      # Format Dart code
+      - id: dart-format
+        name: dart format
+        entry: dart format
+        language: system
+        files: '\.dart$'
+        pass_filenames: true
+
+      # Run Flutter analyzer
+      - id: flutter-analyze
+        name: flutter analyze
+        entry: flutter analyze
+        language: system
+        files: '\.dart$'
+        pass_filenames: false
+
+      # Run Flutter tests
+      - id: flutter-test
+        name: flutter test
+        entry: flutter test
+        language: system
+        files: '\.dart$'
+        pass_filenames: false
+        stages: [pre-push]  # Only run on push, not every commit
