@@ -235,48 +235,48 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 5: State Management with Riverpod
-**Dependencies:** Task Group 2, Task Group 3, Task Group 4
+**Dependencies:** Task Group 2 (COMPLETED), Task Group 3 (COMPLETED), Task Group 4 (COMPLETED)
 **Complexity:** Medium
 **Estimated Time:** 2-3 hours
 
-- [ ] 5.0 Create Riverpod providers for app state
-  - [ ] 5.1 Write 2-8 focused tests for providers
+- [x] 5.0 Create Riverpod providers for app state
+  - [x] 5.1 Write 2-8 focused tests for providers
     - Limit to 2-8 highly focused tests maximum
     - Test only critical provider behaviors: state updates, stream emissions, settings persistence
     - Use ProviderContainer for testing
     - Skip exhaustive testing of all state combinations
     - Create test/providers/app_providers_test.dart
-  - [ ] 5.2 Create settings provider
+  - [x] 5.2 Create settings provider
     - Create lib/providers/settings_provider.dart
-    - Implement StateNotifierProvider<SettingsNotifier, AppSettings>
+    - Implement NotifierProvider<SettingsNotifier, AppSettings>
     - AppSettings model: age (int), chartWindowSeconds (int)
     - Load settings from database on initialization
     - Persist settings changes immediately to database
     - Expose methods: updateAge(age), updateChartWindow(seconds)
-  - [ ] 5.3 Create Bluetooth state provider
+  - [x] 5.3 Create Bluetooth state provider
     - Create lib/providers/bluetooth_provider.dart
-    - Implement StreamProvider<ConnectionState>
+    - Implement StreamProvider<BluetoothConnectionInfo>
     - Expose BluetoothService connection state stream
     - Track: current device name, connection state, error messages
-  - [ ] 5.4 Create heart rate data provider
+  - [x] 5.4 Create heart rate data provider
     - Create lib/providers/heart_rate_provider.dart
-    - Implement StreamProvider<int> for real-time BPM stream
+    - Implement StreamProvider<HeartRateData> for real-time BPM stream
     - Expose BluetoothService heart rate stream
     - Transform stream to include zone calculation based on current age setting
-  - [ ] 5.5 Create session provider
+  - [x] 5.5 Create session provider
     - Create lib/providers/session_provider.dart
-    - Implement StateNotifierProvider<SessionNotifier, SessionState>
+    - Implement NotifierProvider<SessionNotifier, SessionState>
     - SessionState: currentSessionId, startTime, duration, avgHr, minHr, maxHr, readings count
-    - Expose methods: startSession(deviceName), endSession(), updateStatistics()
+    - Expose methods: startSession(deviceName), endSession()
     - Listen to HR stream and automatically insert readings to database
     - Calculate statistics in real-time from accumulated readings
-  - [ ] 5.6 Create device scanning provider
+  - [x] 5.6 Create device scanning provider
     - Create lib/providers/device_scan_provider.dart
     - Implement StreamProvider<List<ScannedDevice>>
     - Expose BluetoothService scan stream
     - ScannedDevice model: id, name, rssi, isDemo (bool)
     - Insert "Demo Mode" device as first item in list
-  - [ ] 5.7 Ensure provider tests pass
+  - [x] 5.7 Ensure provider tests pass
     - Run ONLY the 2-8 tests written in 5.1
     - Verify settings load and persist correctly
     - Verify HR stream provides BPM values with zone information
@@ -294,7 +294,7 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 6: UI Screens & Components
-**Dependencies:** Task Group 3, Task Group 5
+**Dependencies:** Task Group 3 (COMPLETED), Task Group 5 (COMPLETED)
 **Complexity:** High
 **Estimated Time:** 5-6 hours
 
@@ -418,7 +418,7 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 7: Demo Mode, Reconnection, and Error Handling
-**Dependencies:** Task Group 4, Task Group 5, Task Group 6
+**Dependencies:** Task Group 4 (COMPLETED), Task Group 5 (COMPLETED), Task Group 6
 **Complexity:** Medium
 **Estimated Time:** 3-4 hours
 
