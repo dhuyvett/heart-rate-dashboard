@@ -14,6 +14,57 @@ Before you begin, ensure you have the following installed:
   - Android Studio / IntelliJ IDEA with Flutter plugin
   - VS Code with Flutter and Dart extensions
 
+### Platform-Specific Dependencies
+
+#### Linux
+
+For running tests and building the Linux desktop app:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  clang \
+  cmake \
+  lld \
+  ninja-build \
+  pkg-config \
+  libgtk-3-dev \
+  libsqlite3-dev
+```
+
+| Package | Purpose |
+|---------|---------|
+| `clang` | C/C++ compiler for native code |
+| `cmake` | Build system generator |
+| `lld` | LLVM linker (required for running tests with native FFI) |
+| `ninja-build` | Fast build system |
+| `pkg-config` | Library configuration tool |
+| `libgtk-3-dev` | GTK3 development files for desktop UI |
+| `libsqlite3-dev` | SQLite development files for database |
+
+#### macOS
+
+For building the iOS and macOS apps:
+
+- **Xcode** (from App Store)
+- **CocoaPods**: `sudo gem install cocoapods`
+
+#### Windows
+
+For building the Windows desktop app:
+
+- **Visual Studio 2022** with "Desktop development with C++" workload
+
+#### Android
+
+For building Android apps:
+
+- **Java Development Kit (JDK) 17**
+  - Linux: `sudo apt-get install openjdk-17-jdk`
+  - macOS: `brew install openjdk@17`
+  - Windows: Download from [Adoptium](https://adoptium.net/)
+- **Android SDK** (installed via Android Studio or Flutter)
+
 ## Getting Started
 
 1. **Clone the repository**

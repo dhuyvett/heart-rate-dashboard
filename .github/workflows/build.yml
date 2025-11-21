@@ -14,6 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld libsqlite3-dev
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -28,12 +33,36 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
-      # - name: Upload coverage reports
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     files: ./coverage/lcov.info
-      #     flags: unittests
-      #     name: codecov-umbrella
+      - name: Generate coverage summary
+        run: |
+          # Install lcov for coverage analysis
+          sudo apt-get update
+          sudo apt-get install -y lcov
+
+          # Generate coverage report summary
+          lcov --summary coverage/lcov.info > coverage_summary.txt
+
+          # Extract coverage percentage
+          COVERAGE=$(grep "line rate" coverage_summary.txt | grep -oP '(?<=lines\s:\s)\d+\.\d+' || echo "0.0")
+
+          # Create annotation
+          echo "## Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat coverage_summary.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Set coverage annotation
+        if: always()
+        run: |
+          # Extract coverage percentage for annotation
+          if [ -f coverage/lcov.info ]; then
+            LINES_COVERED=$(grep "LF:" coverage/lcov.info | awk '{sum+=$2} END {print sum}')
+            LINES_FOUND=$(grep "LH:" coverage/lcov.info | awk '{sum+=$2} END {print sum}')
+
+            if [ -n "$LINES_COVERED" ] && [ "$LINES_COVERED" -gt 0 ]; then
+              COVERAGE=$(echo "scale=2; ($LINES_FOUND * 100) / $LINES_COVERED" | bc)
+              echo "::notice title=Code Coverage::Code coverage: ${COVERAGE}% (${LINES_FOUND}/${LINES_COVERED} lines covered)"
+            fi
+          fi
 
   build-android:
     name: Build Android APK
@@ -115,7 +144,6 @@ jobs:
             clang \
             cmake \
             git \
-            gtk-3-dev \
             libgtk-3-dev \
             ninja-build \
             pkg-config \
@@ -202,7 +230,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v6
 
       - name: Create Release
         uses: ncipollo/release-action@v1
