@@ -171,23 +171,23 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 4: Bluetooth Service Layer
-**Dependencies:** Task Group 1, Task Group 2
+**Dependencies:** Task Group 1 (COMPLETED), Task Group 2 (COMPLETED)
 **Complexity:** High
 **Estimated Time:** 4-5 hours
 
-- [ ] 4.0 Implement BLE device discovery and connection
-  - [ ] 4.1 Write 2-8 focused tests for BLE service
+- [x] 4.0 Implement BLE device discovery and connection
+  - [x] 4.1 Write 2-8 focused tests for BLE service
     - Limit to 2-8 highly focused tests maximum
     - Test only critical behaviors: device scanning, connection state changes, HR data parsing
     - Use mocks for flutter_blue_plus to avoid requiring physical hardware
     - Skip exhaustive testing of all BLE scenarios
     - Create test/services/bluetooth_service_test.dart
-  - [ ] 4.2 Create Bluetooth service
+  - [x] 4.2 Create Bluetooth service
     - Create lib/services/bluetooth_service.dart
     - Implement singleton pattern
     - Initialize FlutterBluePlus instance
-    - Define BluetoothConnectionState enum: disconnected, connecting, connected, reconnecting
-  - [ ] 4.3 Implement device scanning
+    - Define ConnectionState enum: disconnected, connecting, connected, reconnecting
+  - [x] 4.3 Implement device scanning
     - scanForDevices(): Start BLE scan for devices advertising HR service (0x180D)
     - Return Stream<List<BluetoothDevice>>
     - Filter devices to only show those with Heart Rate Service
@@ -195,14 +195,14 @@ This tasks list follows a bottom-up implementation approach:
     - Stop scan when user selects device
     - Handle "Bluetooth not available" error
     - Handle "Location permission required" error on Android
-  - [ ] 4.4 Implement device connection
+  - [x] 4.4 Implement device connection
     - connectToDevice(deviceId): Initiate connection to selected device
     - Set connection timeout: 15 seconds
     - Discover services after connection
     - Verify Heart Rate Service (0x180D) is present
     - Return success or throw specific error (timeout, service not found, etc.)
     - Save connected device ID to settings for reconnection
-  - [ ] 4.5 Implement heart rate data reading
+  - [x] 4.5 Implement heart rate data reading
     - subscribeToHeartRate(): Enable notifications on HR Measurement characteristic (0x2A37)
     - Return Stream<int> of BPM values
     - Parse BLE heart rate measurement format (handle both uint8 and uint16 formats)
@@ -210,13 +210,13 @@ This tasks list follows a bottom-up implementation approach:
       - Byte 0: Flags (bit 0 = 0 for uint8, 1 for uint16)
       - Byte 1: HR value (uint8) OR Bytes 1-2: HR value (uint16 little-endian)
     - Handle parsing errors gracefully
-  - [ ] 4.6 Implement disconnection handling
+  - [x] 4.6 Implement disconnection handling
     - disconnect(): Clean disconnect from device
     - Stop notifications
     - Close connection
     - Clear saved device if manual disconnect
-    - monitorConnectionState(): Return Stream<BluetoothConnectionState>
-  - [ ] 4.7 Ensure BLE service tests pass
+    - monitorConnectionState(): Return Stream<ConnectionState>
+  - [x] 4.7 Ensure BLE service tests pass
     - Run ONLY the 2-8 tests written in 4.1
     - Verify scanning returns mocked devices
     - Verify connection state changes are emitted
@@ -255,7 +255,7 @@ This tasks list follows a bottom-up implementation approach:
     - Expose methods: updateAge(age), updateChartWindow(seconds)
   - [ ] 5.3 Create Bluetooth state provider
     - Create lib/providers/bluetooth_provider.dart
-    - Implement StreamProvider<BluetoothConnectionState>
+    - Implement StreamProvider<ConnectionState>
     - Expose BluetoothService connection state stream
     - Track: current device name, connection state, error messages
   - [ ] 5.4 Create heart rate data provider
