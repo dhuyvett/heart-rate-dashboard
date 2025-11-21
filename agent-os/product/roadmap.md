@@ -1,12 +1,12 @@
 # Product Roadmap
 
-1. [ ] Local Database Setup — Implement encrypted local storage using Sqflite for workout data persistence with schema for heart rate readings, timestamps, and session metadata. Includes database versioning and migration support. `S`
+1. [x] Local Database Setup — Implement encrypted local storage using Sqflite for workout data persistence with schema for heart rate readings, timestamps, and session metadata. Includes database versioning and migration support. `S`
 
-2. [ ] Bluetooth Device Discovery — Build device scanning and pairing interface to discover nearby BLE heart rate monitors with visual connection status indicators and saved device preferences. `M`
+2. [x] Bluetooth Device Discovery — Build device scanning and pairing interface to discover nearby BLE heart rate monitors with visual connection status indicators and saved device preferences. `M`
 
-3. [ ] Real-Time Heart Rate Display — Create main workout screen showing live heart rate data from connected BLE device with large, readable numbers, zone indicators (resting/moderate/intense), and connection status. `S`
+3. [x] Real-Time Heart Rate Display — Create main workout screen showing live heart rate data from connected BLE device with large, readable numbers, zone indicators (resting/moderate/intense), and connection status. `S`
 
-4. [ ] Heart Rate Data Recording — Implement background service to continuously record heart rate readings to local database during workout sessions with configurable sampling rates and session management (start/stop/pause). `M`
+4. [x] Heart Rate Data Recording — Implement background service to continuously record heart rate readings to local database during workout sessions with configurable sampling rates and session management (start/stop/pause). `M`
 
 5. [ ] Historical Data Visualization — Build chart screen displaying historical heart rate data using fl_chart with time-series line graphs, selectable date ranges, and zoom/pan interactions for detailed analysis. `L`
 

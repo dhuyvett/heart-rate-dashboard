@@ -152,9 +152,8 @@ class _HeartRateMonitoringScreenState
         });
       }
     } catch (e) {
-      // Log error but continue
-      // ignore: avoid_print
-      print('Error loading recent readings: $e');
+      // Log error but continue - chart will show available data
+      debugPrint('Error loading recent readings: $e');
     }
   }
 
@@ -205,6 +204,7 @@ class _HeartRateMonitoringScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -292,14 +292,14 @@ class _HeartRateMonitoringScreenState
                             icon: Icons.favorite,
                             label: 'Average',
                             value: sessionState.avgHr != null
-                                ? '${sessionState.avgHr} BPM'
+                                ? '${sessionState.avgHr}'
                                 : '--',
                           ),
                           SessionStatsCard(
                             icon: Icons.arrow_downward,
                             label: 'Minimum',
                             value: sessionState.minHr != null
-                                ? '${sessionState.minHr} BPM'
+                                ? '${sessionState.minHr}'
                                 : '--',
                             iconColor: Colors.blue,
                           ),
@@ -307,7 +307,7 @@ class _HeartRateMonitoringScreenState
                             icon: Icons.arrow_upward,
                             label: 'Maximum',
                             value: sessionState.maxHr != null
-                                ? '${sessionState.maxHr} BPM'
+                                ? '${sessionState.maxHr}'
                                 : '--',
                             iconColor: Colors.red,
                           ),
@@ -334,7 +334,7 @@ class _HeartRateMonitoringScreenState
     );
   }
 
-  /// Builds the large BPM display widget.
+  /// Builds the large BPM display widget with smooth animations.
   Widget _buildBpmDisplay({
     required ThemeData theme,
     required AsyncValue heartRateAsync,
@@ -344,12 +344,16 @@ class _HeartRateMonitoringScreenState
     if (isReconnecting && _lastKnownBpm != null) {
       return Column(
         children: [
-          Text(
-            _lastKnownBpm.toString(),
-            style: TextStyle(
-              fontSize: 120,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: 0.3,
+            child: Text(
+              _lastKnownBpm.toString(),
+              style: TextStyle(
+                fontSize: 120,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -360,7 +364,8 @@ class _HeartRateMonitoringScreenState
             ),
           ),
           const SizedBox(height: 16),
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
@@ -384,15 +389,22 @@ class _HeartRateMonitoringScreenState
 
         return Column(
           children: [
-            // Animated BPM value with color transitions
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 300),
-              style: TextStyle(
-                fontSize: 120,
-                fontWeight: FontWeight.bold,
-                color: color,
+            // Animated BPM value with smooth number transitions
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: AnimatedDefaultTextStyle(
+                key: ValueKey<int>(hrData.bpm),
+                duration: const Duration(milliseconds: 300),
+                style: TextStyle(
+                  fontSize: 120,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+                child: Text(hrData.bpm.toString()),
               ),
-              child: Text(hrData.bpm.toString()),
             ),
             const SizedBox(height: 8),
             Text(
@@ -402,18 +414,22 @@ class _HeartRateMonitoringScreenState
               ),
             ),
             const SizedBox(height: 16),
-            Container(
+            // Animated zone label with smooth color transitions
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                zoneLabel,
-                style: theme.textTheme.titleMedium?.copyWith(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
+                style: theme.textTheme.titleMedium!.copyWith(
                   color: color,
                   fontWeight: FontWeight.bold,
                 ),
+                child: Text(zoneLabel),
               ),
             ),
           ],
