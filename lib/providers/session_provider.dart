@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/heart_rate_data.dart';
 import '../models/session_state.dart';
 import '../services/database_service.dart';
 import 'heart_rate_provider.dart';
@@ -58,9 +59,9 @@ class SessionNotifier extends Notifier<SessionState> {
       // Subscribe to heart rate stream
       _heartRateSubscription?.close();
       _heartRateSubscription = ref.listen(heartRateProvider, (previous, next) {
-        next.whenData((hrData) {
-          _handleHeartRateReading(hrData.bpm);
-        });
+        if (next is AsyncData<HeartRateData>) {
+          _handleHeartRateReading(next.value.bpm);
+        }
       });
     } catch (e) {
       // Log error for debugging

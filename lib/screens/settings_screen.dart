@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/heart_rate_zone.dart';
 import '../providers/settings_provider.dart';
+import '../services/bluetooth_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
+import 'device_selection_screen.dart';
 
 /// Settings screen for configuring app preferences.
 ///
@@ -284,9 +286,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 16),
+
+          // Device Selection Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bluetooth Device',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Change or reconnect to a different heart rate monitor',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _navigateToDeviceSelection(context),
+                      icon: const Icon(Icons.bluetooth_searching),
+                      label: const Text('Change Device'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 32),
         ],
       ),
     );
+  }
+
+  /// Navigates to the device selection screen.
+  Future<void> _navigateToDeviceSelection(BuildContext context) async {
+    // Disconnect from current device
+    await BluetoothService.instance.disconnect();
+
+    if (context.mounted) {
+      // Navigate to device selection, clearing the navigation stack
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
+        (route) => false,
+      );
+    }
   }
 }

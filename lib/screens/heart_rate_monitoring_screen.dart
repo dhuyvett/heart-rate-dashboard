@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
 import '../providers/bluetooth_provider.dart';
 import '../providers/heart_rate_provider.dart';
@@ -175,11 +176,11 @@ class _HeartRateMonitoringScreenState
 
     // Periodically reload readings for the chart and track last known BPM
     ref.listen(heartRateProvider, (previous, next) {
-      next.whenData((hrData) {
-        _lastKnownBpm = hrData.bpm;
-        ReconnectionHandler.instance.setLastKnownBpm(hrData.bpm);
+      if (next is AsyncData<HeartRateData>) {
+        _lastKnownBpm = next.value.bpm;
+        ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
         _loadRecentReadings();
-      });
+      }
     });
 
     // Check if we're reconnecting
