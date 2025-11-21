@@ -1,5 +1,8 @@
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'dart:io';
+import 'package:sqflite_sqlcipher/sqflite.dart' as sqlcipher;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/workout_session.dart';
 
@@ -40,6 +43,10 @@ class DatabaseService {
     return _database!;
   }
 
+  /// Checks if running on a desktop platform.
+  bool get _isDesktop =>
+      Platform.isLinux || Platform.isMacOS || Platform.isWindows;
+
   /// Initializes the database with encryption.
   Future<Database> _initDatabase() async {
     // If test factory is set, use it for testing
@@ -54,11 +61,28 @@ class DatabaseService {
       );
     }
 
-    // Production database with encryption
-    final dbPath = await getDatabasesPath();
+    // Use FFI for desktop platforms (no encryption support)
+    if (_isDesktop) {
+      sqfliteFfiInit();
+      final databaseFactory = databaseFactoryFfi;
+      final appDir = await getApplicationDocumentsDirectory();
+      final path = join(appDir.path, _databaseName);
+
+      return await databaseFactory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: _databaseVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        ),
+      );
+    }
+
+    // Mobile platforms with encryption via SQLCipher
+    final dbPath = await sqlcipher.getDatabasesPath();
     final path = join(dbPath, _databaseName);
 
-    return await openDatabase(
+    return await sqlcipher.openDatabase(
       path,
       version: _databaseVersion,
       password: _databasePassword,

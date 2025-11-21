@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scanned_device.dart';
 import '../providers/device_scan_provider.dart';
-import '../services/bluetooth_service.dart';
+import '../services/bluetooth_service.dart' as app_bt;
 import '../utils/error_messages.dart';
 import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
@@ -25,6 +28,124 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
   bool _isConnecting = false;
   String? _connectingDeviceName;
   String? _errorMessage;
+  bool _bluetoothEnabled = true;
+  bool _checkingBluetooth = true;
+  StreamSubscription<BluetoothAdapterState>? _bluetoothStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBluetoothState();
+    _listenToBluetoothState();
+  }
+
+  @override
+  void dispose() {
+    _bluetoothStateSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Checks the current Bluetooth adapter state.
+  Future<void> _checkBluetoothState() async {
+    setState(() {
+      _checkingBluetooth = true;
+    });
+
+    try {
+      final state = await FlutterBluePlus.adapterState.first;
+      if (mounted) {
+        setState(() {
+          _bluetoothEnabled = state == BluetoothAdapterState.on;
+          _checkingBluetooth = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _checkingBluetooth = false;
+        });
+      }
+    }
+  }
+
+  /// Listens to Bluetooth adapter state changes.
+  void _listenToBluetoothState() {
+    _bluetoothStateSubscription = FlutterBluePlus.adapterState.listen((state) {
+      if (mounted) {
+        setState(() {
+          _bluetoothEnabled = state == BluetoothAdapterState.on;
+        });
+      }
+    });
+  }
+
+  /// Requests to turn on Bluetooth.
+  Future<void> _requestEnableBluetooth() async {
+    try {
+      if (Platform.isAndroid) {
+        await FlutterBluePlus.turnOn();
+      } else if (Platform.isLinux) {
+        // Try to open Linux Bluetooth settings
+        await _openLinuxBluetoothSettings();
+      } else if (Platform.isMacOS) {
+        // Open macOS Bluetooth preferences
+        await Process.run('open', [
+          'x-apple.systempreferences:com.apple.preferences.Bluetooth',
+        ]);
+      } else if (Platform.isWindows) {
+        // Open Windows Bluetooth settings
+        await Process.run('explorer', ['ms-settings:bluetooth']);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Could not open Bluetooth settings. Please enable Bluetooth manually.';
+        });
+      }
+    }
+  }
+
+  /// Attempts to open Linux Bluetooth settings.
+  Future<void> _openLinuxBluetoothSettings() async {
+    // Try common Linux desktop environment settings apps
+    final commands = [
+      [
+        'gnome-control-center',
+        ['bluetooth'],
+      ], // GNOME
+      ['blueman-manager', <String>[]], // Blueman (common on many distros)
+      [
+        'systemsettings5',
+        ['kcm_bluetooth'],
+      ], // KDE Plasma 5
+      ['blueberry', <String>[]], // Linux Mint/Cinnamon
+    ];
+
+    for (final cmd in commands) {
+      try {
+        final result = await Process.run('which', [cmd[0] as String]);
+        if (result.exitCode == 0) {
+          await Process.start(
+            cmd[0] as String,
+            cmd[1] as List<String>,
+            mode: ProcessStartMode.detached,
+          );
+          return;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    // If no settings app found, show error
+    if (mounted) {
+      setState(() {
+        _errorMessage =
+            'Could not find Bluetooth settings. Please enable Bluetooth using your system settings.';
+      });
+    }
+  }
 
   /// Starts scanning for Bluetooth devices.
   Future<void> _startScan() async {
@@ -61,7 +182,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
     });
 
     try {
-      final bluetoothService = BluetoothService.instance;
+      final bluetoothService = app_bt.BluetoothService.instance;
 
       // Debug logging
       // ignore: avoid_print
@@ -122,6 +243,10 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
                     });
                   },
                 ),
+
+              // Bluetooth disabled banner
+              if (!_checkingBluetooth && !_bluetoothEnabled)
+                _BluetoothDisabledBanner(onEnable: _requestEnableBluetooth),
 
               // Scan button
               Padding(
@@ -366,6 +491,68 @@ class _BluetoothErrorState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Banner shown when Bluetooth is disabled.
+class _BluetoothDisabledBanner extends StatelessWidget {
+  final VoidCallback onEnable;
+
+  const _BluetoothDisabledBanner({required this.onEnable});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isAndroid = Platform.isAndroid;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      color: theme.colorScheme.secondaryContainer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.bluetooth_disabled,
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Bluetooth is turned off',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Turn on Bluetooth to scan for heart rate monitors.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onEnable,
+              icon: const Icon(Icons.bluetooth),
+              label: Text(isAndroid ? 'Enable Bluetooth' : 'Open Settings'),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.secondary,
+                foregroundColor: theme.colorScheme.onSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
