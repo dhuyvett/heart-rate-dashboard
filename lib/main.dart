@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'utils/theme_colors.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'screens/permission_explanation_screen.dart';
+import 'screens/device_selection_screen.dart';
 
 void main() {
   // Wrap the entire app with ProviderScope to enable Riverpod state management
@@ -10,8 +13,7 @@ void main() {
 /// Root application widget.
 ///
 /// Sets up the MaterialApp with theme configuration including heart rate zone colors.
-/// The initial route will be determined based on device connection status
-/// (to be implemented in Task Group 6).
+/// Determines the initial route based on permission status.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -41,79 +43,81 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // Initial route will be configured in Task Group 6
-      // For now, show a placeholder home screen
-      home: const PlaceholderHomeScreen(),
+      // Determine initial route based on permissions
+      home: const InitialRouteResolver(),
     );
   }
 }
 
-/// Placeholder home screen to be replaced with proper navigation in Task Group 6.
+/// Resolves the initial route based on permission status.
 ///
-/// This temporary screen ensures the app compiles and runs while the feature
-/// is being developed incrementally.
-class PlaceholderHomeScreen extends StatelessWidget {
-  const PlaceholderHomeScreen({super.key});
+/// Navigation flow:
+/// 1. If permissions not granted -> PermissionExplanationScreen
+/// 2. If permissions granted -> DeviceSelectionScreen
+///
+/// The PermissionExplanationScreen will auto-navigate to DeviceSelectionScreen
+/// if permissions are already granted.
+class InitialRouteResolver extends StatefulWidget {
+  const InitialRouteResolver({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Workout Tracker')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.favorite, size: 80, color: Colors.red),
-            const SizedBox(height: 24),
-            const Text(
-              'Heart Rate Monitor',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Bluetooth heart rate monitoring feature is being implemented.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Display zone colors as a visual preview
-            Wrap(
-              spacing: 8,
-              children: [
-                _ZoneColorChip('Resting', ZoneColors.resting),
-                _ZoneColorChip('Zone 1', ZoneColors.zone1),
-                _ZoneColorChip('Zone 2', ZoneColors.zone2),
-                _ZoneColorChip('Zone 3', ZoneColors.zone3),
-                _ZoneColorChip('Zone 4', ZoneColors.zone4),
-                _ZoneColorChip('Zone 5', ZoneColors.zone5),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<InitialRouteResolver> createState() => _InitialRouteResolverState();
 }
 
-/// Small widget to display a heart rate zone color chip.
-class _ZoneColorChip extends StatelessWidget {
-  final String label;
-  final Color color;
+class _InitialRouteResolverState extends State<InitialRouteResolver> {
+  bool _isChecking = true;
+  bool _hasPermissions = false;
 
-  const _ZoneColorChip(this.label, this.color);
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
+
+  /// Checks if required Bluetooth permissions are granted.
+  Future<void> _checkPermissions() async {
+    bool hasPermissions = false;
+
+    try {
+      if (Platform.isAndroid) {
+        // Check Android permissions
+        final bluetoothScan = await Permission.bluetoothScan.isGranted;
+        final bluetoothConnect = await Permission.bluetoothConnect.isGranted;
+        final location = await Permission.locationWhenInUse.isGranted;
+
+        hasPermissions = bluetoothScan && bluetoothConnect && location;
+      } else if (Platform.isIOS) {
+        // Check iOS permission
+        hasPermissions = await Permission.bluetooth.isGranted;
+      } else {
+        // Desktop platforms - assume permissions are granted
+        hasPermissions = true;
+      }
+    } catch (e) {
+      // If permission check fails, assume permissions not granted
+      hasPermissions = false;
+    }
+
+    if (mounted) {
+      setState(() {
+        _hasPermissions = hasPermissions;
+        _isChecking = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: color,
-      labelStyle: TextStyle(
-        color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-    );
+    if (_isChecking) {
+      // Show loading screen while checking permissions
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Navigate to appropriate screen based on permission status
+    if (_hasPermissions) {
+      return const DeviceSelectionScreen();
+    } else {
+      return const PermissionExplanationScreen();
+    }
   }
 }

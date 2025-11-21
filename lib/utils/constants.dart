@@ -28,3 +28,10 @@ const int maxReconnectionAttempts = 10;
 /// Heart rate sampling interval in milliseconds.
 /// Defines how frequently heart rate readings are recorded to the database.
 const int hrSamplingIntervalMs = 1500;
+
+/// Device ID used for demo mode.
+/// This special ID indicates the device is simulated, not a real Bluetooth device.
+const String demoModeDeviceId = 'DEMO_MODE_DEVICE';
+
+/// Device name displayed for demo mode.
+const String demoModeDeviceName = 'Demo Mode';

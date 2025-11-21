@@ -298,15 +298,15 @@ This tasks list follows a bottom-up implementation approach:
 **Complexity:** High
 **Estimated Time:** 5-6 hours
 
-- [ ] 6.0 Build user interface screens
-  - [ ] 6.1 Write 2-8 focused tests for UI components
+- [x] 6.0 Build user interface screens
+  - [x] 6.1 Write 2-8 focused tests for UI components
     - Limit to 2-8 highly focused tests maximum
     - Test only critical UI behaviors: navigation flow, device selection, HR display updates
     - Use widget tests with mocked providers
     - Skip exhaustive testing of all UI states and interactions
     - Create test/screens/device_selection_screen_test.dart
     - Create test/screens/monitoring_screen_test.dart
-  - [ ] 6.2 Create permission explanation screen
+  - [x] 6.2 Create permission explanation screen
     - Create lib/screens/permission_explanation_screen.dart
     - Display simple explanation: "This app needs Bluetooth access to connect to your heart rate monitor"
     - On Android, also explain: "Location permission is required by Android for Bluetooth scanning"
@@ -315,7 +315,7 @@ This tasks list follows a bottom-up implementation approach:
     - Navigate to device selection on permission granted
     - Show error message with "Retry" button if permission denied
     - Check if permissions already granted on screen load, auto-navigate if yes
-  - [ ] 6.3 Create device selection screen
+  - [x] 6.3 Create device selection screen
     - Create lib/screens/device_selection_screen.dart
     - App bar title: "Select Heart Rate Monitor"
     - "Scan for Devices" button (prominent, primary color)
@@ -327,7 +327,7 @@ This tasks list follows a bottom-up implementation approach:
     - Show "No devices found" message if scan returns empty list
     - Show Bluetooth disabled state with "Enable Bluetooth" button (opens system settings)
     - Use ConsumerWidget to access device_scan_provider
-  - [ ] 6.4 Create main heart rate monitoring screen
+  - [x] 6.4 Create main heart rate monitoring screen
     - Create lib/screens/heart_rate_monitoring_screen.dart
     - App bar:
       - Title: device name
@@ -353,7 +353,7 @@ This tasks list follows a bottom-up implementation approach:
       - Max HR: highest BPM in session
       - Display in card layout with icons
     - Use ConsumerWidget to access heart_rate_provider, session_provider, settings_provider
-  - [ ] 6.5 Create settings screen
+  - [x] 6.5 Create settings screen
     - Create lib/screens/settings_screen.dart
     - App bar title: "Settings"
     - Age input field:
@@ -371,7 +371,7 @@ This tasks list follows a bottom-up implementation approach:
       - Format: "Zone 1 (50-60%): 95-114 BPM" with colored circle
     - Use ConsumerWidget to access and update settings_provider
     - All changes save immediately (no save button needed)
-  - [ ] 6.6 Create reusable widgets
+  - [x] 6.6 Create reusable widgets
     - Create lib/widgets/connection_status_indicator.dart
       - Circle dot with color based on connection state
       - Animated pulsing effect when reconnecting
@@ -385,7 +385,7 @@ This tasks list follows a bottom-up implementation approach:
     - Create lib/widgets/device_list_tile.dart
       - Display device name, RSSI signal strength bars
       - Different styling for demo mode device
-  - [ ] 6.7 Implement navigation flow
+  - [x] 6.7 Implement navigation flow
     - Update main.dart to handle initial routing:
       - Check if Bluetooth permissions granted
       - If not: show permission explanation screen
@@ -396,7 +396,7 @@ This tasks list follows a bottom-up implementation approach:
       - Monitoring -> Settings (and back)
       - Monitoring -> Device Selection (on disconnect/connection failure)
     - Use Navigator.pushReplacement for screen transitions (no back stack)
-  - [ ] 6.8 Ensure UI tests pass
+  - [x] 6.8 Ensure UI tests pass
     - Run ONLY the 2-8 tests written in 6.1
     - Verify device selection screen shows devices
     - Verify monitoring screen displays BPM and updates chart
@@ -418,18 +418,18 @@ This tasks list follows a bottom-up implementation approach:
 ---
 
 ### Task Group 7: Demo Mode, Reconnection, and Error Handling
-**Dependencies:** Task Group 4 (COMPLETED), Task Group 5 (COMPLETED), Task Group 6
+**Dependencies:** Task Group 4 (COMPLETED), Task Group 5 (COMPLETED), Task Group 6 (COMPLETED)
 **Complexity:** Medium
 **Estimated Time:** 3-4 hours
 
-- [ ] 7.0 Implement demo mode, auto-reconnection, and error handling
-  - [ ] 7.1 Write 2-8 focused tests for demo mode and reconnection
+- [x] 7.0 Implement demo mode, auto-reconnection, and error handling
+  - [x] 7.1 Write 2-8 focused tests for demo mode and reconnection
     - Limit to 2-8 highly focused tests maximum
     - Test only critical behaviors: demo data generation, reconnection attempts, error message display
     - Skip exhaustive testing of all error scenarios
     - Create test/services/demo_mode_service_test.dart
     - Create test/services/reconnection_handler_test.dart
-  - [ ] 7.2 Create demo mode service
+  - [x] 7.2 Create demo mode service
     - Create lib/services/demo_mode_service.dart
     - Implement singleton pattern
     - startDemoMode(): Begin generating simulated HR data
@@ -442,14 +442,14 @@ This tasks list follows a bottom-up implementation approach:
     - getDemoModeStream(): Return Stream<int> of simulated BPM values
     - stopDemoMode(): Clean up stream
     - Demo mode behaves identically to real device from UI perspective
-  - [ ] 7.3 Integrate demo mode into device scanning
+  - [x] 7.3 Integrate demo mode into device scanning
     - Update BluetoothService to include createDemoModeDevice()
     - Add "Demo Mode" as first item in scanned device list
     - Set device ID: "DEMO_MODE_DEVICE"
     - Set device name: "Demo Mode"
     - Give demo device 5-bar signal strength (always "excellent")
     - When demo device selected, use DemoModeService instead of BLE
-  - [ ] 7.4 Implement auto-reconnection logic
+  - [x] 7.4 Implement auto-reconnection logic
     - Create lib/services/reconnection_handler.dart
     - Monitor BluetoothService connection state
     - On unexpected disconnect (not manual):
@@ -467,7 +467,7 @@ This tasks list follows a bottom-up implementation approach:
       - Show dialog: "Connection Failed" with message
       - Two action buttons: "Retry" (restart 10 attempts), "Select Device" (end session, navigate to device selection)
     - During reconnection, show last received BPM value in gray/dimmed style
-  - [ ] 7.5 Implement comprehensive error handling
+  - [x] 7.5 Implement comprehensive error handling
     - Create lib/utils/error_messages.dart with user-friendly messages:
       - Bluetooth disabled: "Bluetooth is turned off. Please enable it in your device settings."
       - Permission denied: "Bluetooth permission is required to connect to heart rate monitors."
@@ -485,7 +485,7 @@ This tasks list follows a bottom-up implementation approach:
       - Catch service exceptions
       - Update state with error information
       - UI displays errors using error_dialog widget
-  - [ ] 7.6 Add loading and empty states
+  - [x] 7.6 Add loading and empty states
     - Create lib/widgets/loading_overlay.dart
       - Full-screen semi-transparent overlay with spinner
       - Show during connection attempts
@@ -497,7 +497,7 @@ This tasks list follows a bottom-up implementation approach:
       - Show "Waiting for data..." when connected but no HR readings yet
       - Show "Reconnecting..." overlay with attempt count during reconnection
       - Dim/gray out BPM display when reconnecting
-  - [ ] 7.7 Ensure demo mode and reconnection tests pass
+  - [x] 7.7 Ensure demo mode and reconnection tests pass
     - Run ONLY the 2-8 tests written in 7.1
     - Verify demo mode generates realistic data
     - Verify reconnection attempts follow correct timing
