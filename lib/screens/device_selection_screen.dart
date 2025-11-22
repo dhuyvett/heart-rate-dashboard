@@ -35,8 +35,23 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    _checkBluetoothState();
-    _listenToBluetoothState();
+    _initializeBluetoothState();
+  }
+
+  /// Initializes Bluetooth state checking with error handling.
+  Future<void> _initializeBluetoothState() async {
+    try {
+      await _checkBluetoothState();
+      await _listenToBluetoothState();
+    } catch (e) {
+      // Platform not supported or error - assume Bluetooth is available
+      if (mounted) {
+        setState(() {
+          _bluetoothEnabled = true;
+          _checkingBluetooth = false;
+        });
+      }
+    }
   }
 
   @override
@@ -60,8 +75,10 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
         });
       }
     } catch (e) {
+      // Platform not supported or other error - assume Bluetooth is available
       if (mounted) {
         setState(() {
+          _bluetoothEnabled = true;
           _checkingBluetooth = false;
         });
       }
@@ -69,14 +86,30 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
   }
 
   /// Listens to Bluetooth adapter state changes.
-  void _listenToBluetoothState() {
-    _bluetoothStateSubscription = FlutterBluePlus.adapterState.listen((state) {
-      if (mounted) {
-        setState(() {
-          _bluetoothEnabled = state == BluetoothAdapterState.on;
-        });
-      }
-    });
+  Future<void> _listenToBluetoothState() async {
+    try {
+      final stream = FlutterBluePlus.adapterState;
+      _bluetoothStateSubscription = stream.listen(
+        (state) {
+          if (mounted) {
+            setState(() {
+              _bluetoothEnabled = state == BluetoothAdapterState.on;
+            });
+          }
+        },
+        onError: (e) {
+          // Platform not supported or error - assume Bluetooth available
+          if (mounted) {
+            setState(() {
+              _bluetoothEnabled = true;
+              _checkingBluetooth = false;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      // Platform not supported - Bluetooth state tracking unavailable
+    }
   }
 
   /// Requests to turn on Bluetooth.
