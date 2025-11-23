@@ -333,15 +333,9 @@ class BluetoothService {
   Stream<int> subscribeToHeartRate() async* {
     // Check if we're in demo mode
     if (_isInDemoMode) {
-      // Listen to demo mode stream
-      _demoModeSubscription = DemoModeService.instance
-          .getDemoModeStream()
-          .listen((bpm) {
-            _heartRateController.add(bpm);
-          });
-
-      // Yield values from the heart rate stream
-      await for (final bpm in _heartRateController.stream) {
+      // Yield directly from demo mode stream - simpler and more reliable
+      // than routing through _heartRateController
+      await for (final bpm in DemoModeService.instance.getDemoModeStream()) {
         yield bpm;
       }
       return;

@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scanned_device.dart';
 import '../providers/device_scan_provider.dart';
+import '../providers/heart_rate_provider.dart';
 import '../services/bluetooth_service.dart' as app_bt;
 import '../utils/error_messages.dart';
 import '../widgets/device_list_tile.dart';
@@ -216,6 +217,11 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
 
     try {
       final bluetoothService = app_bt.BluetoothService.instance;
+
+      // Invalidate the heart rate provider to ensure a fresh start.
+      // This is necessary when reconnecting after a previous session,
+      // as the old provider's stream may have completed.
+      ref.invalidate(heartRateProvider);
 
       // Debug logging
       // ignore: avoid_print
