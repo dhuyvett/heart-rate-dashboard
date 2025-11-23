@@ -1,4 +1,4 @@
-/// User-friendly error messages for the workout tracker app.
+/// User-friendly error messages for the Heart Rate Dashboard app.
 ///
 /// All error messages are designed to be:
 /// - Simple and non-technical

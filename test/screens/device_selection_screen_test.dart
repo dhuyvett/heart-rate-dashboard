@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/scanned_device.dart';
-import 'package:workout_tracker/providers/device_scan_provider.dart';
-import 'package:workout_tracker/screens/device_selection_screen.dart';
-import 'package:workout_tracker/utils/error_messages.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/providers/device_scan_provider.dart';
+import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
+import 'package:heart_rate_dashboard/utils/error_messages.dart';
 
 void main() {
   group('DeviceSelectionScreen', () {

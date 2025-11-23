@@ -1,6 +1,6 @@
 import '../utils/constants.dart';
 
-/// Represents the application settings for the workout tracker.
+/// Represents the application settings for the Heart Rate Dashboard.
 ///
 /// Settings include user age for heart rate zone calculations and
 /// the chart time window for the real-time line chart display.

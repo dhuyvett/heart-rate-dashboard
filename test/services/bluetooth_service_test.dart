@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/services/bluetooth_service.dart';
+import 'package:heart_rate_dashboard/services/bluetooth_service.dart';
 
 /// Tests for the BluetoothService.
 ///

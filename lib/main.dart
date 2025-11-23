@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Workout Tracker',
+      title: 'Heart Rate Dashboard',
       theme: ThemeData(
         // Use a blue color scheme that complements our zone colors
         colorScheme: ColorScheme.fromSeed(

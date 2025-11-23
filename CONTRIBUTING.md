@@ -1,6 +1,6 @@
-# Contributing to Workout Tracker
+# Contributing to Heart Rate Dashboard
 
-Thank you for your interest in contributing to Workout Tracker! This document provides guidelines and instructions for working with this project.
+Thank you for your interest in contributing to Heart Rate Dashboard! This document provides guidelines and instructions for working with this project.
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ For building Android apps:
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd workout_tracker
+   cd heart_rate_dashboard
    ```
 
 2. **Install dependencies**

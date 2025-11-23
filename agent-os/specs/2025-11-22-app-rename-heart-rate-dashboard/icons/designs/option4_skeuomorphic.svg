@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Heart Rate Dashboard - Icon Option 4: 3D/Skeuomorphic Style
+
+  Description:
+  - Square icon with rounded corners
+  - Green gradient background with subtle depth and lighting
+  - EKG line with 3D effect (shadow, highlight, depth)
+  - Heart shape subtly integrated with the pulse line
+  - Glossy finish with light reflection at top
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Main gradient with depth -->
+    <linearGradient id="depthGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#66BB6A"/>
+      <stop offset="50%" style="stop-color:#4CAF50"/>
+      <stop offset="100%" style="stop-color:#2E7D32"/>
+    </linearGradient>
+
+    <!-- Glossy overlay gradient -->
+    <linearGradient id="glossyOverlay" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.4"/>
+      <stop offset="40%" style="stop-color:#FFFFFF;stop-opacity:0.1"/>
+      <stop offset="41%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background with gradient depth -->
+  <rect x="0" y="0" width="1024" height="1024" rx="192" ry="192" fill="url(#depthGradient)"/>
+
+  <!-- Subtle heart shape in background -->
+  <path
+    d="M 512,750
+       C 300,550 250,400 350,300
+       C 450,200 512,300 512,350
+       C 512,300 574,200 674,300
+       C 774,400 724,550 512,750 Z"
+    fill="#FFFFFF"
+    opacity="0.15"/>
+
+  <!-- Shadow layer for EKG line -->
+  <path
+    d="M 100,520
+       L 280,520
+       L 340,488
+       L 400,552
+       L 450,520
+       L 500,520
+       L 540,328
+       L 600,728
+       L 660,520
+       L 720,520
+       L 760,488
+       L 820,552
+       L 880,520
+       L 924,520"
+    fill="none"
+    stroke="rgba(0,0,0,0.3)"
+    stroke-width="36"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Main EKG line -->
+  <path
+    d="M 100,512
+       L 280,512
+       L 340,480
+       L 400,544
+       L 450,512
+       L 500,512
+       L 540,320
+       L 600,720
+       L 660,512
+       L 720,512
+       L 760,480
+       L 820,544
+       L 880,512
+       L 924,512"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="32"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Highlight on top of line -->
+  <path
+    d="M 100,506
+       L 280,506
+       L 340,474
+       L 400,538
+       L 450,506
+       L 500,506
+       L 540,314
+       L 600,714
+       L 660,506
+       L 720,506
+       L 760,474
+       L 820,538
+       L 880,506
+       L 924,506"
+    fill="none"
+    stroke="rgba(255,255,255,0.5)"
+    stroke-width="8"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Glossy overlay -->
+  <rect x="0" y="0" width="1024" height="512" rx="192" ry="192" fill="url(#glossyOverlay)"/>
+
+  <!-- Subtle border for polish -->
+  <rect x="4" y="4" width="1016" height="1016" rx="190" ry="190" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+</svg>

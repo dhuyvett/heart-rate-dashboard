@@ -1,4 +1,4 @@
-// This file contains basic smoke tests for the workout tracker app.
+// This file contains basic smoke tests for the Heart Rate Dashboard app.
 //
 // The original counter app smoke test was removed since the app has been
 // completely restructured for heart rate monitoring functionality.
@@ -6,9 +6,9 @@
 // widget and integration tests.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/scanned_device.dart';
-import 'package:workout_tracker/models/heart_rate_zone.dart';
-import 'package:workout_tracker/utils/heart_rate_zone_calculator.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/utils/heart_rate_zone_calculator.dart';
 
 void main() {
   group('App Smoke Tests', () {

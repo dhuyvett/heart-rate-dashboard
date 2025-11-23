@@ -24,7 +24,7 @@ class DatabaseService {
   DatabaseFactory? _testDatabaseFactory;
 
   // Database configuration
-  static const String _databaseName = 'workout_tracker.db';
+  static const String _databaseName = 'heart_rate_dashboard.db';
   static const String _databasePassword = 'hr_monitor_db_key';
   static const int _databaseVersion = 1;
 

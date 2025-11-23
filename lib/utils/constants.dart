@@ -1,4 +1,4 @@
-/// Application-wide constants for the workout tracker app.
+/// Application-wide constants for the Heart Rate Dashboard app.
 ///
 /// This file contains BLE UUIDs, default values, and configuration constants
 /// used throughout the application.

@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/heart_rate_reading.dart';
-import 'package:workout_tracker/models/workout_session.dart';
-import 'package:workout_tracker/models/session_state.dart';
-import 'package:workout_tracker/models/app_settings.dart';
-import 'package:workout_tracker/models/heart_rate_data.dart';
-import 'package:workout_tracker/models/heart_rate_zone.dart';
-import 'package:workout_tracker/models/scanned_device.dart';
-import 'package:workout_tracker/utils/constants.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_reading.dart';
+import 'package:heart_rate_dashboard/models/workout_session.dart';
+import 'package:heart_rate_dashboard/models/session_state.dart';
+import 'package:heart_rate_dashboard/models/app_settings.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/utils/constants.dart';
 
 void main() {
   group('HeartRateReading', () {

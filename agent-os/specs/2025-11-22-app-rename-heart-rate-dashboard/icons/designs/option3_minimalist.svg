@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Heart Rate Dashboard - Icon Option 3: Minimalist Line Art
+
+  Description:
+  - Square icon with rounded corners
+  - Pure white or very light gray background (#FAFAFA)
+  - Green (#4CAF50) EKG line as the sole visual element
+  - Ultra-clean, modern aesthetic
+  - Thin stroke weight (24px at 1024px resolution) for elegant appearance
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Light background with rounded corners -->
+  <rect x="0" y="0" width="1024" height="1024" rx="192" ry="192" fill="#FAFAFA"/>
+
+  <!-- Subtle border for definition -->
+  <rect x="8" y="8" width="1008" height="1008" rx="188" ry="188" fill="none" stroke="#E0E0E0" stroke-width="4"/>
+
+  <!-- EKG/Pulse Line - Green, thinner stroke for elegance -->
+  <path
+    d="M 100,512
+       L 280,512
+       L 340,480
+       L 400,544
+       L 450,512
+       L 500,512
+       L 540,320
+       L 600,720
+       L 660,512
+       L 720,512
+       L 760,480
+       L 820,544
+       L 880,512
+       L 924,512"
+    fill="none"
+    stroke="#4CAF50"
+    stroke-width="24"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>

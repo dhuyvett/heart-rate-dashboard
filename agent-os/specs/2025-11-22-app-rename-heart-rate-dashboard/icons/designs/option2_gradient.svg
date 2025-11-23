@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Heart Rate Dashboard - Icon Option 2: Gradient Style
+
+  Description:
+  - Square icon with rounded corners
+  - Gradient background transitioning from dark green (#2E7D32) to light green (#81C784)
+  - White EKG/pulse line with subtle glow effect
+  - Modern, vibrant appearance
+  - Gradient direction: top-left to bottom-right diagonal
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Diagonal gradient from dark to light green -->
+    <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2E7D32"/>
+      <stop offset="100%" style="stop-color:#81C784"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background with gradient and rounded corners -->
+  <rect x="0" y="0" width="1024" height="1024" rx="192" ry="192" fill="url(#greenGradient)"/>
+
+  <!-- Glow layer (behind main line) - simplified without filter -->
+  <path
+    d="M 100,512
+       L 280,512
+       L 340,480
+       L 400,544
+       L 450,512
+       L 500,512
+       L 540,320
+       L 600,720
+       L 660,512
+       L 720,512
+       L 760,480
+       L 820,544
+       L 880,512
+       L 924,512"
+    fill="none"
+    stroke="rgba(255,255,255,0.3)"
+    stroke-width="56"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Main EKG line -->
+  <path
+    d="M 100,512
+       L 280,512
+       L 340,480
+       L 400,544
+       L 450,512
+       L 500,512
+       L 540,320
+       L 600,720
+       L 660,512
+       L 720,512
+       L 760,480
+       L 820,544
+       L 880,512
+       L 924,512"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="32"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>

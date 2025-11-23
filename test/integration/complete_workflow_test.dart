@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/heart_rate_data.dart';
-import 'package:workout_tracker/models/heart_rate_zone.dart';
-import 'package:workout_tracker/models/scanned_device.dart';
-import 'package:workout_tracker/models/session_state.dart';
-import 'package:workout_tracker/providers/device_scan_provider.dart';
-import 'package:workout_tracker/providers/heart_rate_provider.dart';
-import 'package:workout_tracker/providers/session_provider.dart';
-import 'package:workout_tracker/screens/device_selection_screen.dart';
-import 'package:workout_tracker/utils/heart_rate_zone_calculator.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/models/session_state.dart';
+import 'package:heart_rate_dashboard/providers/device_scan_provider.dart';
+import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
+import 'package:heart_rate_dashboard/providers/session_provider.dart';
+import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
+import 'package:heart_rate_dashboard/utils/heart_rate_zone_calculator.dart';
 
 /// A simplified test widget for testing heart rate display behavior
 /// without the full screen's initialization logic (which requires database access).

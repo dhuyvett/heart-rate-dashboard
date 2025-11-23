@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/utils/error_messages.dart';
+import 'package:heart_rate_dashboard/utils/error_messages.dart';
 
 void main() {
   group('Error Message Constants', () {

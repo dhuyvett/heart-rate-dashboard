@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/heart_rate_data.dart';
-import 'package:workout_tracker/models/heart_rate_zone.dart';
-import 'package:workout_tracker/models/session_state.dart';
-import 'package:workout_tracker/providers/heart_rate_provider.dart';
-import 'package:workout_tracker/providers/session_provider.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/models/session_state.dart';
+import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
+import 'package:heart_rate_dashboard/providers/session_provider.dart';
 
 /// A simplified test widget that displays HR monitoring UI without the full screen's
 /// initialization logic (which requires database access).

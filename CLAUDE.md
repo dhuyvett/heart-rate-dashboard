@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Flutter application for workout tracking. The project is currently in its initial setup phase with the standard Flutter starter template.
+This is a Flutter application called Heart Rate Dashboard - a privacy-first heart rate monitoring application for tracking heart rate during workouts.
 
 ## Development Commands
 
@@ -71,10 +71,11 @@ This is a standard Flutter project using:
 - **Linting**: flutter_lints ^6.0.0 (recommended lints enabled)
 - **Platform Support**: Android, iOS, Web, Linux, macOS, Windows
 
-The current codebase contains the default Flutter counter app template with:
-- `MyApp`: Root StatelessWidget that sets up MaterialApp
-- `MyHomePage`: StatefulWidget for the home screen
-- `_MyHomePageState`: State management for the counter functionality
+The application provides:
+- Real-time heart rate monitoring via Bluetooth Low Energy (BLE)
+- Heart rate zone visualization using Hopkins Medicine methodology
+- Local-only encrypted data storage with SQLCipher
+- Demo mode for testing without physical hardware
 
 ## Development Notes
 

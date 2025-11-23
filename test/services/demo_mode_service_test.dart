@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/services/demo_mode_service.dart';
+import 'package:heart_rate_dashboard/services/demo_mode_service.dart';
 
 void main() {
   group('DemoModeService', () {

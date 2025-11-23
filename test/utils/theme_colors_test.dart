@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/heart_rate_zone.dart';
-import 'package:workout_tracker/utils/theme_colors.dart';
+import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/utils/theme_colors.dart';
 
 void main() {
   group('ZoneColors', () {

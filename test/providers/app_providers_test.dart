@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/utils/constants.dart';
+import 'package:heart_rate_dashboard/utils/constants.dart';
 
 /// Provider tests.
 ///

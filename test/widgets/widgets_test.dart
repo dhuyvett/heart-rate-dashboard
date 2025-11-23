@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:workout_tracker/models/scanned_device.dart';
-import 'package:workout_tracker/services/bluetooth_service.dart' as bt_service;
-import 'package:workout_tracker/widgets/connection_status_indicator.dart';
-import 'package:workout_tracker/widgets/session_stats_card.dart';
-import 'package:workout_tracker/widgets/device_list_tile.dart';
-import 'package:workout_tracker/widgets/loading_overlay.dart';
-import 'package:workout_tracker/widgets/error_dialog.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/services/bluetooth_service.dart'
+    as bt_service;
+import 'package:heart_rate_dashboard/widgets/connection_status_indicator.dart';
+import 'package:heart_rate_dashboard/widgets/session_stats_card.dart';
+import 'package:heart_rate_dashboard/widgets/device_list_tile.dart';
+import 'package:heart_rate_dashboard/widgets/loading_overlay.dart';
+import 'package:heart_rate_dashboard/widgets/error_dialog.dart';
 
 void main() {
   group('ConnectionStatusIndicator', () {

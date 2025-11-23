@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Heart Rate Dashboard - Icon Option 1: Flat/Material Design
+
+  Description:
+  - Square icon with rounded corners following Material Design guidelines
+  - Solid green background (hex: #4CAF50 - Material Green 500)
+  - White simplified EKG/heartbeat line in center
+  - Clean, minimalist aesthetic with no gradients or shadows
+  - Line thickness: 3-4px scaled appropriately for each icon size
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background with rounded corners -->
+  <rect x="0" y="0" width="1024" height="1024" rx="192" ry="192" fill="#4CAF50"/>
+
+  <!-- EKG/Pulse Line - White, 32px stroke at 1024px resolution -->
+  <path
+    d="M 100,512
+       L 280,512
+       L 340,480
+       L 400,544
+       L 450,512
+       L 500,512
+       L 540,320
+       L 600,720
+       L 660,512
+       L 720,512
+       L 760,480
+       L 820,544
+       L 880,512
+       L 924,512"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="32"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>
