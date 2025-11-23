@@ -21,11 +21,17 @@ class HeartRateChart extends StatelessWidget {
   /// Typically matches the current heart rate zone color.
   final Color lineColor;
 
+  /// Optional reference time for the chart window.
+  /// If provided, the chart will use this time instead of DateTime.now()
+  /// for calculating the visible window. Useful for pausing the chart.
+  final DateTime? referenceTime;
+
   /// Creates a heart rate chart widget.
   const HeartRateChart({
     required this.readings,
     required this.windowSeconds,
     required this.lineColor,
+    this.referenceTime,
     super.key,
   });
 
@@ -46,7 +52,8 @@ class HeartRateChart extends StatelessWidget {
     }
 
     // Filter readings to show only those within the time window
-    final now = DateTime.now();
+    // Use referenceTime if provided (for pausing), otherwise use current time
+    final now = referenceTime ?? DateTime.now();
     final windowStart = now.subtract(Duration(seconds: windowSeconds));
     final visibleReadings = readings
         .where((r) => r.timestamp.isAfter(windowStart))

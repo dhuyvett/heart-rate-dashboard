@@ -74,8 +74,11 @@ class SessionNotifier extends Notifier<SessionState> {
   /// Handles a new heart rate reading.
   ///
   /// Inserts the reading into the database and updates session statistics.
+  /// Does nothing if the session is paused.
   Future<void> _handleHeartRateReading(int bpm) async {
-    if (!state.isActive || state.currentSessionId == null) return;
+    if (!state.isActive || state.currentSessionId == null || state.isPaused) {
+      return;
+    }
 
     try {
       // Insert reading into database
@@ -113,6 +116,48 @@ class SessionNotifier extends Notifier<SessionState> {
       maxHr: newMaxHr,
       readingsCount: newReadingsCount,
     );
+  }
+
+  /// Pauses the current session.
+  ///
+  /// Stops recording heart rate readings and pauses the duration timer.
+  /// The session can be resumed with [resumeSession].
+  void pauseSession() {
+    if (!state.isActive || state.isPaused) return;
+
+    // Stop the duration timer
+    _durationTimer?.cancel();
+    _durationTimer = null;
+
+    // Update state to paused
+    state = state.copyWith(isPaused: true);
+  }
+
+  /// Resumes a paused session.
+  ///
+  /// Restarts the duration timer and continues recording heart rate readings.
+  void resumeSession() {
+    if (!state.isActive || !state.isPaused) return;
+
+    // Restart duration timer
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (state.startTime != null && !state.isPaused) {
+        final duration = DateTime.now().difference(state.startTime!);
+        state = state.copyWith(duration: duration);
+      }
+    });
+
+    // Update state to not paused
+    state = state.copyWith(isPaused: false);
+  }
+
+  /// Restarts the session by ending the current one and starting a new one.
+  ///
+  /// Saves the current session's statistics and begins a fresh session
+  /// with the same device.
+  Future<void> restartSession(String deviceName) async {
+    await endSession();
+    await startSession(deviceName);
   }
 
   /// Ends the current session.

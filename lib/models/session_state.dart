@@ -30,6 +30,9 @@ class SessionState {
   /// Total number of heart rate readings recorded.
   final int readingsCount;
 
+  /// Whether the session is currently paused.
+  final bool isPaused;
+
   /// Creates a session state instance.
   const SessionState({
     this.currentSessionId,
@@ -39,6 +42,7 @@ class SessionState {
     this.minHr,
     this.maxHr,
     this.readingsCount = 0,
+    this.isPaused = false,
   });
 
   /// Factory constructor for creating an inactive session state.
@@ -58,6 +62,7 @@ class SessionState {
     int? minHr,
     int? maxHr,
     int? readingsCount,
+    bool? isPaused,
   }) {
     return SessionState(
       currentSessionId: currentSessionId ?? this.currentSessionId,
@@ -67,6 +72,7 @@ class SessionState {
       minHr: minHr ?? this.minHr,
       maxHr: maxHr ?? this.maxHr,
       readingsCount: readingsCount ?? this.readingsCount,
+      isPaused: isPaused ?? this.isPaused,
     );
   }
 
@@ -81,7 +87,8 @@ class SessionState {
         other.avgHr == avgHr &&
         other.minHr == minHr &&
         other.maxHr == maxHr &&
-        other.readingsCount == readingsCount;
+        other.readingsCount == readingsCount &&
+        other.isPaused == isPaused;
   }
 
   @override
@@ -94,6 +101,7 @@ class SessionState {
       minHr,
       maxHr,
       readingsCount,
+      isPaused,
     );
   }
 
@@ -101,6 +109,6 @@ class SessionState {
   String toString() {
     return 'SessionState(currentSessionId: $currentSessionId, startTime: $startTime, '
         'duration: $duration, avgHr: $avgHr, minHr: $minHr, maxHr: $maxHr, '
-        'readingsCount: $readingsCount)';
+        'readingsCount: $readingsCount, isPaused: $isPaused)';
   }
 }

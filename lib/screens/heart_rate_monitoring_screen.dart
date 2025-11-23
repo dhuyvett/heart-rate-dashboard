@@ -42,6 +42,7 @@ class _HeartRateMonitoringScreenState
   int? _lastKnownBpm;
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
+  DateTime? _pausedAt;
 
   @override
   void initState() {
@@ -175,8 +176,9 @@ class _HeartRateMonitoringScreenState
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
 
     // Periodically reload readings for the chart and track last known BPM
+    // Skip updates when session is paused
     ref.listen(heartRateProvider, (previous, next) {
-      if (next is AsyncData<HeartRateData>) {
+      if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
         _lastKnownBpm = next.value.bpm;
         ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
         _loadRecentReadings();
@@ -226,6 +228,7 @@ class _HeartRateMonitoringScreenState
                   theme: theme,
                   heartRateAsync: heartRateAsync,
                   isReconnecting: isReconnecting,
+                  isPaused: sessionState.isPaused,
                 ),
 
                 const SizedBox(height: 32),
@@ -241,9 +244,10 @@ class _HeartRateMonitoringScreenState
                       return HeartRateChart(
                         readings: _recentReadings,
                         windowSeconds: settings.chartWindowSeconds,
-                        lineColor: isReconnecting
+                        lineColor: isReconnecting || sessionState.isPaused
                             ? color.withValues(alpha: 0.5)
                             : color,
+                        referenceTime: sessionState.isPaused ? _pausedAt : null,
                       );
                     },
                     loading: () =>
@@ -318,6 +322,103 @@ class _HeartRateMonitoringScreenState
                   ),
                 ),
 
+                const SizedBox(height: 24),
+
+                // Session Control Buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      // Pause/Resume Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final notifier = ref.read(sessionProvider.notifier);
+                            if (sessionState.isPaused) {
+                              notifier.resumeSession();
+                              setState(() {
+                                _pausedAt = null;
+                              });
+                            } else {
+                              notifier.pauseSession();
+                              setState(() {
+                                _pausedAt = DateTime.now();
+                              });
+                            }
+                          },
+                          icon: Icon(
+                            sessionState.isPaused
+                                ? Icons.play_arrow
+                                : Icons.pause,
+                          ),
+                          label: Text(
+                            sessionState.isPaused ? 'Resume' : 'Pause',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: sessionState.isPaused
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.secondary,
+                            foregroundColor: sessionState.isPaused
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Restart Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            // Show confirmation dialog
+                            final shouldRestart = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Restart Session?'),
+                                content: const Text(
+                                  'This will end the current session and start a new one. '
+                                  'Your current session data will be saved.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
+                                    child: const Text('Restart'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (shouldRestart == true) {
+                              await ref
+                                  .read(sessionProvider.notifier)
+                                  .restartSession(widget.deviceName);
+                              // Clear recent readings for the chart
+                              if (mounted) {
+                                setState(() {
+                                  _recentReadings = [];
+                                });
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.restart_alt),
+                          label: const Text('Restart'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: theme.colorScheme.errorContainer,
+                            foregroundColor: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 32),
               ],
             ),
@@ -340,7 +441,58 @@ class _HeartRateMonitoringScreenState
     required ThemeData theme,
     required AsyncValue heartRateAsync,
     required bool isReconnecting,
+    required bool isPaused,
   }) {
+    // If paused, show the last known BPM with a paused indicator
+    if (isPaused && _lastKnownBpm != null) {
+      return Column(
+        children: [
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: 0.5,
+            child: Text(
+              _lastKnownBpm.toString(),
+              style: TextStyle(
+                fontSize: 120,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'BPM',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 16),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.pause, size: 20, color: theme.colorScheme.secondary),
+                const SizedBox(width: 8),
+                Text(
+                  'Paused',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     // If reconnecting, show the last known BPM in a dimmed state
     if (isReconnecting && _lastKnownBpm != null) {
       return Column(
