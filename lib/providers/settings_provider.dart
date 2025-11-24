@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
+import '../models/gender.dart';
 import '../services/database_service.dart';
 import '../utils/constants.dart';
 
@@ -31,6 +32,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
         'keep_screen_awake',
       );
       final darkModeString = await _databaseService.getSetting('dark_mode');
+      final genderString = await _databaseService.getSetting('gender');
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -38,9 +40,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
           : null;
       final keepScreenAwake = keepScreenAwakeString == 'true';
       final darkMode = darkModeString == 'true';
+      final gender = genderString == 'female' ? Gender.female : Gender.male;
 
       state = AppSettings(
         age: age ?? defaultAge,
+        gender: gender,
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
         keepScreenAwake: keepScreenAwake,
         darkMode: darkMode,
@@ -98,6 +102,17 @@ class SettingsNotifier extends Notifier<AppSettings> {
   Future<void> updateDarkMode(bool enabled) async {
     state = state.copyWith(darkMode: enabled);
     await _databaseService.setSetting('dark_mode', enabled.toString());
+  }
+
+  /// Updates the gender setting.
+  ///
+  /// The change is persisted immediately to the database.
+  Future<void> updateGender(Gender gender) async {
+    state = state.copyWith(gender: gender);
+    await _databaseService.setSetting(
+      'gender',
+      gender == Gender.female ? 'female' : 'male',
+    );
   }
 }
 

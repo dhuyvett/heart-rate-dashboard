@@ -18,13 +18,17 @@ final heartRateProvider = StreamProvider.autoDispose<HeartRateData>((
 ) async* {
   final bluetoothService = BluetoothService.instance;
 
-  // Watch settings to get current age for zone calculation
+  // Watch settings to get current age and gender for zone calculation
   final settings = ref.watch(settingsProvider);
 
   // Subscribe to heart rate stream
   await for (final bpm in bluetoothService.subscribeToHeartRate()) {
-    // Calculate zone based on current age
-    final zone = HeartRateZoneCalculator.getZoneForBpm(bpm, settings.age);
+    // Calculate zone based on current age and gender
+    final zone = HeartRateZoneCalculator.getZoneForBpm(
+      bpm,
+      settings.age,
+      settings.gender,
+    );
 
     // Emit heart rate data with zone
     yield HeartRateData(bpm: bpm, zone: zone);

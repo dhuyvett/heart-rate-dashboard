@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/gender.dart';
 import '../models/heart_rate_zone.dart';
 import '../providers/settings_provider.dart';
 import '../services/bluetooth_service.dart';
@@ -95,15 +96,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = ref.watch(settingsProvider);
-    final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(settings.age);
-    final zoneRanges = HeartRateZoneCalculator.getZoneRanges(settings.age);
+    final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(
+      settings.age,
+      settings.gender,
+    );
+    final zoneRanges = HeartRateZoneCalculator.getZoneRanges(
+      settings.age,
+      settings.gender,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Age Input Section
+          // Personal Information Section
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -111,7 +118,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Your Age',
+                    'Personal Information',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -135,6 +142,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       suffixIcon: const Icon(Icons.person),
                     ),
                     onChanged: _updateAge,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Gender',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<Gender>(
+                    segments: Gender.values.map((gender) {
+                      return ButtonSegment<Gender>(
+                        value: gender,
+                        label: Text(gender.label),
+                        icon: Icon(
+                          gender == Gender.male ? Icons.male : Icons.female,
+                        ),
+                      );
+                    }).toList(),
+                    selected: {settings.gender},
+                    onSelectionChanged: (Set<Gender> newSelection) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateGender(newSelection.first);
+                    },
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -162,6 +194,82 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Heart Rate Zones Information
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Heart Rate Zones',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Training zones based on your age (${settings.age} years)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...HeartRateZone.values.map((zone) {
+                    final range = zoneRanges[zone]!;
+                    final color = HeartRateZoneCalculator.getColorForZone(zone);
+                    final label = HeartRateZoneCalculator.getZoneLabel(zone);
+                    final percentage =
+                        HeartRateZoneCalculator.getZonePercentageRange(zone);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: color.withValues(alpha: 0.5),
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '$percentage: ${range.$1}-${range.$2} BPM',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -259,82 +367,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
               secondary: Icon(
                 settings.darkMode ? Icons.dark_mode : Icons.light_mode,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Heart Rate Zones Information
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Heart Rate Zones',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Training zones based on your age (${settings.age} years)',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...HeartRateZone.values.map((zone) {
-                    final range = zoneRanges[zone]!;
-                    final color = HeartRateZoneCalculator.getColorForZone(zone);
-                    final label = HeartRateZoneCalculator.getZoneLabel(zone);
-                    final percentage =
-                        HeartRateZoneCalculator.getZonePercentageRange(zone);
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: color.withValues(alpha: 0.5),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  label,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '$percentage: ${range.$1}-${range.$2} BPM',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
               ),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/gender.dart';
 import '../models/heart_rate_zone.dart';
 import 'theme_colors.dart';
 
@@ -14,19 +15,28 @@ class HeartRateZoneCalculator {
   /// Private constructor to prevent instantiation.
   HeartRateZoneCalculator._();
 
-  /// Calculates maximum heart rate using the Hopkins Medicine formula: 220 - age.
+  /// Calculates maximum heart rate using gender-specific formulas.
+  ///
+  /// Uses more accurate gender-specific formulas:
+  /// - Male: 214 - (0.8 × age)
+  /// - Female: 209 - (0.9 × age)
   ///
   /// [age] should be between 10-100 for realistic results.
+  /// [gender] determines which formula to use.
   ///
   /// Example:
   /// ```dart
-  /// final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(30); // Returns 190
+  /// final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(30, Gender.male); // Returns 190
   /// ```
-  static int calculateMaxHeartRate(int age) {
-    return 220 - age;
+  static int calculateMaxHeartRate(int age, Gender gender) {
+    if (gender == Gender.female) {
+      return (209 - (0.9 * age)).round();
+    } else {
+      return (214 - (0.8 * age)).round();
+    }
   }
 
-  /// Determines the heart rate zone for a given BPM and age.
+  /// Determines the heart rate zone for a given BPM, age, and gender.
   ///
   /// Uses Hopkins Medicine zone methodology:
   /// - Resting: Below 50% of max HR
@@ -38,10 +48,10 @@ class HeartRateZoneCalculator {
   ///
   /// Example:
   /// ```dart
-  /// final zone = HeartRateZoneCalculator.getZoneForBpm(140, 30); // Returns HeartRateZone.zone3
+  /// final zone = HeartRateZoneCalculator.getZoneForBpm(140, 30, Gender.male); // Returns HeartRateZone.zone3
   /// ```
-  static HeartRateZone getZoneForBpm(int bpm, int age) {
-    final maxHr = calculateMaxHeartRate(age);
+  static HeartRateZone getZoneForBpm(int bpm, int age, Gender gender) {
+    final maxHr = calculateMaxHeartRate(age, gender);
 
     // Calculate zone boundaries
     final zone1Threshold = (maxHr * 0.50).round();
@@ -84,13 +94,13 @@ class HeartRateZoneCalculator {
     return ZoneColors.getColorForZone(zone);
   }
 
-  /// Returns the BPM ranges for all heart rate zones for a given age.
+  /// Returns the BPM ranges for all heart rate zones for a given age and gender.
   ///
   /// Returns a [Map] where each [HeartRateZone] maps to a tuple of (minBpm, maxBpm).
   ///
-  /// Example for age 30 (max HR = 190):
+  /// Example for age 30, male (max HR = 190):
   /// ```dart
-  /// final ranges = HeartRateZoneCalculator.getZoneRanges(30);
+  /// final ranges = HeartRateZoneCalculator.getZoneRanges(30, Gender.male);
   /// // Returns:
   /// // {
   /// //   HeartRateZone.resting: (0, 94),
@@ -101,8 +111,8 @@ class HeartRateZoneCalculator {
   /// //   HeartRateZone.zone5: (171, 190),
   /// // }
   /// ```
-  static Map<HeartRateZone, (int, int)> getZoneRanges(int age) {
-    final maxHr = calculateMaxHeartRate(age);
+  static Map<HeartRateZone, (int, int)> getZoneRanges(int age, Gender gender) {
+    final maxHr = calculateMaxHeartRate(age, gender);
 
     // Calculate zone boundaries
     final zone1Threshold = (maxHr * 0.50).round();
