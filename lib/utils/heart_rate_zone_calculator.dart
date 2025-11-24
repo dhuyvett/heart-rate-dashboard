@@ -31,6 +31,16 @@ class HeartRateZoneCalculator {
     switch (settings.maxHRCalculationMethod) {
       case MaxHRCalculationMethod.foxFormula:
         return 220 - settings.age;
+      case MaxHRCalculationMethod.huntFormula:
+        return (211 - (0.64 * settings.age)).round();
+      case MaxHRCalculationMethod.tanakaFormula:
+        return (208 - (0.7 * settings.age)).round();
+      case MaxHRCalculationMethod.shargalFormula:
+        if (settings.gender == Gender.female) {
+          return (209.273 - (0.804 * settings.age)).round();
+        } else {
+          return (208.609 - (0.71 * settings.age)).round();
+        }
       case MaxHRCalculationMethod.custom:
         return settings.customMaxHR ?? 190; // Fallback to 190 if not set
     }

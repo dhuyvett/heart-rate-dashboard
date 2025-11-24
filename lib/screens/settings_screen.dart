@@ -147,7 +147,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Personal Information Section
+          // Max Heart Rate Section
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -155,7 +155,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Personal Information',
+                    'Max Heart Rate',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -172,6 +172,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     controller: _ageController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    enabled:
+                        settings.maxHRCalculationMethod !=
+                        MaxHRCalculationMethod.custom,
                     decoration: InputDecoration(
                       labelText: 'Age (years)',
                       border: const OutlineInputBorder(),
@@ -199,11 +202,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       );
                     }).toList(),
                     selected: {settings.gender},
-                    onSelectionChanged: (Set<Gender> newSelection) {
-                      ref
-                          .read(settingsProvider.notifier)
-                          .updateGender(newSelection.first);
-                    },
+                    onSelectionChanged:
+                        settings.maxHRCalculationMethod ==
+                            MaxHRCalculationMethod.shargalFormula
+                        ? (Set<Gender> newSelection) {
+                            ref
+                                .read(settingsProvider.notifier)
+                                .updateGender(newSelection.first);
+                          }
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   Text(

@@ -50,6 +50,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final gender = genderString == 'female' ? Gender.female : Gender.male;
       final maxHRMethod = maxHRMethodString == 'custom'
           ? MaxHRCalculationMethod.custom
+          : maxHRMethodString == 'hunt_formula'
+          ? MaxHRCalculationMethod.huntFormula
+          : maxHRMethodString == 'tanaka_formula'
+          ? MaxHRCalculationMethod.tanakaFormula
+          : maxHRMethodString == 'shargal_formula'
+          ? MaxHRCalculationMethod.shargalFormula
           : MaxHRCalculationMethod.foxFormula;
       final customMaxHR = customMaxHRString != null
           ? int.tryParse(customMaxHRString)
@@ -139,7 +145,15 @@ class SettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(maxHRCalculationMethod: method);
     await _databaseService.setSetting(
       'max_hr_calculation_method',
-      method == MaxHRCalculationMethod.custom ? 'custom' : 'fox_formula',
+      method == MaxHRCalculationMethod.custom
+          ? 'custom'
+          : method == MaxHRCalculationMethod.huntFormula
+          ? 'hunt_formula'
+          : method == MaxHRCalculationMethod.tanakaFormula
+          ? 'tanaka_formula'
+          : method == MaxHRCalculationMethod.shargalFormula
+          ? 'shargal_formula'
+          : 'fox_formula',
     );
   }
 
