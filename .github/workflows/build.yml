@@ -118,7 +118,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          # Disable cache on macOS due to hashFiles() issues with flutter-action
+          cache: false
 
       - name: Get dependencies
         run: flutter pub get
