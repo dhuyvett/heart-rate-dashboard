@@ -168,6 +168,70 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  Text(
+                    'Max Heart Rate Calculation',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<MaxHRCalculationMethod>(
+                    initialValue: settings.maxHRCalculationMethod,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    isExpanded: true,
+                    isDense: true,
+                    itemHeight: null,
+                    selectedItemBuilder: (BuildContext context) {
+                      return MaxHRCalculationMethod.values.map((method) {
+                        return Text(
+                          method.shortLabel,
+                          style: theme.textTheme.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      }).toList();
+                    },
+                    items: MaxHRCalculationMethod.values.map((method) {
+                      return DropdownMenuItem(
+                        value: method,
+                        child: Text(
+                          method.label,
+                          style: theme.textTheme.bodySmall,
+                          overflow: TextOverflow.visible,
+                          softWrap: true,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (method) {
+                      if (method != null) {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .updateMaxHRCalculationMethod(method);
+                      }
+                    },
+                  ),
+                  if (settings.maxHRCalculationMethod ==
+                      MaxHRCalculationMethod.custom) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _customMaxHRController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: 'Custom Max HR (BPM)',
+                        border: const OutlineInputBorder(),
+                        errorText: _customMaxHRError,
+                        hintText: '100-220',
+                      ),
+                      onChanged: _updateCustomMaxHR,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _ageController,
                     keyboardType: TextInputType.number,
@@ -212,57 +276,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Max Heart Rate Calculation',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<MaxHRCalculationMethod>(
-                    initialValue: settings.maxHRCalculationMethod,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                    isExpanded: true,
-                    items: MaxHRCalculationMethod.values.map((method) {
-                      return DropdownMenuItem(
-                        value: method,
-                        child: Text(
-                          method.label,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (method) {
-                      if (method != null) {
-                        ref
-                            .read(settingsProvider.notifier)
-                            .updateMaxHRCalculationMethod(method);
-                      }
-                    },
-                  ),
-                  if (settings.maxHRCalculationMethod ==
-                      MaxHRCalculationMethod.custom) ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _customMaxHRController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: 'Custom Max HR (BPM)',
-                        border: const OutlineInputBorder(),
-                        errorText: _customMaxHRError,
-                        hintText: '100-220',
-                      ),
-                      onChanged: _updateCustomMaxHR,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
