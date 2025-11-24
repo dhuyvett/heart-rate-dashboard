@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
 import '../providers/bluetooth_provider.dart';
@@ -63,12 +64,25 @@ class _HeartRateMonitoringScreenState
     super.initState();
     _startSession();
     _setupReconnectionListener();
+    _updateWakeLock();
   }
 
   @override
   void dispose() {
     _reconnectionSubscription?.cancel();
+    // Always disable wake lock when leaving the screen
+    WakelockPlus.disable();
     super.dispose();
+  }
+
+  /// Updates the wake lock based on the current setting.
+  void _updateWakeLock() {
+    final settings = ref.read(settingsProvider);
+    if (settings.keepScreenAwake) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
   }
 
   /// Sets up the reconnection state listener.
@@ -201,6 +215,13 @@ class _HeartRateMonitoringScreenState
         _lastKnownBpm = next.value.bpm;
         ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
         _loadRecentReadings();
+      }
+    });
+
+    // Update wake lock when setting changes
+    ref.listen(settingsProvider, (previous, next) {
+      if (previous?.keepScreenAwake != next.keepScreenAwake) {
+        _updateWakeLock();
       }
     });
 

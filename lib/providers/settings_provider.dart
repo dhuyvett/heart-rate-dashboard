@@ -27,15 +27,20 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final chartWindowString = await _databaseService.getSetting(
         'chart_window_seconds',
       );
+      final keepScreenAwakeString = await _databaseService.getSetting(
+        'keep_screen_awake',
+      );
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
           ? int.tryParse(chartWindowString)
           : null;
+      final keepScreenAwake = keepScreenAwakeString == 'true';
 
       state = AppSettings(
         age: age ?? defaultAge,
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
+        keepScreenAwake: keepScreenAwake,
       );
     } catch (e) {
       // If loading fails, keep default settings
@@ -74,6 +79,14 @@ class SettingsNotifier extends Notifier<AppSettings> {
       'chart_window_seconds',
       seconds.toString(),
     );
+  }
+
+  /// Updates the keep screen awake setting.
+  ///
+  /// The change is persisted immediately to the database.
+  Future<void> updateKeepScreenAwake(bool enabled) async {
+    state = state.copyWith(keepScreenAwake: enabled);
+    await _databaseService.setSetting('keep_screen_awake', enabled.toString());
   }
 }
 

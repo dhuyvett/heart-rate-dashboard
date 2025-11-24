@@ -13,19 +13,29 @@ class AppSettings {
   /// Determines how many seconds of historical data to display.
   final int chartWindowSeconds;
 
+  /// Whether to keep the screen awake while monitoring heart rate.
+  /// When enabled, the screen will not turn off on the monitoring screen.
+  final bool keepScreenAwake;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
   const AppSettings({
     this.age = defaultAge,
     this.chartWindowSeconds = defaultChartWindowSeconds,
+    this.keepScreenAwake = false,
   });
 
   /// Creates a copy of this settings with updated fields.
-  AppSettings copyWith({int? age, int? chartWindowSeconds}) {
+  AppSettings copyWith({
+    int? age,
+    int? chartWindowSeconds,
+    bool? keepScreenAwake,
+  }) {
     return AppSettings(
       age: age ?? this.age,
       chartWindowSeconds: chartWindowSeconds ?? this.chartWindowSeconds,
+      keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
     );
   }
 
@@ -35,14 +45,16 @@ class AppSettings {
 
     return other is AppSettings &&
         other.age == age &&
-        other.chartWindowSeconds == chartWindowSeconds;
+        other.chartWindowSeconds == chartWindowSeconds &&
+        other.keepScreenAwake == keepScreenAwake;
   }
 
   @override
-  int get hashCode => Object.hash(age, chartWindowSeconds);
+  int get hashCode => Object.hash(age, chartWindowSeconds, keepScreenAwake);
 
   @override
   String toString() {
-    return 'AppSettings(age: $age, chartWindowSeconds: $chartWindowSeconds)';
+    return 'AppSettings(age: $age, chartWindowSeconds: $chartWindowSeconds, '
+        'keepScreenAwake: $keepScreenAwake)';
   }
 }
