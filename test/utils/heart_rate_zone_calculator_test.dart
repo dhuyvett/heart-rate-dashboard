@@ -9,29 +9,38 @@ void main() {
     test('calculateMaxHeartRate returns gender-specific values', () {
       // Male: 214 - (0.8 × age)
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(30, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(30, Gender.male),
         equals(190),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(25, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(25, Gender.male),
         equals(194),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(50, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(50, Gender.male),
         equals(174),
       );
 
       // Female: 209 - (0.9 × age)
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(30, Gender.female),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(
+          30,
+          Gender.female,
+        ),
         equals(182),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(25, Gender.female),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(
+          25,
+          Gender.female,
+        ),
         equals(187),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(50, Gender.female),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(
+          50,
+          Gender.female,
+        ),
         equals(164),
       );
     });
@@ -42,27 +51,27 @@ void main() {
       const age = 30;
 
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(80, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(80, age, Gender.male),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(100, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(100, age, Gender.male),
         equals(HeartRateZone.zone1),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(120, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(120, age, Gender.male),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(140, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(140, age, Gender.male),
         equals(HeartRateZone.zone3),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(160, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(160, age, Gender.male),
         equals(HeartRateZone.zone4),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(180, age, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(180, age, Gender.male),
         equals(HeartRateZone.zone5),
       );
     });
@@ -75,39 +84,39 @@ void main() {
 
       // Test exact boundaries (lower boundaries should be in that zone)
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(95, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(95, age, gender),
         equals(HeartRateZone.zone1),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(114, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(114, age, gender),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(133, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(133, age, gender),
         equals(HeartRateZone.zone3),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(152, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(152, age, gender),
         equals(HeartRateZone.zone4),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(171, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(171, age, gender),
         equals(HeartRateZone.zone5),
       );
 
       // Test one BPM below boundaries
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(94, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(94, age, gender),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(113, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(113, age, gender),
         equals(HeartRateZone.zone1),
       );
 
       // Test HR above max (should still be zone5)
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(200, age, gender),
+        HeartRateZoneCalculator.getZoneForBpmByGender(200, age, gender),
         equals(HeartRateZone.zone5),
       );
     });
@@ -141,7 +150,10 @@ void main() {
 
     test('getZoneRanges returns correct BPM ranges for given age', () {
       const age = 30;
-      final ranges = HeartRateZoneCalculator.getZoneRanges(age, Gender.male);
+      final ranges = HeartRateZoneCalculator.getZoneRangesByGender(
+        age,
+        Gender.male,
+      );
 
       // Max HR = 190 (male)
       // Resting: <95, Zone1: 95-114, Zone2: 114-133, Zone3: 133-152, Zone4: 152-171, Zone5: 171-190

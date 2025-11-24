@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/gender.dart';
 import '../models/heart_rate_zone.dart';
+import '../models/max_hr_calculation_method.dart';
 import '../providers/settings_provider.dart';
 import '../services/bluetooth_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
@@ -25,18 +26,24 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _ageController;
+  late TextEditingController _customMaxHRController;
   String? _ageError;
+  String? _customMaxHRError;
 
   @override
   void initState() {
     super.initState();
     final settings = ref.read(settingsProvider);
     _ageController = TextEditingController(text: settings.age.toString());
+    _customMaxHRController = TextEditingController(
+      text: settings.customMaxHR?.toString() ?? '',
+    );
   }
 
   @override
   void dispose() {
     _ageController.dispose();
+    _customMaxHRController.dispose();
     super.dispose();
   }
 
@@ -92,18 +99,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Updates the custom max HR setting.
+  Future<void> _updateCustomMaxHR(String value) async {
+    final maxHR = int.tryParse(value);
+
+    if (maxHR == null) {
+      setState(() {
+        _customMaxHRError = 'Please enter a valid number';
+      });
+      return;
+    }
+
+    if (maxHR < 100 || maxHR > 220) {
+      setState(() {
+        _customMaxHRError = 'Max HR must be between 100 and 220';
+      });
+      return;
+    }
+
+    setState(() {
+      _customMaxHRError = null;
+    });
+
+    try {
+      await ref.read(settingsProvider.notifier).updateCustomMaxHR(maxHR);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating custom max HR: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = ref.watch(settingsProvider);
-    final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(
-      settings.age,
-      settings.gender,
-    );
-    final zoneRanges = HeartRateZoneCalculator.getZoneRanges(
-      settings.age,
-      settings.gender,
-    );
+    final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(settings);
+    final zoneRanges = HeartRateZoneCalculator.getZoneRanges(settings);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -169,6 +206,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  Text(
+                    'Max Heart Rate Calculation',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<MaxHRCalculationMethod>(
+                    initialValue: settings.maxHRCalculationMethod,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    isExpanded: true,
+                    items: MaxHRCalculationMethod.values.map((method) {
+                      return DropdownMenuItem(
+                        value: method,
+                        child: Text(
+                          method.label,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (method) {
+                      if (method != null) {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .updateMaxHRCalculationMethod(method);
+                      }
+                    },
+                  ),
+                  if (settings.maxHRCalculationMethod ==
+                      MaxHRCalculationMethod.custom) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _customMaxHRController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: 'Custom Max HR (BPM)',
+                        border: const OutlineInputBorder(),
+                        errorText: _customMaxHRError,
+                        hintText: '100-220',
+                      ),
+                      onChanged: _updateCustomMaxHR,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -185,7 +273,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Maximum Heart Rate: $maxHr BPM\n(Calculated as 220 - age)',
+                            'Maximum Heart Rate: $maxHr BPM',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                             ),

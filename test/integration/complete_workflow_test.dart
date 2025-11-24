@@ -88,7 +88,10 @@ class TestSettingsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final zoneRanges = HeartRateZoneCalculator.getZoneRanges(age, Gender.male);
+    final zoneRanges = HeartRateZoneCalculator.getZoneRangesByGender(
+      age,
+      Gender.male,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -292,39 +295,45 @@ void main() {
     test('zone calculator correctly determines zones for different ages', () {
       // Test age 25, male (Max HR = 194)
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(80, 25, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(80, 25, Gender.male),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(120, 25, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(120, 25, Gender.male),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(180, 25, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(180, 25, Gender.male),
         equals(HeartRateZone.zone5),
       );
 
       // Test age 50, male (Max HR = 174)
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(80, 50, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(80, 50, Gender.male),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(115, 50, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(115, 50, Gender.male),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(160, 50, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(160, 50, Gender.male),
         equals(HeartRateZone.zone5),
       );
     });
 
     test('zone ranges change when age changes', () {
       // Get ranges for age 30, male
-      final ranges30 = HeartRateZoneCalculator.getZoneRanges(30, Gender.male);
+      final ranges30 = HeartRateZoneCalculator.getZoneRangesByGender(
+        30,
+        Gender.male,
+      );
 
       // Get ranges for age 40, male
-      final ranges40 = HeartRateZoneCalculator.getZoneRanges(40, Gender.male);
+      final ranges40 = HeartRateZoneCalculator.getZoneRangesByGender(
+        40,
+        Gender.male,
+      );
 
       // Age 40 should have lower zone boundaries than age 30
       // because max HR is lower (180 vs 190)

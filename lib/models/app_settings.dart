@@ -1,5 +1,6 @@
 import '../utils/constants.dart';
 import 'gender.dart';
+import 'max_hr_calculation_method.dart';
 
 /// Represents the application settings for the Heart Rate Dashboard.
 ///
@@ -12,6 +13,13 @@ class AppSettings {
 
   /// User's biological sex for more accurate heart rate calculations.
   final Gender gender;
+
+  /// Method for calculating maximum heart rate.
+  final MaxHRCalculationMethod maxHRCalculationMethod;
+
+  /// Custom maximum heart rate value (used when maxHRCalculationMethod is custom).
+  /// Valid range: 100-220 BPM.
+  final int? customMaxHR;
 
   /// Time window in seconds for the real-time heart rate chart.
   /// Determines how many seconds of historical data to display.
@@ -31,6 +39,8 @@ class AppSettings {
   const AppSettings({
     this.age = defaultAge,
     this.gender = Gender.male,
+    this.maxHRCalculationMethod = MaxHRCalculationMethod.foxFormula,
+    this.customMaxHR,
     this.chartWindowSeconds = defaultChartWindowSeconds,
     this.keepScreenAwake = false,
     this.darkMode = false,
@@ -40,6 +50,8 @@ class AppSettings {
   AppSettings copyWith({
     int? age,
     Gender? gender,
+    MaxHRCalculationMethod? maxHRCalculationMethod,
+    int? customMaxHR,
     int? chartWindowSeconds,
     bool? keepScreenAwake,
     bool? darkMode,
@@ -47,6 +59,9 @@ class AppSettings {
     return AppSettings(
       age: age ?? this.age,
       gender: gender ?? this.gender,
+      maxHRCalculationMethod:
+          maxHRCalculationMethod ?? this.maxHRCalculationMethod,
+      customMaxHR: customMaxHR ?? this.customMaxHR,
       chartWindowSeconds: chartWindowSeconds ?? this.chartWindowSeconds,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       darkMode: darkMode ?? this.darkMode,
@@ -60,18 +75,29 @@ class AppSettings {
     return other is AppSettings &&
         other.age == age &&
         other.gender == gender &&
+        other.maxHRCalculationMethod == maxHRCalculationMethod &&
+        other.customMaxHR == customMaxHR &&
         other.chartWindowSeconds == chartWindowSeconds &&
         other.keepScreenAwake == keepScreenAwake &&
         other.darkMode == darkMode;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(age, gender, chartWindowSeconds, keepScreenAwake, darkMode);
+  int get hashCode => Object.hash(
+    age,
+    gender,
+    maxHRCalculationMethod,
+    customMaxHR,
+    chartWindowSeconds,
+    keepScreenAwake,
+    darkMode,
+  );
 
   @override
   String toString() {
     return 'AppSettings(age: $age, gender: $gender, '
+        'maxHRCalculationMethod: $maxHRCalculationMethod, '
+        'customMaxHR: $customMaxHR, '
         'chartWindowSeconds: $chartWindowSeconds, '
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode)';
   }

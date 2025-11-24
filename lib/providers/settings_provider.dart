@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/gender.dart';
+import '../models/max_hr_calculation_method.dart';
 import '../services/database_service.dart';
 import '../utils/constants.dart';
 
@@ -33,6 +34,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
       );
       final darkModeString = await _databaseService.getSetting('dark_mode');
       final genderString = await _databaseService.getSetting('gender');
+      final maxHRMethodString = await _databaseService.getSetting(
+        'max_hr_calculation_method',
+      );
+      final customMaxHRString = await _databaseService.getSetting(
+        'custom_max_hr',
+      );
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -41,10 +48,18 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final keepScreenAwake = keepScreenAwakeString == 'true';
       final darkMode = darkModeString == 'true';
       final gender = genderString == 'female' ? Gender.female : Gender.male;
+      final maxHRMethod = maxHRMethodString == 'custom'
+          ? MaxHRCalculationMethod.custom
+          : MaxHRCalculationMethod.foxFormula;
+      final customMaxHR = customMaxHRString != null
+          ? int.tryParse(customMaxHRString)
+          : null;
 
       state = AppSettings(
         age: age ?? defaultAge,
         gender: gender,
+        maxHRCalculationMethod: maxHRMethod,
+        customMaxHR: customMaxHR,
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
         keepScreenAwake: keepScreenAwake,
         darkMode: darkMode,
@@ -113,6 +128,34 @@ class SettingsNotifier extends Notifier<AppSettings> {
       'gender',
       gender == Gender.female ? 'female' : 'male',
     );
+  }
+
+  /// Updates the max heart rate calculation method.
+  ///
+  /// The change is persisted immediately to the database.
+  Future<void> updateMaxHRCalculationMethod(
+    MaxHRCalculationMethod method,
+  ) async {
+    state = state.copyWith(maxHRCalculationMethod: method);
+    await _databaseService.setSetting(
+      'max_hr_calculation_method',
+      method == MaxHRCalculationMethod.custom ? 'custom' : 'fox_formula',
+    );
+  }
+
+  /// Updates the custom maximum heart rate value.
+  ///
+  /// The change is persisted immediately to the database.
+  /// Valid range: 100-220 BPM.
+  Future<void> updateCustomMaxHR(int maxHR) async {
+    if (maxHR < 100 || maxHR > 220) {
+      throw ArgumentError(
+        'Custom max HR must be between 100 and 220, got $maxHR',
+      );
+    }
+
+    state = state.copyWith(customMaxHR: maxHR);
+    await _databaseService.setSetting('custom_max_hr', maxHR.toString());
   }
 }
 

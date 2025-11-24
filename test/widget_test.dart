@@ -24,15 +24,15 @@ void main() {
     test('HeartRateZoneCalculator calculates max heart rate correctly', () {
       // Male: 214 - (0.8 × age)
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(30, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(30, Gender.male),
         equals(190),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(40, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(40, Gender.male),
         equals(182),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRate(50, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateByGender(50, Gender.male),
         equals(174),
       );
     });
@@ -47,27 +47,27 @@ void main() {
       // - Zone 5: 171+ BPM (90%+)
 
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(80, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(80, 30, Gender.male),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(100, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(100, 30, Gender.male),
         equals(HeartRateZone.zone1),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(120, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(120, 30, Gender.male),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(140, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(140, 30, Gender.male),
         equals(HeartRateZone.zone3),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(160, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(160, 30, Gender.male),
         equals(HeartRateZone.zone4),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpm(180, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmByGender(180, 30, Gender.male),
         equals(HeartRateZone.zone5),
       );
     });
