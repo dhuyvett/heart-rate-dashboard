@@ -238,6 +238,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 16),
 
+          // Dark Mode Section
+          Card(
+            child: SwitchListTile(
+              title: Text(
+                'Dark Mode',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                'Use dark color scheme throughout the app',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              value: settings.darkMode,
+              onChanged: (value) async {
+                await ref.read(settingsProvider.notifier).updateDarkMode(value);
+              },
+              secondary: Icon(
+                settings.darkMode ? Icons.dark_mode : Icons.light_mode,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // Heart Rate Zones Information
           Card(
             child: Padding(

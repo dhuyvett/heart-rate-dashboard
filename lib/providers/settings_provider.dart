@@ -30,17 +30,20 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final keepScreenAwakeString = await _databaseService.getSetting(
         'keep_screen_awake',
       );
+      final darkModeString = await _databaseService.getSetting('dark_mode');
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
           ? int.tryParse(chartWindowString)
           : null;
       final keepScreenAwake = keepScreenAwakeString == 'true';
+      final darkMode = darkModeString == 'true';
 
       state = AppSettings(
         age: age ?? defaultAge,
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
         keepScreenAwake: keepScreenAwake,
+        darkMode: darkMode,
       );
     } catch (e) {
       // If loading fails, keep default settings
@@ -87,6 +90,14 @@ class SettingsNotifier extends Notifier<AppSettings> {
   Future<void> updateKeepScreenAwake(bool enabled) async {
     state = state.copyWith(keepScreenAwake: enabled);
     await _databaseService.setSetting('keep_screen_awake', enabled.toString());
+  }
+
+  /// Updates the dark mode setting.
+  ///
+  /// The change is persisted immediately to the database.
+  Future<void> updateDarkMode(bool enabled) async {
+    state = state.copyWith(darkMode: enabled);
+    await _databaseService.setSetting('dark_mode', enabled.toString());
   }
 }
 

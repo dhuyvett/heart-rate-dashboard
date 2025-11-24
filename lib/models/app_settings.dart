@@ -17,6 +17,10 @@ class AppSettings {
   /// When enabled, the screen will not turn off on the monitoring screen.
   final bool keepScreenAwake;
 
+  /// Whether dark mode is enabled.
+  /// When enabled, the app uses a dark color scheme.
+  final bool darkMode;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -24,6 +28,7 @@ class AppSettings {
     this.age = defaultAge,
     this.chartWindowSeconds = defaultChartWindowSeconds,
     this.keepScreenAwake = false,
+    this.darkMode = false,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -31,11 +36,13 @@ class AppSettings {
     int? age,
     int? chartWindowSeconds,
     bool? keepScreenAwake,
+    bool? darkMode,
   }) {
     return AppSettings(
       age: age ?? this.age,
       chartWindowSeconds: chartWindowSeconds ?? this.chartWindowSeconds,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
+      darkMode: darkMode ?? this.darkMode,
     );
   }
 
@@ -46,15 +53,17 @@ class AppSettings {
     return other is AppSettings &&
         other.age == age &&
         other.chartWindowSeconds == chartWindowSeconds &&
-        other.keepScreenAwake == keepScreenAwake;
+        other.keepScreenAwake == keepScreenAwake &&
+        other.darkMode == darkMode;
   }
 
   @override
-  int get hashCode => Object.hash(age, chartWindowSeconds, keepScreenAwake);
+  int get hashCode =>
+      Object.hash(age, chartWindowSeconds, keepScreenAwake, darkMode);
 
   @override
   String toString() {
     return 'AppSettings(age: $age, chartWindowSeconds: $chartWindowSeconds, '
-        'keepScreenAwake: $keepScreenAwake)';
+        'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode)';
   }
 }

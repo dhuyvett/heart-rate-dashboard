@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'providers/settings_provider.dart';
 import 'screens/permission_explanation_screen.dart';
 import 'screens/device_selection_screen.dart';
 
@@ -14,19 +15,23 @@ void main() {
 ///
 /// Sets up the MaterialApp with theme configuration including heart rate zone colors.
 /// Determines the initial route based on permission status.
-class MyApp extends StatelessWidget {
+/// Uses ConsumerWidget to watch settings for dark mode.
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final brightness = settings.darkMode ? Brightness.dark : Brightness.light;
+
     return MaterialApp(
       title: 'Heart Rate Dashboard',
       theme: ThemeData(
         // Use a blue color scheme that complements our zone colors
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
-          // Ensure good contrast for text and UI elements
-          brightness: Brightness.light,
+          // Use brightness based on dark mode setting
+          brightness: brightness,
         ),
         // Apply Material 3 design
         useMaterial3: true,
