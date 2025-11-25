@@ -6,7 +6,7 @@
 // widget and integration tests.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:heart_rate_dashboard/models/gender.dart';
+import 'package:heart_rate_dashboard/models/sex.dart';
 import 'package:heart_rate_dashboard/models/scanned_device.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
 import 'package:heart_rate_dashboard/utils/heart_rate_zone_calculator.dart';
@@ -24,15 +24,15 @@ void main() {
     test('HeartRateZoneCalculator calculates max heart rate correctly', () {
       // Male: 214 - (0.8 × age)
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRateByGender(30, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateBySex(30, Sex.male),
         equals(190),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRateByGender(40, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateBySex(40, Sex.male),
         equals(182),
       );
       expect(
-        HeartRateZoneCalculator.calculateMaxHeartRateByGender(50, Gender.male),
+        HeartRateZoneCalculator.calculateMaxHeartRateBySex(50, Sex.male),
         equals(174),
       );
     });
@@ -47,27 +47,27 @@ void main() {
       // - Zone 5: 171+ BPM (90%+)
 
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(80, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(80, 30, Sex.male),
         equals(HeartRateZone.resting),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(100, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(100, 30, Sex.male),
         equals(HeartRateZone.zone1),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(120, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(120, 30, Sex.male),
         equals(HeartRateZone.zone2),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(140, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(140, 30, Sex.male),
         equals(HeartRateZone.zone3),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(160, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(160, 30, Sex.male),
         equals(HeartRateZone.zone4),
       );
       expect(
-        HeartRateZoneCalculator.getZoneForBpmByGender(180, 30, Gender.male),
+        HeartRateZoneCalculator.getZoneForBpmBySex(180, 30, Sex.male),
         equals(HeartRateZone.zone5),
       );
     });

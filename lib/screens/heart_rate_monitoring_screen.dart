@@ -18,6 +18,7 @@ import '../widgets/error_dialog.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/session_stats_card.dart';
+import 'about_screen.dart';
 import 'device_selection_screen.dart';
 import 'settings_screen.dart';
 
@@ -129,6 +130,26 @@ class _HeartRateMonitoringScreenState
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
+      );
+    }
+  }
+
+  /// Navigates to the device selection screen from the menu.
+  Future<void> _navigateToDeviceSelection() async {
+    // Disconnect from current device
+    await bt.BluetoothService.instance.disconnect();
+
+    // Stop reconnection monitoring
+    ReconnectionHandler.instance.stopMonitoring();
+
+    // End the current session
+    await ref.read(sessionProvider.notifier).endSession();
+
+    if (mounted) {
+      // Navigate to device selection, clearing the navigation stack
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
+        (route) => false,
       );
     }
   }
@@ -245,14 +266,56 @@ class _HeartRateMonitoringScreenState
           error: (error, stack) => const SizedBox.shrink(),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onSelected: (value) async {
+              if (value == 'settings') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              } else if (value == 'about') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const AboutScreen()),
+                );
+              } else if (value == 'change_device') {
+                await _navigateToDeviceSelection();
+              }
             },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'change_device',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_searching),
+                    SizedBox(width: 12),
+                    Text('Change Device'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'about',
+                child: Row(
+                  children: [
+                    Icon(Icons.info),
+                    SizedBox(width: 12),
+                    Text('About'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

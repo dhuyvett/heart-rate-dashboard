@@ -1,9 +1,9 @@
 /// Enum representing biological sex for heart rate calculations.
 ///
 /// Used to calculate more accurate maximum heart rate values:
-/// - Male: 214 - (0.8 × age)
-/// - Female: 209 - (0.9 × age)
-enum Gender {
+/// - Male: 208.609 - (0.71 × age)
+/// - Female: 209.273 - (0.804 × age)
+enum Sex {
   /// Male biological sex
   male,
 
@@ -11,14 +11,14 @@ enum Gender {
   female,
 }
 
-/// Extension to provide display labels for gender values.
-extension GenderExtension on Gender {
-  /// Returns a user-friendly display label for the gender.
+/// Extension to provide display labels for sex values.
+extension SexExtension on Sex {
+  /// Returns a user-friendly display label for the sex.
   String get label {
     switch (this) {
-      case Gender.male:
+      case Sex.male:
         return 'Male';
-      case Gender.female:
+      case Sex.female:
         return 'Female';
     }
   }

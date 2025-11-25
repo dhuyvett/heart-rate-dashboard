@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/gender.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/sex.dart';
 import '../providers/settings_provider.dart';
-import '../services/bluetooth_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
-import 'device_selection_screen.dart';
+import 'max_hr_info_screen.dart';
 
 /// Settings screen for configuring app preferences.
 ///
@@ -162,17 +161,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Used to calculate your maximum heart rate and training zones',
+                    'Used to calculate your training zones',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Max Heart Rate Calculation',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Max Heart Rate Calculation',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.info_outline, size: 20),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const MaxHRInfoScreen(),
+                            ),
+                          );
+                        },
+                        tooltip: 'Learn about calculation methods',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<MaxHRCalculationMethod>(
@@ -249,30 +267,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Gender',
+                    'Sex',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Used for sex-specific heart rate formulas',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  SegmentedButton<Gender>(
-                    segments: Gender.values.map((gender) {
-                      return ButtonSegment<Gender>(
-                        value: gender,
-                        label: Text(gender.label),
-                        icon: Icon(
-                          gender == Gender.male ? Icons.male : Icons.female,
-                        ),
+                  SegmentedButton<Sex>(
+                    segments: Sex.values.map((sex) {
+                      return ButtonSegment<Sex>(
+                        value: sex,
+                        label: Text(sex.label),
+                        icon: Icon(sex == Sex.male ? Icons.male : Icons.female),
                       );
                     }).toList(),
-                    selected: {settings.gender},
+                    selected: {settings.sex},
                     onSelectionChanged:
                         settings.maxHRCalculationMethod ==
                             MaxHRCalculationMethod.shargalFormula
-                        ? (Set<Gender> newSelection) {
+                        ? (Set<Sex> newSelection) {
                             ref
                                 .read(settingsProvider.notifier)
-                                .updateGender(newSelection.first);
+                                .updateSex(newSelection.first);
                           }
                         : null,
                   ),
@@ -479,59 +502,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SizedBox(height: 16),
-
-          // Device Selection Section
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bluetooth Device',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Change or reconnect to a different heart rate monitor',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _navigateToDeviceSelection(context),
-                      icon: const Icon(Icons.bluetooth_searching),
-                      label: const Text('Change Device'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           const SizedBox(height: 32),
         ],
       ),
     );
-  }
-
-  /// Navigates to the device selection screen.
-  Future<void> _navigateToDeviceSelection(BuildContext context) async {
-    // Disconnect from current device
-    await BluetoothService.instance.disconnect();
-
-    if (context.mounted) {
-      // Navigate to device selection, clearing the navigation stack
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
-        (route) => false,
-      );
-    }
   }
 }

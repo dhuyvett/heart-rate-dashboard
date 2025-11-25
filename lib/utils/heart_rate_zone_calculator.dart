@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/app_settings.dart';
-import '../models/gender.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/sex.dart';
 import 'theme_colors.dart';
 
 /// Utility class for calculating heart rate zones using the Hopkins Medicine methodology.
@@ -36,7 +36,7 @@ class HeartRateZoneCalculator {
       case MaxHRCalculationMethod.tanakaFormula:
         return (208 - (0.7 * settings.age)).round();
       case MaxHRCalculationMethod.shargalFormula:
-        if (settings.gender == Gender.female) {
+        if (settings.sex == Sex.female) {
           return (209.273 - (0.804 * settings.age)).round();
         } else {
           return (208.609 - (0.71 * settings.age)).round();
@@ -46,21 +46,21 @@ class HeartRateZoneCalculator {
     }
   }
 
-  /// Calculates maximum heart rate using gender-specific formulas (legacy).
+  /// Calculates maximum heart rate using sex-specific formulas (legacy).
   ///
-  /// Uses more accurate gender-specific formulas:
+  /// Uses more accurate sex-specific formulas:
   /// - Male: 214 - (0.8 × age)
   /// - Female: 209 - (0.9 × age)
   ///
   /// [age] should be between 10-100 for realistic results.
-  /// [gender] determines which formula to use.
+  /// [sex] determines which formula to use.
   ///
   /// Example:
   /// ```dart
-  /// final maxHr = HeartRateZoneCalculator.calculateMaxHeartRateByGender(30, Gender.male); // Returns 190
+  /// final maxHr = HeartRateZoneCalculator.calculateMaxHeartRateBySex(30, Sex.male); // Returns 190
   /// ```
-  static int calculateMaxHeartRateByGender(int age, Gender gender) {
-    if (gender == Gender.female) {
+  static int calculateMaxHeartRateBySex(int age, Sex sex) {
+    if (sex == Sex.female) {
       return (209 - (0.9 * age)).round();
     } else {
       return (214 - (0.8 * age)).round();
@@ -107,7 +107,7 @@ class HeartRateZoneCalculator {
     }
   }
 
-  /// Determines the heart rate zone for a given BPM, age, and gender (legacy).
+  /// Determines the heart rate zone for a given BPM, age, and sex (legacy).
   ///
   /// Uses Hopkins Medicine zone methodology:
   /// - Resting: Below 50% of max HR
@@ -119,10 +119,10 @@ class HeartRateZoneCalculator {
   ///
   /// Example:
   /// ```dart
-  /// final zone = HeartRateZoneCalculator.getZoneForBpmByGender(140, 30, Gender.male); // Returns HeartRateZone.zone3
+  /// final zone = HeartRateZoneCalculator.getZoneForBpmBySex(140, 30, Sex.male); // Returns HeartRateZone.zone3
   /// ```
-  static HeartRateZone getZoneForBpmByGender(int bpm, int age, Gender gender) {
-    final maxHr = calculateMaxHeartRateByGender(age, gender);
+  static HeartRateZone getZoneForBpmBySex(int bpm, int age, Sex sex) {
+    final maxHr = calculateMaxHeartRateBySex(age, sex);
 
     // Calculate zone boundaries
     final zone1Threshold = (maxHr * 0.50).round();
@@ -193,13 +193,13 @@ class HeartRateZoneCalculator {
     };
   }
 
-  /// Returns the BPM ranges for all heart rate zones for a given age and gender (legacy).
+  /// Returns the BPM ranges for all heart rate zones for a given age and sex (legacy).
   ///
   /// Returns a [Map] where each [HeartRateZone] maps to a tuple of (minBpm, maxBpm).
   ///
   /// Example for age 30, male (max HR = 190):
   /// ```dart
-  /// final ranges = HeartRateZoneCalculator.getZoneRangesByGender(30, Gender.male);
+  /// final ranges = HeartRateZoneCalculator.getZoneRangesBySex(30, Sex.male);
   /// // Returns:
   /// // {
   /// //   HeartRateZone.resting: (0, 94),
@@ -210,11 +210,8 @@ class HeartRateZoneCalculator {
   /// //   HeartRateZone.zone5: (171, 190),
   /// // }
   /// ```
-  static Map<HeartRateZone, (int, int)> getZoneRangesByGender(
-    int age,
-    Gender gender,
-  ) {
-    final maxHr = calculateMaxHeartRateByGender(age, gender);
+  static Map<HeartRateZone, (int, int)> getZoneRangesBySex(int age, Sex sex) {
+    final maxHr = calculateMaxHeartRateBySex(age, sex);
 
     // Calculate zone boundaries
     final zone1Threshold = (maxHr * 0.50).round();

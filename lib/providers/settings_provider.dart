@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
-import '../models/gender.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/sex.dart';
 import '../services/database_service.dart';
 import '../utils/constants.dart';
 
@@ -33,7 +33,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
         'keep_screen_awake',
       );
       final darkModeString = await _databaseService.getSetting('dark_mode');
-      final genderString = await _databaseService.getSetting('gender');
+      final sexString = await _databaseService.getSetting('sex');
       final maxHRMethodString = await _databaseService.getSetting(
         'max_hr_calculation_method',
       );
@@ -47,7 +47,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
           : null;
       final keepScreenAwake = keepScreenAwakeString == 'true';
       final darkMode = darkModeString == 'true';
-      final gender = genderString == 'female' ? Gender.female : Gender.male;
+      final sex = sexString == 'female' ? Sex.female : Sex.male;
       final maxHRMethod = maxHRMethodString == 'custom'
           ? MaxHRCalculationMethod.custom
           : maxHRMethodString == 'hunt_formula'
@@ -63,7 +63,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
       state = AppSettings(
         age: age ?? defaultAge,
-        gender: gender,
+        sex: sex,
         maxHRCalculationMethod: maxHRMethod,
         customMaxHR: customMaxHR,
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
@@ -125,14 +125,14 @@ class SettingsNotifier extends Notifier<AppSettings> {
     await _databaseService.setSetting('dark_mode', enabled.toString());
   }
 
-  /// Updates the gender setting.
+  /// Updates the sex setting.
   ///
   /// The change is persisted immediately to the database.
-  Future<void> updateGender(Gender gender) async {
-    state = state.copyWith(gender: gender);
+  Future<void> updateSex(Sex sex) async {
+    state = state.copyWith(sex: sex);
     await _databaseService.setSetting(
-      'gender',
-      gender == Gender.female ? 'female' : 'male',
+      'sex',
+      sex == Sex.female ? 'female' : 'male',
     );
   }
 

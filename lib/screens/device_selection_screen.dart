@@ -10,7 +10,9 @@ import '../services/bluetooth_service.dart' as app_bt;
 import '../utils/error_messages.dart';
 import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
+import 'about_screen.dart';
 import 'heart_rate_monitoring_screen.dart';
+import 'settings_screen.dart';
 
 /// Screen for selecting and connecting to a Bluetooth heart rate monitor.
 ///
@@ -267,7 +269,50 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
     final devicesAsync = ref.watch(deviceScanProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Select Heart Rate Monitor')),
+      appBar: AppBar(
+        title: const Text('Select Heart Rate Monitor'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Menu',
+            onSelected: (value) {
+              if (value == 'settings') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              } else if (value == 'about') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const AboutScreen()),
+                );
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'about',
+                child: Row(
+                  children: [
+                    Icon(Icons.info),
+                    SizedBox(width: 12),
+                    Text('About'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           Column(

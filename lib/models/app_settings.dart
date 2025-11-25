@@ -1,6 +1,6 @@
 import '../utils/constants.dart';
-import 'gender.dart';
 import 'max_hr_calculation_method.dart';
+import 'sex.dart';
 
 /// Represents the application settings for the Heart Rate Dashboard.
 ///
@@ -12,7 +12,7 @@ class AppSettings {
   final int age;
 
   /// User's biological sex for more accurate heart rate calculations.
-  final Gender gender;
+  final Sex sex;
 
   /// Method for calculating maximum heart rate.
   final MaxHRCalculationMethod maxHRCalculationMethod;
@@ -38,7 +38,7 @@ class AppSettings {
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
   const AppSettings({
     this.age = defaultAge,
-    this.gender = Gender.male,
+    this.sex = Sex.male,
     this.maxHRCalculationMethod = MaxHRCalculationMethod.foxFormula,
     this.customMaxHR,
     this.chartWindowSeconds = defaultChartWindowSeconds,
@@ -49,7 +49,7 @@ class AppSettings {
   /// Creates a copy of this settings with updated fields.
   AppSettings copyWith({
     int? age,
-    Gender? gender,
+    Sex? sex,
     MaxHRCalculationMethod? maxHRCalculationMethod,
     int? customMaxHR,
     int? chartWindowSeconds,
@@ -58,7 +58,7 @@ class AppSettings {
   }) {
     return AppSettings(
       age: age ?? this.age,
-      gender: gender ?? this.gender,
+      sex: sex ?? this.sex,
       maxHRCalculationMethod:
           maxHRCalculationMethod ?? this.maxHRCalculationMethod,
       customMaxHR: customMaxHR ?? this.customMaxHR,
@@ -74,7 +74,7 @@ class AppSettings {
 
     return other is AppSettings &&
         other.age == age &&
-        other.gender == gender &&
+        other.sex == sex &&
         other.maxHRCalculationMethod == maxHRCalculationMethod &&
         other.customMaxHR == customMaxHR &&
         other.chartWindowSeconds == chartWindowSeconds &&
@@ -85,7 +85,7 @@ class AppSettings {
   @override
   int get hashCode => Object.hash(
     age,
-    gender,
+    sex,
     maxHRCalculationMethod,
     customMaxHR,
     chartWindowSeconds,
@@ -95,7 +95,7 @@ class AppSettings {
 
   @override
   String toString() {
-    return 'AppSettings(age: $age, gender: $gender, '
+    return 'AppSettings(age: $age, sex: $sex, '
         'maxHRCalculationMethod: $maxHRCalculationMethod, '
         'customMaxHR: $customMaxHR, '
         'chartWindowSeconds: $chartWindowSeconds, '
