@@ -427,6 +427,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       windowSeconds: windowSeconds > 0 ? windowSeconds : 60,
       lineColor: color,
       referenceTime: _currentSession.endTime,
+      isLiveMode: false,
     );
   }
 

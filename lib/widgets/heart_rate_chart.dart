@@ -2,12 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/heart_rate_reading.dart';
 
-/// A real-time line chart displaying heart rate data over time.
+/// A line chart displaying heart rate data over time.
 ///
-/// This widget uses fl_chart to render a scrolling line chart that shows
-/// the heart rate readings within a specified time window. The chart
-/// automatically updates as new data arrives and scrolls to show the
-/// most recent readings.
+/// This widget uses fl_chart to render heart rate data in two modes:
+/// - Live mode: Shows real-time scrolling data with new data on the right
+/// - Historical mode: Shows complete session data with oldest on left
 class HeartRateChart extends StatelessWidget {
   /// The heart rate readings to display.
   /// Should be sorted by timestamp (oldest to newest).
@@ -26,12 +25,18 @@ class HeartRateChart extends StatelessWidget {
   /// for calculating the visible window. Useful for pausing the chart.
   final DateTime? referenceTime;
 
+  /// Whether to display as a live scrolling chart (true) or historical chart (false).
+  /// Live mode: New data appears on right, old data shifts left, labels right-to-left (0s at right).
+  /// Historical mode: Oldest data on left, newest on right, labels left-to-right (0s at left).
+  final bool isLiveMode;
+
   /// Creates a heart rate chart widget.
   const HeartRateChart({
     required this.readings,
     required this.windowSeconds,
     required this.lineColor,
     this.referenceTime,
+    this.isLiveMode = true,
     super.key,
   });
 
@@ -51,13 +56,24 @@ class HeartRateChart extends StatelessWidget {
       );
     }
 
-    // Filter readings to show only those within the time window
-    // Use referenceTime if provided (for pausing), otherwise use current time
-    final now = referenceTime ?? DateTime.now();
-    final windowStart = now.subtract(Duration(seconds: windowSeconds));
-    final visibleReadings = readings
-        .where((r) => r.timestamp.isAfter(windowStart))
-        .toList();
+    // Filter readings and calculate window based on mode
+    final List<HeartRateReading> visibleReadings;
+    final DateTime windowStart;
+
+    if (isLiveMode) {
+      // Live mode: Show recent data within time window from now
+      final now = referenceTime ?? DateTime.now();
+      windowStart = now.subtract(Duration(seconds: windowSeconds));
+      visibleReadings = readings
+          .where((r) => r.timestamp.isAfter(windowStart))
+          .toList();
+    } else {
+      // Historical mode: Show all readings, use first reading as start
+      visibleReadings = readings;
+      windowStart = readings.isNotEmpty
+          ? readings.first.timestamp
+          : DateTime.now();
+    }
 
     if (visibleReadings.isEmpty) {
       return Center(
@@ -71,7 +87,7 @@ class HeartRateChart extends StatelessWidget {
     }
 
     // Convert readings to chart spots
-    final spots = _createSpots(visibleReadings, windowStart);
+    final spots = _createSpots(visibleReadings, windowStart, isLiveMode);
 
     // Calculate Y-axis bounds
     final allBpm = visibleReadings.map((r) => r.bpm).toList();
@@ -128,8 +144,21 @@ class HeartRateChart extends StatelessWidget {
                 reservedSize: 30,
                 interval: windowSeconds / 4,
                 getTitlesWidget: (value, meta) {
-                  final seconds = windowSeconds - value.toInt();
-                  return Text('${seconds}s', style: theme.textTheme.bodySmall);
+                  if (isLiveMode) {
+                    // Live mode: Right = 0s (now), Left = windowSeconds (oldest)
+                    final seconds = windowSeconds - value.toInt();
+                    return Text(
+                      '${seconds}s',
+                      style: theme.textTheme.bodySmall,
+                    );
+                  } else {
+                    // Historical mode: Left = 0s (start), Right = duration (end)
+                    final seconds = value.toInt();
+                    return Text(
+                      '${seconds}s',
+                      style: theme.textTheme.bodySmall,
+                    );
+                  }
                 },
               ),
             ),
@@ -167,16 +196,21 @@ class HeartRateChart extends StatelessWidget {
 
   /// Converts heart rate readings to chart spots.
   ///
-  /// X-axis values are seconds from the start of the window (0 to windowSeconds).
+  /// In live mode: Newest data on right, oldest on left (standard positioning)
+  /// In historical mode: Oldest on left, newest on right (standard positioning)
   /// Y-axis values are BPM values.
   List<FlSpot> _createSpots(
     List<HeartRateReading> readings,
     DateTime windowStart,
+    bool isLiveMode,
   ) {
     return readings.map((reading) {
       // Calculate X position (seconds from window start)
       final xSeconds = reading.timestamp.difference(windowStart).inSeconds;
 
+      // Both modes use the same positioning: older readings have lower X values
+      // Live mode: oldest = 0, newest = windowSeconds (with countdown labels)
+      // Historical mode: oldest = 0, newest = duration (with count-up labels)
       return FlSpot(xSeconds.toDouble(), reading.bpm.toDouble());
     }).toList();
   }

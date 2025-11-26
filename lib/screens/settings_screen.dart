@@ -391,7 +391,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Training zones based on your age (${settings.age} years)',
+                    'Training zones based on your maximum heart rate of $maxHr BPM',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
