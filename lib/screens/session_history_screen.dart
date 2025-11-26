@@ -177,10 +177,11 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
               const PopupMenuItem<String>(
                 value: 'delete_all',
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.delete_sweep),
                     SizedBox(width: 12),
-                    Text('Delete All Sessions'),
+                    Expanded(child: Text('Delete All Sessions')),
                   ],
                 ),
               ),

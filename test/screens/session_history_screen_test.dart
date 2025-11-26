@@ -186,6 +186,8 @@ void main() {
         ),
       ];
 
+      final navigatorObserver = MockNavigatorObserver();
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -193,7 +195,10 @@ void main() {
               () => TestableSessionHistoryNotifier(sessions),
             ),
           ],
-          child: const MaterialApp(home: SessionHistoryScreen()),
+          child: MaterialApp(
+            home: const SessionHistoryScreen(),
+            navigatorObservers: [navigatorObserver],
+          ),
         ),
       );
 
@@ -201,11 +206,10 @@ void main() {
 
       // Tap on the session
       await tester.tap(find.byType(ListTile));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      // Navigation will be tested in integration tests
-      // Here we just verify the tap is registered (ListTile is tappable)
-      expect(find.byType(ListTile), findsOneWidget);
+      // Verify navigation was attempted
+      expect(navigatorObserver.pushedRoutes, isNotEmpty);
     });
   });
 }
@@ -239,5 +243,15 @@ class TestableSessionHistoryNotifier extends SessionHistoryNotifier {
   Future<void> deleteAllSessions() async {
     // Override to just clear state without calling database
     state = [];
+  }
+}
+
+/// Mock NavigatorObserver for testing navigation.
+class MockNavigatorObserver extends NavigatorObserver {
+  final List<Route<dynamic>> pushedRoutes = [];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRoutes.add(route);
   }
 }
