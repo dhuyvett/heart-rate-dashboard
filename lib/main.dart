@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'providers/settings_provider.dart';
+import 'services/database_service.dart';
 import 'screens/permission_explanation_screen.dart';
 import 'screens/device_selection_screen.dart';
 
@@ -76,7 +77,52 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
   @override
   void initState() {
     super.initState();
-    _checkPermissions();
+    _initializeApp();
+  }
+
+  /// Initializes the app by checking permissions and performing cleanup.
+  Future<void> _initializeApp() async {
+    // First, perform session cleanup based on retention settings
+    await _performSessionCleanup();
+
+    // Then check permissions
+    await _checkPermissions();
+  }
+
+  /// Performs auto-deletion of old sessions based on retention settings.
+  Future<void> _performSessionCleanup() async {
+    try {
+      final db = DatabaseService.instance;
+
+      // Load retention days setting
+      final retentionDaysString = await db.getSetting('session_retention_days');
+      final retentionDays = retentionDaysString != null
+          ? int.tryParse(retentionDaysString) ?? 30
+          : 30;
+
+      // Calculate cutoff date
+      final cutoffDate = DateTime.now().subtract(Duration(days: retentionDays));
+
+      // Find expired sessions
+      final expiredSessions = await db.getSessionsOlderThan(cutoffDate);
+
+      // Delete each expired session
+      for (final session in expiredSessions) {
+        if (session.id != null) {
+          await db.deleteSession(session.id!);
+        }
+      }
+
+      // Log cleanup for debugging (silent to user)
+      if (expiredSessions.isNotEmpty) {
+        // ignore: avoid_print
+        print('Auto-deleted ${expiredSessions.length} expired session(s)');
+      }
+    } catch (e) {
+      // Log error but don't block app startup
+      // ignore: avoid_print
+      print('Error during session cleanup: $e');
+    }
   }
 
   /// Checks if required Bluetooth permissions are granted.

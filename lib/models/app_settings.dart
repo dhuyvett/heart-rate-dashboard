@@ -33,6 +33,12 @@ class AppSettings {
   /// When enabled, the app uses a dark color scheme.
   final bool darkMode;
 
+  /// Session retention period in days.
+  /// Sessions older than this will be automatically deleted.
+  /// Valid range: 1-3650 days (approximately 10 years).
+  /// Default: 30 days.
+  final int sessionRetentionDays;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -44,6 +50,7 @@ class AppSettings {
     this.chartWindowSeconds = defaultChartWindowSeconds,
     this.keepScreenAwake = false,
     this.darkMode = false,
+    this.sessionRetentionDays = 30,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -55,6 +62,7 @@ class AppSettings {
     int? chartWindowSeconds,
     bool? keepScreenAwake,
     bool? darkMode,
+    int? sessionRetentionDays,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -65,6 +73,7 @@ class AppSettings {
       chartWindowSeconds: chartWindowSeconds ?? this.chartWindowSeconds,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       darkMode: darkMode ?? this.darkMode,
+      sessionRetentionDays: sessionRetentionDays ?? this.sessionRetentionDays,
     );
   }
 
@@ -79,7 +88,8 @@ class AppSettings {
         other.customMaxHR == customMaxHR &&
         other.chartWindowSeconds == chartWindowSeconds &&
         other.keepScreenAwake == keepScreenAwake &&
-        other.darkMode == darkMode;
+        other.darkMode == darkMode &&
+        other.sessionRetentionDays == sessionRetentionDays;
   }
 
   @override
@@ -91,6 +101,7 @@ class AppSettings {
     chartWindowSeconds,
     keepScreenAwake,
     darkMode,
+    sessionRetentionDays,
   );
 
   @override
@@ -99,6 +110,7 @@ class AppSettings {
         'maxHRCalculationMethod: $maxHRCalculationMethod, '
         'customMaxHR: $customMaxHR, '
         'chartWindowSeconds: $chartWindowSeconds, '
-        'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode)';
+        'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
+        'sessionRetentionDays: $sessionRetentionDays)';
   }
 }

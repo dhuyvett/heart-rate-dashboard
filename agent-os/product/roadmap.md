@@ -10,7 +10,7 @@
 
 5. [ ] Historical Data Visualization — Build chart screen displaying historical heart rate data using fl_chart with time-series line graphs, selectable date ranges, and zoom/pan interactions for detailed analysis. `L`
 
-6. [ ] Workout Session Management — Create session list view showing all recorded workouts with summary statistics (duration, avg/max heart rate, date), ability to view session details, and delete individual sessions. `M`
+6. [x] Workout Session Management — Create session list view showing all recorded workouts with summary statistics (duration, avg/max heart rate, date), ability to view session details, and delete individual sessions. `M`
 
 7. [ ] CSV Export Functionality — Implement data export feature generating CSV files with all workout data (timestamps, heart rate readings, session metadata) and device file picker for saving to user-selected location. `S`
 

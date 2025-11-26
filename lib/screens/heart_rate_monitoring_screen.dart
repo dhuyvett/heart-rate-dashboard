@@ -20,6 +20,7 @@ import '../widgets/loading_overlay.dart';
 import '../widgets/session_stats_card.dart';
 import 'about_screen.dart';
 import 'device_selection_screen.dart';
+import 'session_history_screen.dart';
 import 'settings_screen.dart';
 
 /// Main screen for monitoring heart rate in real-time.
@@ -270,7 +271,13 @@ class _HeartRateMonitoringScreenState
             icon: const Icon(Icons.menu),
             tooltip: 'Menu',
             onSelected: (value) async {
-              if (value == 'settings') {
+              if (value == 'session_history') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SessionHistoryScreen(),
+                  ),
+                );
+              } else if (value == 'settings') {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SettingsScreen(),
@@ -285,6 +292,16 @@ class _HeartRateMonitoringScreenState
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'session_history',
+                child: Row(
+                  children: [
+                    Icon(Icons.history),
+                    SizedBox(width: 12),
+                    Text('Session History'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'settings',
                 child: Row(

@@ -282,6 +282,139 @@ class DatabaseService {
     return WorkoutSession.fromMap(maps.first);
   }
 
+  /// Retrieves all completed workout sessions.
+  ///
+  /// Returns a list of sessions that have been ended (end_time IS NOT NULL),
+  /// sorted by start_time in descending order (newest first).
+  Future<List<WorkoutSession>> getAllCompletedSessions() async {
+    final db = await database;
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'end_time IS NOT NULL',
+      orderBy: 'start_time DESC',
+    );
+
+    return maps.map((map) => WorkoutSession.fromMap(map)).toList();
+  }
+
+  /// Deletes a workout session and all its associated heart rate readings.
+  ///
+  /// Uses a transaction to ensure atomic deletion of both the session
+  /// and all related heart rate readings.
+  ///
+  /// [sessionId] is the ID of the session to delete.
+  Future<void> deleteSession(int sessionId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // Delete all heart rate readings for this session
+      await txn.delete(
+        _tableHeartRateReadings,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+
+      // Delete the session
+      await txn.delete(
+        _tableWorkoutSessions,
+        where: 'id = ?',
+        whereArgs: [sessionId],
+      );
+    });
+  }
+
+  /// Deletes all workout sessions and all heart rate readings.
+  ///
+  /// Uses a transaction to ensure atomic deletion of all data.
+  /// This operation cannot be undone.
+  Future<void> deleteAllSessions() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // Delete all heart rate readings
+      await txn.delete(_tableHeartRateReadings);
+
+      // Delete all sessions
+      await txn.delete(_tableWorkoutSessions);
+    });
+  }
+
+  /// Retrieves sessions older than the specified cutoff date.
+  ///
+  /// Returns sessions where end_time is before the cutoff date.
+  /// Used for auto-deletion based on retention settings.
+  ///
+  /// [cutoffDate] is the date/time threshold - sessions ended before this
+  /// will be returned.
+  Future<List<WorkoutSession>> getSessionsOlderThan(DateTime cutoffDate) async {
+    final db = await database;
+    final cutoffTimestamp = cutoffDate.millisecondsSinceEpoch;
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'end_time IS NOT NULL AND end_time < ?',
+      whereArgs: [cutoffTimestamp],
+      orderBy: 'start_time DESC',
+    );
+
+    return maps.map((map) => WorkoutSession.fromMap(map)).toList();
+  }
+
+  /// Gets the previous session (older) relative to the current session.
+  ///
+  /// Returns the session with the most recent start_time that is still
+  /// less than the current session's start_time, or null if no such
+  /// session exists.
+  ///
+  /// [currentSessionId] is the ID of the reference session.
+  Future<WorkoutSession?> getPreviousSession(int currentSessionId) async {
+    final db = await database;
+
+    // First, get the current session's start time
+    final currentSession = await getSessionById(currentSessionId);
+    if (currentSession == null) return null;
+
+    final currentStartTime = currentSession.startTime.millisecondsSinceEpoch;
+
+    // Query for sessions with earlier start times
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'start_time < ?',
+      whereArgs: [currentStartTime],
+      orderBy: 'start_time DESC',
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return WorkoutSession.fromMap(maps.first);
+  }
+
+  /// Gets the next session (newer) relative to the current session.
+  ///
+  /// Returns the session with the earliest start_time that is still
+  /// greater than the current session's start_time, or null if no such
+  /// session exists.
+  ///
+  /// [currentSessionId] is the ID of the reference session.
+  Future<WorkoutSession?> getNextSession(int currentSessionId) async {
+    final db = await database;
+
+    // First, get the current session's start time
+    final currentSession = await getSessionById(currentSessionId);
+    if (currentSession == null) return null;
+
+    final currentStartTime = currentSession.startTime.millisecondsSinceEpoch;
+
+    // Query for sessions with later start times
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'start_time > ?',
+      whereArgs: [currentStartTime],
+      orderBy: 'start_time ASC',
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return WorkoutSession.fromMap(maps.first);
+  }
+
   /// Retrieves a setting value by key.
   ///
   /// Returns the setting value or null if not found.
@@ -315,7 +448,12 @@ class DatabaseService {
   /// Tests must provide a DatabaseFactory (e.g., from sqflite_common_ffi).
   Future<void> initializeForTesting(DatabaseFactory factory) async {
     _testDatabaseFactory = factory;
-    await closeForTesting();
+    // Close any existing database connection
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+    // Initialize the new test database
     _database = await _initDatabase();
   }
 

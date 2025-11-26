@@ -40,6 +40,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final customMaxHRString = await _databaseService.getSetting(
         'custom_max_hr',
       );
+      final sessionRetentionDaysString = await _databaseService.getSetting(
+        'session_retention_days',
+      );
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -60,6 +63,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final customMaxHR = customMaxHRString != null
           ? int.tryParse(customMaxHRString)
           : null;
+      final sessionRetentionDays = sessionRetentionDaysString != null
+          ? int.tryParse(sessionRetentionDaysString)
+          : null;
 
       state = AppSettings(
         age: age ?? defaultAge,
@@ -69,6 +75,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
         chartWindowSeconds: chartWindowSeconds ?? defaultChartWindowSeconds,
         keepScreenAwake: keepScreenAwake,
         darkMode: darkMode,
+        sessionRetentionDays: sessionRetentionDays ?? 30,
       );
     } catch (e) {
       // If loading fails, keep default settings
@@ -170,6 +177,24 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
     state = state.copyWith(customMaxHR: maxHR);
     await _databaseService.setSetting('custom_max_hr', maxHR.toString());
+  }
+
+  /// Updates the session retention days setting.
+  ///
+  /// The change is persisted immediately to the database.
+  /// Valid range: 1-3650 days.
+  Future<void> updateSessionRetentionDays(int days) async {
+    if (days < 1 || days > 3650) {
+      throw ArgumentError(
+        'Session retention days must be between 1 and 3650, got $days',
+      );
+    }
+
+    state = state.copyWith(sessionRetentionDays: days);
+    await _databaseService.setSetting(
+      'session_retention_days',
+      days.toString(),
+    );
   }
 }
 

@@ -26,8 +26,10 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _ageController;
   late TextEditingController _customMaxHRController;
+  late TextEditingController _retentionDaysController;
   String? _ageError;
   String? _customMaxHRError;
+  String? _retentionDaysError;
 
   @override
   void initState() {
@@ -37,12 +39,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _customMaxHRController = TextEditingController(
       text: settings.customMaxHR?.toString() ?? '',
     );
+    _retentionDaysController = TextEditingController(
+      text: settings.sessionRetentionDays.toString(),
+    );
   }
 
   @override
   void dispose() {
     _ageController.dispose();
     _customMaxHRController.dispose();
+    _retentionDaysController.dispose();
     super.dispose();
   }
 
@@ -127,6 +133,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating custom max HR: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Updates the session retention days setting.
+  Future<void> _updateRetentionDays(String value) async {
+    final days = int.tryParse(value);
+
+    if (days == null) {
+      setState(() {
+        _retentionDaysError = 'Please enter a valid number';
+      });
+      return;
+    }
+
+    if (days < 1 || days > 3650) {
+      setState(() {
+        _retentionDaysError = 'Must be between 1 and 3650 days';
+      });
+      return;
+    }
+
+    setState(() {
+      _retentionDaysError = null;
+    });
+
+    try {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSessionRetentionDays(days);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating retention days: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -443,6 +487,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         },
                       );
                     }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Session Retention Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Session Retention',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Sessions older than this will be automatically deleted',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _retentionDaysController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Session Retention (days)',
+                      border: const OutlineInputBorder(),
+                      errorText: _retentionDaysError,
+                      hintText: '1-3650',
+                      suffixIcon: const Icon(Icons.calendar_today),
+                    ),
+                    onChanged: _updateRetentionDays,
                   ),
                 ],
               ),
