@@ -11,6 +11,7 @@ import '../providers/settings_provider.dart';
 import '../services/bluetooth_service.dart' as bt;
 import '../services/database_service.dart';
 import '../services/reconnection_handler.dart';
+import '../utils/app_logger.dart';
 import '../utils/heart_rate_zone_calculator.dart';
 import '../widgets/compact_stats_row.dart';
 import '../widgets/connection_status_indicator.dart';
@@ -45,6 +46,7 @@ class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
 
 class _HeartRateMonitoringScreenState
     extends ConsumerState<HeartRateMonitoringScreen> {
+  static final _logger = AppLogger.getLogger('HeartRateMonitoringScreen');
   List<HeartRateReading> _recentReadings = [];
   bool _sessionStarted = false;
   int? _lastKnownBpm;
@@ -203,9 +205,13 @@ class _HeartRateMonitoringScreenState
           _recentReadings = readings;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error but continue - chart will show available data
-      debugPrint('Error loading recent readings: $e');
+      _logger.w(
+        'Error loading recent readings',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

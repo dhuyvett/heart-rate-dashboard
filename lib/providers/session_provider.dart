@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/heart_rate_data.dart';
 import '../models/session_state.dart';
 import '../services/database_service.dart';
+import '../utils/app_logger.dart';
 import 'heart_rate_provider.dart';
 
 /// Notifier for managing workout session state.
@@ -10,6 +11,7 @@ import 'heart_rate_provider.dart';
 /// This notifier automatically records heart rate readings to the database
 /// and maintains real-time statistics for the active session.
 class SessionNotifier extends Notifier<SessionState> {
+  static final _logger = AppLogger.getLogger('SessionNotifier');
   DatabaseService get _databaseService => DatabaseService.instance;
 
   // Subscription for heart rate stream
@@ -63,10 +65,9 @@ class SessionNotifier extends Notifier<SessionState> {
           _handleHeartRateReading(next.value.bpm);
         }
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error starting session: $e');
+      _logger.e('Error starting session', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -90,10 +91,13 @@ class SessionNotifier extends Notifier<SessionState> {
 
       // Update statistics
       _updateStatistics(bpm);
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error handling heart rate reading: $e');
+      _logger.w(
+        'Error handling heart rate reading',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -186,10 +190,9 @@ class SessionNotifier extends Notifier<SessionState> {
       // Reset to inactive state
       state = SessionState.inactive();
       _sumBpm = 0;
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error ending session: $e');
+      _logger.e('Error ending session', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }

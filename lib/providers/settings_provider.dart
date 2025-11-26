@@ -3,6 +3,7 @@ import '../models/app_settings.dart';
 import '../models/max_hr_calculation_method.dart';
 import '../models/sex.dart';
 import '../services/database_service.dart';
+import '../utils/app_logger.dart';
 import '../utils/constants.dart';
 
 /// Notifier for managing application settings.
@@ -10,6 +11,7 @@ import '../utils/constants.dart';
 /// This notifier loads settings from the database on initialization
 /// and persists any changes immediately back to the database.
 class SettingsNotifier extends Notifier<AppSettings> {
+  static final _logger = AppLogger.getLogger('SettingsNotifier');
   DatabaseService get _databaseService => DatabaseService.instance;
 
   @override
@@ -77,11 +79,10 @@ class SettingsNotifier extends Notifier<AppSettings> {
         darkMode: darkMode,
         sessionRetentionDays: sessionRetentionDays ?? 30,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
       // If loading fails, keep default settings
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error loading settings: $e');
+      _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
     }
   }
 

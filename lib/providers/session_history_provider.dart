@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/workout_session.dart';
 import '../services/database_service.dart';
+import '../utils/app_logger.dart';
 
 /// Notifier for managing session history state.
 ///
 /// This notifier loads all completed workout sessions from the database
 /// and provides methods for deleting individual or all sessions.
 class SessionHistoryNotifier extends Notifier<List<WorkoutSession>> {
+  static final _logger = AppLogger.getLogger('SessionHistoryNotifier');
   DatabaseService get _databaseService => DatabaseService.instance;
 
   @override
@@ -25,10 +27,9 @@ class SessionHistoryNotifier extends Notifier<List<WorkoutSession>> {
     try {
       final sessions = await _databaseService.getAllCompletedSessions();
       state = sessions;
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error loading sessions: $e');
+      _logger.e('Error loading sessions', error: e, stackTrace: stackTrace);
       // Keep current state on error
     }
   }
@@ -41,10 +42,9 @@ class SessionHistoryNotifier extends Notifier<List<WorkoutSession>> {
       await _databaseService.deleteSession(sessionId);
       // Remove session from state
       state = state.where((session) => session.id != sessionId).toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error deleting session: $e');
+      _logger.e('Error deleting session', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -57,10 +57,13 @@ class SessionHistoryNotifier extends Notifier<List<WorkoutSession>> {
       await _databaseService.deleteAllSessions();
       // Clear state
       state = [];
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging
-      // ignore: avoid_print
-      print('Error deleting all sessions: $e');
+      _logger.e(
+        'Error deleting all sessions',
+        error: e,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
   }

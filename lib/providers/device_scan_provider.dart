@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scanned_device.dart';
 import '../services/bluetooth_service.dart';
+import '../utils/app_logger.dart';
 
 /// Provider for Bluetooth device scanning.
 ///
@@ -8,6 +9,7 @@ import '../services/bluetooth_service.dart';
 /// The demo mode device is always included in the list, even if scanning fails.
 /// The demo device is emitted immediately to avoid loading spinners.
 final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
+  final logger = AppLogger.getLogger('DeviceScanProvider');
   final bluetoothService = BluetoothService.instance;
 
   // Always include demo mode device as first item
@@ -34,15 +36,17 @@ final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
       // Prepend demo device to the list
       yield [demoDevice, ...scannedDevices];
     }
-  } on StateError catch (e) {
+  } on StateError catch (e, stackTrace) {
     // If Bluetooth is unavailable or off, log the error
     // Demo device is already shown, so just log and continue
-    // ignore: avoid_print
-    print('Bluetooth scanning error: $e');
-  } catch (e) {
+    logger.w('Bluetooth scanning error', error: e, stackTrace: stackTrace);
+  } catch (e, stackTrace) {
     // For other errors, log but don't crash
     // Demo device is already shown
-    // ignore: avoid_print
-    print('Unexpected error during device scanning: $e');
+    logger.e(
+      'Unexpected error during device scanning',
+      error: e,
+      stackTrace: stackTrace,
+    );
   }
 });

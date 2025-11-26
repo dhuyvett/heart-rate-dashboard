@@ -7,6 +7,7 @@ import '../models/scanned_device.dart';
 import '../providers/device_scan_provider.dart';
 import '../providers/heart_rate_provider.dart';
 import '../services/bluetooth_service.dart' as app_bt;
+import '../utils/app_logger.dart';
 import '../utils/error_messages.dart';
 import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
@@ -28,6 +29,7 @@ class DeviceSelectionScreen extends ConsumerStatefulWidget {
 }
 
 class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
+  static final _logger = AppLogger.getLogger('DeviceSelectionScreen');
   bool _isScanning = false;
   bool _isConnecting = false;
   String? _connectingDeviceName;
@@ -227,15 +229,15 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
       ref.invalidate(heartRateProvider);
 
       // Debug logging
-      // ignore: avoid_print
-      print('Attempting to connect to device: ${device.id} (${device.name})');
+      _logger.d(
+        'Attempting to connect to device: ${device.id} (${device.name})',
+      );
 
       // Connect to device (works for both demo and real devices)
       await bluetoothService.connectToDevice(device.id);
 
       // Debug logging
-      // ignore: avoid_print
-      print('Successfully connected to device: ${device.name}');
+      _logger.i('Successfully connected to device: ${device.name}');
 
       // Navigate to monitoring screen on successful connection
       if (mounted) {
@@ -246,10 +248,9 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Debug logging
-      // ignore: avoid_print
-      print('Error connecting to device: $e');
+      _logger.e('Error connecting to device', error: e, stackTrace: stackTrace);
 
       if (mounted) {
         setState(() {

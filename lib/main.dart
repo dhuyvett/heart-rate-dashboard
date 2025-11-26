@@ -6,6 +6,7 @@ import 'providers/settings_provider.dart';
 import 'services/database_service.dart';
 import 'screens/permission_explanation_screen.dart';
 import 'screens/device_selection_screen.dart';
+import 'utils/app_logger.dart';
 
 void main() {
   // Wrap the entire app with ProviderScope to enable Riverpod state management
@@ -71,6 +72,7 @@ class InitialRouteResolver extends StatefulWidget {
 }
 
 class _InitialRouteResolverState extends State<InitialRouteResolver> {
+  static final _logger = AppLogger.getLogger('InitialRouteResolver');
   bool _isChecking = true;
   bool _hasPermissions = false;
 
@@ -113,15 +115,17 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
         }
       }
 
-      // Log cleanup for debugging (silent to user)
+      // Log cleanup for debugging
       if (expiredSessions.isNotEmpty) {
-        // ignore: avoid_print
-        print('Auto-deleted ${expiredSessions.length} expired session(s)');
+        _logger.i('Auto-deleted ${expiredSessions.length} expired session(s)');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error but don't block app startup
-      // ignore: avoid_print
-      print('Error during session cleanup: $e');
+      _logger.e(
+        'Error during session cleanup',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

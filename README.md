@@ -35,45 +35,20 @@ Connect to any standard Bluetooth heart rate monitor and see your heart rate dis
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup, prerequisites, and contribution guidelines |
-| [agent-os/product/mission.md](agent-os/product/mission.md) | Product vision, target users, and strategy |
-| [agent-os/product/roadmap.md](agent-os/product/roadmap.md) | Planned features and development priorities |
-| [agent-os/product/tech-stack.md](agent-os/product/tech-stack.md) | Technical architecture and design decisions |
-
-## Repository Structure
-
-```
-heart_rate_dashboard/
-├── lib/                    # Application source code
-│   ├── main.dart           # Entry point
-│   ├── models/             # Data models
-│   ├── providers/          # State management (Riverpod)
-│   ├── screens/            # UI screens
-│   ├── services/           # BLE, database, business logic
-│   ├── utils/              # Constants and helpers
-│   └── widgets/            # Reusable UI components
-├── test/                   # Unit and widget tests
-├── agent-os/               # Product and development documentation
-│   ├── product/            # Mission, roadmap, tech stack
-│   └── specs/              # Feature specifications
-├── android/                # Android platform configuration
-├── ios/                    # iOS platform configuration
-├── linux/                  # Linux desktop configuration
-├── macos/                  # macOS desktop configuration
-├── windows/                # Windows desktop configuration
-├── CONTRIBUTING.md         # Development guide
-└── CLAUDE.md               # AI development assistant guidance
-```
+| Document                                                         | Description                                                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                               | Development setup, prerequisites, and contribution guidelines |
+| [agent-os/product/mission.md](agent-os/product/mission.md)       | Product vision, target users, and strategy                    |
+| [agent-os/product/roadmap.md](agent-os/product/roadmap.md)       | Planned features and development priorities                   |
+| [agent-os/product/tech-stack.md](agent-os/product/tech-stack.md) | Technical architecture and design decisions                   |
 
 ## Platform Support
 
-| Platform | Status |
-|----------|--------|
-| Android | Full BLE support |
-| iOS | Full BLE support |
-| Desktop (Linux/macOS/Windows) | Demo mode only |
+| Platform                      | Status           |
+| ----------------------------- | ---------------- |
+| Android                       | Full BLE support |
+| iOS                           | Full BLE support |
+| Desktop (Linux/macOS/Windows) | Demo mode only   |
 
 ## License
 

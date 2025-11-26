@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../utils/constants.dart';
+import '../utils/app_logger.dart';
 import 'database_service.dart';
 import 'demo_mode_service.dart';
 
@@ -33,6 +34,9 @@ enum ConnectionState {
 ///
 /// Uses singleton pattern to ensure only one BLE instance exists.
 class BluetoothService {
+  // Logger instance
+  static final _logger = AppLogger.getLogger('BluetoothService');
+
   // Singleton instance
   static final BluetoothService instance = BluetoothService._internal();
 
@@ -126,10 +130,13 @@ class BluetoothService {
           }
         }
       },
-      onError: (e) {
+      onError: (e, stackTrace) {
         // Log scan errors but don't crash
-        // ignore: avoid_print
-        print('Scan results stream error: $e');
+        _logger.e(
+          'Scan results stream error',
+          error: e,
+          stackTrace: stackTrace,
+        );
       },
     );
 
@@ -145,10 +152,9 @@ class BluetoothService {
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       await FlutterBluePlus.stopScan();
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log but don't crash - stopping scan might fail if it wasn't running
-      // ignore: avoid_print
-      print('Error in stopScan: $e');
+      _logger.w('Error in stopScan', error: e, stackTrace: stackTrace);
     }
   }
 
@@ -161,10 +167,9 @@ class BluetoothService {
       // Start scanning without service filter - more reliable on Linux
       // and other platforms. The filtering happens in the listener.
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 30));
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error but don't crash - demo mode will still be available
-      // ignore: avoid_print
-      print('Bluetooth scan error: $e');
+      _logger.e('Bluetooth scan error', error: e, stackTrace: stackTrace);
     }
   }
 
@@ -276,19 +281,17 @@ class BluetoothService {
       // Stop any existing scan
       try {
         await stopScan();
-      } catch (e) {
+      } catch (e, stackTrace) {
         // Log but don't fail - stopping scan might fail if it wasn't running
-        // ignore: avoid_print
-        print('Error stopping scan: $e');
+        _logger.w('Error stopping scan', error: e, stackTrace: stackTrace);
       }
 
       // Start demo mode service
       try {
         DemoModeService.instance.startDemoMode();
-      } catch (e) {
+      } catch (e, stackTrace) {
         // Log the error - demo mode service might have issues
-        // ignore: avoid_print
-        print('Error starting demo mode: $e');
+        _logger.e('Error starting demo mode', error: e, stackTrace: stackTrace);
         rethrow;
       }
 
@@ -303,10 +306,13 @@ class BluetoothService {
           'last_connected_device_id',
           demoModeDeviceId,
         );
-      } catch (e) {
+      } catch (e, stackTrace) {
         // Log but don't fail - database error shouldn't prevent demo mode
-        // ignore: avoid_print
-        print('Error saving demo mode preference: $e');
+        _logger.w(
+          'Error saving demo mode preference',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
 
       // Update state to connected
@@ -371,10 +377,13 @@ class BluetoothService {
           try {
             final bpm = parseHeartRateValue(value);
             _heartRateController.add(bpm);
-          } catch (e) {
+          } catch (e, stackTrace) {
             // Log parsing error but don't crash - this is acceptable for production
-            // ignore: avoid_print
-            print('Error parsing heart rate value: $e');
+            _logger.w(
+              'Error parsing heart rate value',
+              error: e,
+              stackTrace: stackTrace,
+            );
           }
         }
       });
@@ -383,10 +392,13 @@ class BluetoothService {
       await for (final bpm in _heartRateController.stream) {
         yield bpm;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging - this is acceptable for production
-      // ignore: avoid_print
-      print('Error subscribing to heart rate: $e');
+      _logger.e(
+        'Error subscribing to heart rate',
+        error: e,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
   }
@@ -473,10 +485,9 @@ class BluetoothService {
       _connectedDevice = null;
       _connectedDeviceName = null;
       _updateConnectionState(ConnectionState.disconnected);
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging - this is acceptable for production
-      // ignore: avoid_print
-      print('Error during disconnect: $e');
+      _logger.e('Error during disconnect', error: e, stackTrace: stackTrace);
       _connectedDevice = null;
       _connectedDeviceName = null;
       _updateConnectionState(ConnectionState.disconnected);
@@ -534,10 +545,9 @@ class BluetoothService {
 
       // Device not found in cache, caller should handle appropriately
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log error for debugging - this is acceptable for production
-      // ignore: avoid_print
-      print('Error finding device: $e');
+      _logger.w('Error finding device', error: e, stackTrace: stackTrace);
       return null;
     }
   }
