@@ -72,6 +72,15 @@ dependencies:
   # Logging framework
   logger: ^2.6.2
 
+  # Secure storage for encryption keys
+  flutter_secure_storage: ^9.2.4
+
+  # Device information for key derivation
+  device_info_plus: ^12.2.0
+
+  # Cryptography utilities
+  crypto: ^3.0.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -19,6 +19,11 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // Suppress obsolete Java version warnings from dependencies
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-Xlint:-options")
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "org.dhuyvetter.heart_rate_dashboard"

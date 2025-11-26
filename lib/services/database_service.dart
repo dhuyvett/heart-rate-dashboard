@@ -5,15 +5,22 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/workout_session.dart';
+import '../utils/app_logger.dart';
+import '../utils/secure_key_manager.dart';
 
 /// Service for managing the encrypted local database.
 ///
 /// This service handles all database operations including session management,
 /// heart rate reading storage, and settings persistence. The database is
-/// encrypted using SQLCipher to protect user privacy.
+/// encrypted using SQLCipher on mobile platforms with device-specific keys
+/// stored in platform-native secure storage (Android Keystore, iOS Keychain).
+///
+/// Desktop platforms use unencrypted SQLite due to lack of SQLCipher support.
 ///
 /// Uses singleton pattern to ensure only one database instance exists.
 class DatabaseService {
+  static final _logger = AppLogger.getLogger('DatabaseService');
+
   // Singleton instance
   static final DatabaseService instance = DatabaseService._internal();
 
@@ -25,7 +32,6 @@ class DatabaseService {
 
   // Database configuration
   static const String _databaseName = 'heart_rate_dashboard.db';
-  static const String _databasePassword = 'hr_monitor_db_key';
   static const int _databaseVersion = 1;
 
   // Table names
@@ -82,10 +88,14 @@ class DatabaseService {
     final dbPath = await sqlcipher.getDatabasesPath();
     final path = join(dbPath, _databaseName);
 
+    // Get or create device-specific encryption key from secure storage
+    final encryptionKey = await SecureKeyManager.getOrCreateEncryptionKey();
+    _logger.d('Using device-specific encryption key for database');
+
     return await sqlcipher.openDatabase(
       path,
       version: _databaseVersion,
-      password: _databasePassword,
+      password: encryptionKey,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
