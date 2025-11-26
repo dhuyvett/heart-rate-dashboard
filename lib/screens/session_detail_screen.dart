@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/workout_session.dart';
+import '../providers/session_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
@@ -173,6 +174,9 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         await DatabaseService.instance.deleteSession(_currentSession.id!);
 
         if (mounted) {
+          // Refresh the session history list
+          ref.read(sessionHistoryProvider.notifier).loadSessions();
+
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Session deleted')));

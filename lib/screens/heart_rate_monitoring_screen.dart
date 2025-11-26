@@ -293,6 +293,16 @@ class _HeartRateMonitoringScreenState
             },
             itemBuilder: (BuildContext context) => [
               const PopupMenuItem<String>(
+                value: 'change_device',
+                child: Row(
+                  children: [
+                    Icon(Icons.bluetooth_searching),
+                    SizedBox(width: 12),
+                    Text('Change Device'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
                 value: 'session_history',
                 child: Row(
                   children: [
@@ -309,16 +319,6 @@ class _HeartRateMonitoringScreenState
                     Icon(Icons.settings),
                     SizedBox(width: 12),
                     Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'change_device',
-                child: Row(
-                  children: [
-                    Icon(Icons.bluetooth_searching),
-                    SizedBox(width: 12),
-                    Text('Change Device'),
                   ],
                 ),
               ),

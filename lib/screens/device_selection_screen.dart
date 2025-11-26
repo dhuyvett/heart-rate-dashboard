@@ -12,6 +12,7 @@ import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
 import 'about_screen.dart';
 import 'heart_rate_monitoring_screen.dart';
+import 'session_history_screen.dart';
 import 'settings_screen.dart';
 
 /// Screen for selecting and connecting to a Bluetooth heart rate monitor.
@@ -276,7 +277,13 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
             icon: const Icon(Icons.menu),
             tooltip: 'Menu',
             onSelected: (value) {
-              if (value == 'settings') {
+              if (value == 'session_history') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SessionHistoryScreen(),
+                  ),
+                );
+              } else if (value == 'settings') {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SettingsScreen(),
@@ -289,6 +296,16 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'session_history',
+                child: Row(
+                  children: [
+                    Icon(Icons.history),
+                    SizedBox(width: 12),
+                    Text('Session History'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'settings',
                 child: Row(
