@@ -23,6 +23,10 @@ class SessionNotifier extends Notifier<SessionState> {
   // Accumulated values for statistics calculation
   int _sumBpm = 0;
 
+  // Pause/resume tracking
+  Duration _totalPausedDuration = Duration.zero;
+  DateTime? _lastPauseTime;
+
   @override
   SessionState build() {
     // Return inactive state initially
@@ -49,12 +53,18 @@ class SessionNotifier extends Notifier<SessionState> {
       // Reset statistics accumulators
       _sumBpm = 0;
 
+      // Reset pause tracking
+      _totalPausedDuration = Duration.zero;
+      _lastPauseTime = null;
+
       // Start duration timer (updates every second)
       _durationTimer?.cancel();
       _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (state.startTime != null) {
-          final duration = DateTime.now().difference(state.startTime!);
-          state = state.copyWith(duration: duration);
+        if (state.startTime != null && !state.isPaused) {
+          // Calculate active duration: elapsed time minus paused time
+          final elapsed = DateTime.now().difference(state.startTime!);
+          final activeDuration = elapsed - _totalPausedDuration;
+          state = state.copyWith(duration: activeDuration);
         }
       });
 
@@ -129,29 +139,32 @@ class SessionNotifier extends Notifier<SessionState> {
   void pauseSession() {
     if (!state.isActive || state.isPaused) return;
 
-    // Stop the duration timer
-    _durationTimer?.cancel();
-    _durationTimer = null;
+    // Record when pause started
+    _lastPauseTime = DateTime.now();
 
-    // Update state to paused
+    // Update state to paused (duration timer continues but won't update while paused)
     state = state.copyWith(isPaused: true);
+
+    _logger.d('Session paused at $_lastPauseTime');
   }
 
   /// Resumes a paused session.
   ///
-  /// Restarts the duration timer and continues recording heart rate readings.
+  /// Accumulates the paused time and continues recording heart rate readings.
   void resumeSession() {
     if (!state.isActive || !state.isPaused) return;
 
-    // Restart duration timer
-    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.startTime != null && !state.isPaused) {
-        final duration = DateTime.now().difference(state.startTime!);
-        state = state.copyWith(duration: duration);
-      }
-    });
+    // Add this pause period to total paused duration
+    if (_lastPauseTime != null) {
+      final pauseDuration = DateTime.now().difference(_lastPauseTime!);
+      _totalPausedDuration += pauseDuration;
+      _logger.d(
+        'Session resumed. Pause duration: $pauseDuration, Total paused: $_totalPausedDuration',
+      );
+      _lastPauseTime = null;
+    }
 
-    // Update state to not paused
+    // Update state to not paused (timer continues and will now update duration)
     state = state.copyWith(isPaused: false);
   }
 
@@ -190,6 +203,10 @@ class SessionNotifier extends Notifier<SessionState> {
       // Reset to inactive state
       state = SessionState.inactive();
       _sumBpm = 0;
+
+      // Reset pause tracking
+      _totalPausedDuration = Duration.zero;
+      _lastPauseTime = null;
     } catch (e, stackTrace) {
       // Log error for debugging
       _logger.e('Error ending session', error: e, stackTrace: stackTrace);

@@ -29,7 +29,8 @@ sudo apt-get install -y \
   ninja-build \
   pkg-config \
   libgtk-3-dev \
-  libsqlite3-dev
+  libsqlite3-dev \
+  libsecret-1-dev
 ```
 
 | Package | Purpose |
@@ -41,6 +42,7 @@ sudo apt-get install -y \
 | `pkg-config` | Library configuration tool |
 | `libgtk-3-dev` | GTK3 development files for desktop UI |
 | `libsqlite3-dev` | SQLite development files for database |
+| `libsecret-1-dev` | Secret Service library for secure key storage |
 
 #### macOS
 
@@ -328,13 +330,39 @@ test: Add unit tests for workout model
 
 ### Debugging
 
-- Use `print()` statements or `debugPrint()` for logging
+- Use the `AppLogger` utility for structured logging (preferred):
+  ```dart
+  import 'package:heart_rate_dashboard/utils/app_logger.dart';
+
+  final _logger = AppLogger.getLogger('MyClass');
+  _logger.d('Debug message');
+  _logger.i('Info message');
+  _logger.w('Warning message');
+  _logger.e('Error message', error: e, stackTrace: stackTrace);
+  ```
 - Use Flutter DevTools for advanced debugging:
   ```bash
   flutter run
   # Then press 'v' in the terminal to open DevTools
   ```
 - Use breakpoints in your IDE
+
+### Platform-Specific Notes
+
+#### Linux Secure Storage
+
+The app uses `flutter_secure_storage` for device-specific encryption keys on Linux. This requires `libsecret-1-dev` to be installed (see Platform-Specific Dependencies above).
+
+**Note**: If you encounter the error `The following required packages were not found: libsecret-1>=0.18.4`, install the missing dependency:
+```bash
+sudo apt-get install libsecret-1-dev
+```
+
+#### Desktop Database Encryption
+
+- **Mobile (Android/iOS)**: Uses SQLCipher with device-specific keys stored in Android Keystore/iOS Keychain
+- **Desktop (Linux/macOS/Windows)**: Uses unencrypted SQLite due to lack of SQLCipher FFI support
+- Keys are managed by `SecureKeyManager` utility in `lib/utils/secure_key_manager.dart`
 
 ## Getting Help
 
