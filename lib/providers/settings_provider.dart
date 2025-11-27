@@ -14,6 +14,24 @@ class SettingsNotifier extends Notifier<AppSettings> {
   static final _logger = AppLogger.getLogger('SettingsNotifier');
   DatabaseService get _databaseService => DatabaseService.instance;
 
+  /// Map for converting string storage format to MaxHRCalculationMethod enum
+  static const _maxHRMethodFromString = {
+    'custom': MaxHRCalculationMethod.custom,
+    'hunt_formula': MaxHRCalculationMethod.huntFormula,
+    'tanaka_formula': MaxHRCalculationMethod.tanakaFormula,
+    'shargal_formula': MaxHRCalculationMethod.shargalFormula,
+    'fox_formula': MaxHRCalculationMethod.foxFormula,
+  };
+
+  /// Map for converting MaxHRCalculationMethod enum to string storage format
+  static const _maxHRMethodToString = {
+    MaxHRCalculationMethod.custom: 'custom',
+    MaxHRCalculationMethod.huntFormula: 'hunt_formula',
+    MaxHRCalculationMethod.tanakaFormula: 'tanaka_formula',
+    MaxHRCalculationMethod.shargalFormula: 'shargal_formula',
+    MaxHRCalculationMethod.foxFormula: 'fox_formula',
+  };
+
   @override
   AppSettings build() {
     // Load settings asynchronously
@@ -53,15 +71,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
       final keepScreenAwake = keepScreenAwakeString == 'true';
       final darkMode = darkModeString == 'true';
       final sex = sexString == 'female' ? Sex.female : Sex.male;
-      final maxHRMethod = maxHRMethodString == 'custom'
-          ? MaxHRCalculationMethod.custom
-          : maxHRMethodString == 'hunt_formula'
-          ? MaxHRCalculationMethod.huntFormula
-          : maxHRMethodString == 'tanaka_formula'
-          ? MaxHRCalculationMethod.tanakaFormula
-          : maxHRMethodString == 'shargal_formula'
-          ? MaxHRCalculationMethod.shargalFormula
-          : MaxHRCalculationMethod.foxFormula;
+      final maxHRMethod =
+          _maxHRMethodFromString[maxHRMethodString] ??
+          MaxHRCalculationMethod.foxFormula;
       final customMaxHR = customMaxHRString != null
           ? int.tryParse(customMaxHRString)
           : null;
@@ -153,15 +165,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(maxHRCalculationMethod: method);
     await _databaseService.setSetting(
       'max_hr_calculation_method',
-      method == MaxHRCalculationMethod.custom
-          ? 'custom'
-          : method == MaxHRCalculationMethod.huntFormula
-          ? 'hunt_formula'
-          : method == MaxHRCalculationMethod.tanakaFormula
-          ? 'tanaka_formula'
-          : method == MaxHRCalculationMethod.shargalFormula
-          ? 'shargal_formula'
-          : 'fox_formula',
+      _maxHRMethodToString[method] ?? 'fox_formula',
     );
   }
 
