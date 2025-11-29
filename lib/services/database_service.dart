@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:sqflite_sqlcipher/sqflite.dart' as sqlcipher;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -27,6 +28,9 @@ class DatabaseService {
   // Database instance
   Database? _database;
 
+  // Completer to ensure only one initialization happens even with concurrent access
+  Completer<Database>? _initializationCompleter;
+
   // Testing database factory (set by tests to use sqflite_common_ffi)
   DatabaseFactory? _testDatabaseFactory;
 
@@ -43,10 +47,33 @@ class DatabaseService {
   DatabaseService._internal();
 
   /// Gets the database instance, initializing it if necessary.
+  ///
+  /// Thread-safe: Multiple concurrent calls will wait for the same initialization
+  /// to complete rather than triggering multiple initializations.
   Future<Database> get database async {
+    // If already initialized, return immediately
     if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+
+    // If initialization is already in progress, wait for it
+    if (_initializationCompleter != null) {
+      _logger.d('Database initialization already in progress, waiting...');
+      return await _initializationCompleter!.future;
+    }
+
+    // Start initialization
+    _logger.d('Starting database initialization');
+    _initializationCompleter = Completer<Database>();
+
+    try {
+      _database = await _initDatabase();
+      _initializationCompleter!.complete(_database!);
+      _logger.i('Database initialization completed successfully');
+      return _database!;
+    } catch (error) {
+      _initializationCompleter!.completeError(error);
+      _initializationCompleter = null; // Allow retry on next call
+      rethrow;
+    }
   }
 
   /// Checks if running on a desktop platform.
@@ -473,6 +500,7 @@ class DatabaseService {
       await _database!.close();
       _database = null;
     }
+    _initializationCompleter = null;
     _testDatabaseFactory = null;
   }
 
@@ -484,5 +512,6 @@ class DatabaseService {
       await _database!.close();
       _database = null;
     }
+    _initializationCompleter = null;
   }
 }
