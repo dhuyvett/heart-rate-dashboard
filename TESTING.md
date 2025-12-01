@@ -121,6 +121,7 @@ class FakeClock {
 - Widget-only: `flutter test test/widgets test/widget_test.dart`
 - Integration subset: `flutter test test/integration`
 - Coverage: `flutter test --coverage` (outputs to `coverage/lcov.info`)
+- Unit/service/provider: `flutter test test/services test/providers test/models test/utils`
 
 ## Widget Tests 
 
@@ -146,3 +147,9 @@ class FakeClock {
 - Command: `flutter test test/integration`
 - Environment: runs headless; no real BLE hardware required—use provided mocks/fakes; ensure demo-mode paths are covered when device hardware is unavailable
 - Timeouts: keep per-test timeout ≤30s and add explicit timeouts to async waits (e.g., `pumpAndSettle(timeout)`)
+
+## Unit Tests
+
+- Location: `test/services`, `test/providers`, `test/models`, `test/utils`
+- Command: `flutter test test/services test/providers test/models test/utils`
+- Expectations: deterministic and isolated; no real BLE or database I/O—use in-memory fakes (e.g., `FakeSettingsNotifier`), `sqflite_common_ffi` test helpers, and stream timeouts instead of sleeps

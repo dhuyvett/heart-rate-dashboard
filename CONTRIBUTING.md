@@ -154,6 +154,7 @@ flutter test
 - **Run all tests**: `flutter test`
 - **Run specific test**: `flutter test test/widget_test.dart`
 - **Run with coverage**: `flutter test --coverage`
+- **Testing guidance**: see `TESTING.md` for standards, timeouts, and commands
 
 ### Building
 

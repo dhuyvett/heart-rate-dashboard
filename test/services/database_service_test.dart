@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter_test/flutter_test.dart';
 
 /// Database service tests.

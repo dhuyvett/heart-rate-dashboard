@@ -1,7 +1,11 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/services/demo_mode_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('DemoModeService', () {
     late DemoModeService service;
 
@@ -10,10 +14,8 @@ void main() {
       service.reset(); // Reset to clean state before each test
     });
 
-    tearDown(() async {
+    tearDown(() {
       service.stopDemoMode();
-      // Add small delay to ensure timer/stream cleanup completes
-      await Future.delayed(const Duration(milliseconds: 100));
     });
 
     test('should start and stop demo mode correctly', () async {
@@ -33,26 +35,16 @@ void main() {
       service.startDemoMode();
 
       final stream = service.getDemoModeStream();
-      final values = <int>[];
 
-      // Collect values for a short time
-      final subscription = stream.listen((bpm) {
-        values.add(bpm);
-      });
+      // Collect first 3 values with an explicit timeout
+      final values = await stream
+          .take(3)
+          .timeout(const Duration(seconds: 5))
+          .toList();
 
-      // Wait for several values to be generated (reduced from 5s to 2s)
-      await Future.delayed(const Duration(seconds: 2));
-
-      await subscription.cancel();
       service.stopDemoMode();
 
-      // Add small delay to ensure cleanup completes
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Verify we got some values
-      expect(values.length, greaterThan(0));
-
-      // Verify all values are within valid range
+      expect(values, isNotEmpty);
       for (final bpm in values) {
         expect(bpm, greaterThanOrEqualTo(60));
         expect(bpm, lessThanOrEqualTo(180));
@@ -63,23 +55,14 @@ void main() {
       service.startDemoMode();
 
       final stream = service.getDemoModeStream();
-      final timestamps = <DateTime>[];
+      final timestamps = await stream
+          .map((_) => DateTime.now())
+          .take(3)
+          .timeout(const Duration(seconds: 6))
+          .toList();
 
-      // Collect timestamps for several values
-      final subscription = stream.listen((_) {
-        timestamps.add(DateTime.now());
-      });
-
-      // Wait for several values (reduced from 7s to 3.5s)
-      await Future.delayed(const Duration(milliseconds: 3500));
-
-      await subscription.cancel();
       service.stopDemoMode();
 
-      // Add small delay to ensure cleanup completes
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Verify we got multiple values
       expect(timestamps.length, greaterThanOrEqualTo(2));
 
       // Calculate intervals between values
@@ -103,23 +86,13 @@ void main() {
         service.startDemoMode();
 
         final stream = service.getDemoModeStream();
-        final values = <int>[];
+        final values = await stream
+            .take(4)
+            .timeout(const Duration(seconds: 6))
+            .toList();
 
-        // Collect values
-        final subscription = stream.listen((bpm) {
-          values.add(bpm);
-        });
-
-        // Wait for several values (reduced from 10s to 4s)
-        await Future.delayed(const Duration(seconds: 4));
-
-        await subscription.cancel();
         service.stopDemoMode();
 
-        // Add small delay to ensure cleanup completes
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        // Verify we got multiple values
         expect(values.length, greaterThanOrEqualTo(2));
 
         // Calculate differences between consecutive values

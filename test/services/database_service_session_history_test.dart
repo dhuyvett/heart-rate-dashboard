@@ -1,12 +1,56 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:heart_rate_dashboard/services/database_service.dart';
-import 'package:heart_rate_dashboard/models/workout_session.dart';
 
 /// Tests for session history database query methods.
 ///
 /// These tests verify the database operations required for session history
 /// management, including querying, deletion, and retention logic.
+Future<void> _setSessionTimes(
+  DatabaseService db,
+  int sessionId, {
+  required DateTime start,
+  DateTime? end,
+}) async {
+  final database = await db.database;
+  await database.update(
+    'workout_sessions',
+    {
+      'start_time': start.millisecondsSinceEpoch,
+      if (end != null) 'end_time': end.millisecondsSinceEpoch,
+    },
+    where: 'id = ?',
+    whereArgs: [sessionId],
+  );
+}
+
+Future<int> _createCompletedSession(
+  DatabaseService db,
+  String deviceName, {
+  required DateTime start,
+  required int avgHr,
+  required int minHr,
+  required int maxHr,
+  DateTime? end,
+}) async {
+  final sessionId = await db.createSession(deviceName);
+  await db.endSession(
+    sessionId: sessionId,
+    avgHr: avgHr,
+    minHr: minHr,
+    maxHr: maxHr,
+  );
+  await _setSessionTimes(
+    db,
+    sessionId,
+    start: start,
+    end: end ?? start.add(const Duration(hours: 1)),
+  );
+  return sessionId;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -52,31 +96,30 @@ void main() {
     test(
       'getAllCompletedSessions returns sessions sorted newest first',
       () async {
-        // Create multiple completed sessions with delays to ensure different timestamps
-        final session1Id = await db.createSession('Device 1');
-        await Future.delayed(const Duration(milliseconds: 10));
-        final session2Id = await db.createSession('Device 2');
-        await Future.delayed(const Duration(milliseconds: 10));
-        final session3Id = await db.createSession('Device 3');
-
-        // End sessions in reverse order to test sorting by start_time
-        await db.endSession(
-          sessionId: session3Id,
-          avgHr: 150,
-          minHr: 90,
-          maxHr: 190,
-        );
-        await db.endSession(
-          sessionId: session1Id,
+        final base = DateTime(2025, 1, 1, 12);
+        final session1Id = await _createCompletedSession(
+          db,
+          'Device 1',
+          start: base,
           avgHr: 130,
           minHr: 70,
           maxHr: 170,
         );
-        await db.endSession(
-          sessionId: session2Id,
+        final session2Id = await _createCompletedSession(
+          db,
+          'Device 2',
+          start: base.add(const Duration(minutes: 1)),
           avgHr: 140,
           minHr: 80,
           maxHr: 180,
+        );
+        final session3Id = await _createCompletedSession(
+          db,
+          'Device 3',
+          start: base.add(const Duration(minutes: 2)),
+          avgHr: 150,
+          minHr: 90,
+          maxHr: 190,
         );
 
         final sessions = await db.getAllCompletedSessions();
@@ -154,59 +197,63 @@ void main() {
       final now = DateTime.now();
 
       // Create old session
-      final oldSessionId = await db.createSession('Old Device');
-      await db.endSession(
-        sessionId: oldSessionId,
+      final oldStart = now.subtract(const Duration(days: 60));
+      final recentStart = now.subtract(const Duration(days: 5));
+
+      final oldSessionId = await _createCompletedSession(
+        db,
+        'Old Device',
+        start: oldStart,
         avgHr: 130,
         minHr: 70,
         maxHr: 170,
+        end: oldStart.add(const Duration(hours: 1)),
       );
 
       // Create recent session
-      final recentSessionId = await db.createSession('Recent Device');
-      await Future.delayed(const Duration(milliseconds: 10));
-      await db.endSession(
-        sessionId: recentSessionId,
+      await _createCompletedSession(
+        db,
+        'Recent Device',
+        start: recentStart,
         avgHr: 140,
         minHr: 80,
         maxHr: 180,
+        end: recentStart.add(const Duration(hours: 1)),
       );
 
       // Query for sessions older than 30 days
-      // Note: Since sessions were just created, cutoff date is in the past
-      // relative to session creation time, so this tests that query works
       final cutoffDate = now.subtract(const Duration(days: 30));
       final oldSessions = await db.getSessionsOlderThan(cutoffDate);
 
-      // Verify the query executes successfully and returns a list
-      expect(oldSessions, isA<List<WorkoutSession>>());
+      // Verify the query executes successfully and returns a list containing the old session
+      expect(oldSessions.map((s) => s.id), contains(oldSessionId));
     });
 
     test(
       'getPreviousSession returns session with earlier start_time',
       () async {
         // Create three sessions with small delays
-        final session1Id = await db.createSession('Device 1');
-        await Future.delayed(const Duration(milliseconds: 10));
-        final session2Id = await db.createSession('Device 2');
-        await Future.delayed(const Duration(milliseconds: 10));
-        final session3Id = await db.createSession('Device 3');
-
-        // End all sessions
-        await db.endSession(
-          sessionId: session1Id,
+        final base = DateTime(2025, 1, 1, 12);
+        final session1Id = await _createCompletedSession(
+          db,
+          'Device 1',
+          start: base,
           avgHr: 130,
           minHr: 70,
           maxHr: 170,
         );
-        await db.endSession(
-          sessionId: session2Id,
+        final session2Id = await _createCompletedSession(
+          db,
+          'Device 2',
+          start: base.add(const Duration(minutes: 1)),
           avgHr: 140,
           minHr: 80,
           maxHr: 180,
         );
-        await db.endSession(
-          sessionId: session3Id,
+        await _createCompletedSession(
+          db,
+          'Device 3',
+          start: base.add(const Duration(minutes: 2)),
           avgHr: 150,
           minHr: 90,
           maxHr: 190,
@@ -222,27 +269,19 @@ void main() {
 
     test('getNextSession returns session with later start_time', () async {
       // Create three sessions with small delays
-      final session1Id = await db.createSession('Device 1');
-      await Future.delayed(const Duration(milliseconds: 10));
-      final session2Id = await db.createSession('Device 2');
-      await Future.delayed(const Duration(milliseconds: 10));
-      final session3Id = await db.createSession('Device 3');
-
-      // End all sessions
-      await db.endSession(
-        sessionId: session1Id,
-        avgHr: 130,
-        minHr: 70,
-        maxHr: 170,
-      );
-      await db.endSession(
-        sessionId: session2Id,
+      final base = DateTime(2025, 1, 1, 12);
+      final session2Id = await _createCompletedSession(
+        db,
+        'Device 2',
+        start: base.add(const Duration(minutes: 1)),
         avgHr: 140,
         minHr: 80,
         maxHr: 180,
       );
-      await db.endSession(
-        sessionId: session3Id,
+      final session3Id = await _createCompletedSession(
+        db,
+        'Device 3',
+        start: base.add(const Duration(minutes: 2)),
         avgHr: 150,
         minHr: 90,
         maxHr: 190,

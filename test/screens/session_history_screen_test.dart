@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,8 @@ import 'package:heart_rate_dashboard/providers/session_history_provider.dart';
 import 'package:heart_rate_dashboard/screens/session_history_screen.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SessionHistoryScreen', () {
     testWidgets('displays empty state when no sessions exist', (
       WidgetTester tester,
@@ -113,7 +117,7 @@ void main() {
 
       // Swipe to dismiss
       await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       // Verify confirmation dialog is shown
       expect(
@@ -154,11 +158,11 @@ void main() {
 
       // Tap menu button
       await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       // Tap delete all option
       await tester.tap(find.text('Delete All Sessions'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       // Verify confirmation dialog is shown
       expect(

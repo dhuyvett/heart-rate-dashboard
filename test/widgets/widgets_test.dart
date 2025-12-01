@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/models/scanned_device.dart';
@@ -10,6 +12,8 @@ import 'package:heart_rate_dashboard/widgets/loading_overlay.dart';
 import 'package:heart_rate_dashboard/widgets/error_dialog.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ConnectionStatusIndicator', () {
     testWidgets('displays green for connected state', (tester) async {
       await tester.pumpWidget(
@@ -428,7 +432,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.text('Error Title'), findsOneWidget);
       expect(find.text('Error message here'), findsOneWidget);
@@ -460,7 +464,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
@@ -492,7 +496,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.byIcon(Icons.bluetooth_disabled), findsOneWidget);
     });
@@ -527,7 +531,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.byType(FilledButton), findsOneWidget);
       expect(find.text('Primary'), findsOneWidget);
@@ -559,7 +563,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.byType(TextButton), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
@@ -600,10 +604,10 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(actionCalled, isTrue);
     });
@@ -631,7 +635,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.text('Simple Error'), findsOneWidget);
       expect(find.text('Something went wrong'), findsOneWidget);
@@ -659,12 +663,12 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.text('Error'), findsOneWidget);
 
       await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.text('Error'), findsNothing);
     });
@@ -693,7 +697,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.text('Connection Failed'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
@@ -722,10 +726,10 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(result, isTrue);
     });
@@ -752,10 +756,10 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       await tester.tap(find.text('Select Device'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(result, isFalse);
     });
@@ -777,7 +781,7 @@ void main() {
       );
 
       await tester.tap(find.text('Show'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettle(const Duration(seconds: 10));
 
       expect(find.textContaining('5 attempts'), findsOneWidget);
     });

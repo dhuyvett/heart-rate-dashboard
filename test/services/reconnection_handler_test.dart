@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/services/reconnection_handler.dart';
 import 'package:heart_rate_dashboard/utils/constants.dart';
@@ -91,14 +93,17 @@ void main() {
       handler.setLastKnownBpm(120);
       handler.setSessionIdToResume(1);
 
-      // Wait a bit for any state emissions
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Wait briefly for any state emissions with explicit timeout
+      await handler.stateStream.first.timeout(
+        const Duration(milliseconds: 100),
+        onTimeout: () {
+          return handler.state;
+        },
+      );
 
       await subscription.cancel();
 
-      // The handler may or may not emit states depending on internal logic
-      // This test verifies the stream mechanism works
-      expect(handler.stateStream, isA<Stream<ReconnectionState>>());
+      expect(states, isA<List<ReconnectionState>>());
     });
   });
 }

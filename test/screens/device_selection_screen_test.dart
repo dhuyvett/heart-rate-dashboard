@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,8 @@ import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
 import 'package:heart_rate_dashboard/utils/error_messages.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('DeviceSelectionScreen', () {
     testWidgets('displays demo mode device first in list', (
       WidgetTester tester,

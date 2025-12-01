@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +78,8 @@ class TestHeartRateDisplay extends ConsumerWidget {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('HeartRateMonitoringScreen', () {
     testWidgets('displays BPM value when heart rate data is available', (
       WidgetTester tester,

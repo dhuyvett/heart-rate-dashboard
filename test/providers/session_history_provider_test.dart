@@ -1,11 +1,46 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 10))
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/providers/session_history_provider.dart';
 import 'package:heart_rate_dashboard/services/database_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+Future<int> _createCompletedSession(
+  String deviceName,
+  DateTime startTime, {
+  required int avgHr,
+  required int minHr,
+  required int maxHr,
+}) async {
+  final sessionId = await DatabaseService.instance.createSession(deviceName);
+  await DatabaseService.instance.endSession(
+    sessionId: sessionId,
+    avgHr: avgHr,
+    minHr: minHr,
+    maxHr: maxHr,
+  );
+
+  final db = await DatabaseService.instance.database;
+  await db.update(
+    'workout_sessions',
+    {
+      'start_time': startTime.millisecondsSinceEpoch,
+      'end_time': startTime
+          .add(const Duration(hours: 1))
+          .millisecondsSinceEpoch,
+    },
+    where: 'id = ?',
+    whereArgs: [sessionId],
+  );
+
+  return sessionId;
+}
+
 void main() {
   late ProviderContainer container;
+
+  TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
     // Initialize sqflite_ffi for testing
@@ -24,33 +59,24 @@ void main() {
   group('SessionHistoryProvider', () {
     test('loads all completed sessions sorted newest first', () async {
       // Create test sessions
-      final session1Id = await DatabaseService.instance.createSession(
+      final base = DateTime(2025, 1, 1, 12);
+      final session1Id = await _createCompletedSession(
         'Device 1',
-      );
-      await Future.delayed(const Duration(milliseconds: 10));
-      final session2Id = await DatabaseService.instance.createSession(
-        'Device 2',
-      );
-      await Future.delayed(const Duration(milliseconds: 10));
-      final session3Id = await DatabaseService.instance.createSession(
-        'Device 3',
-      );
-
-      // End sessions
-      await DatabaseService.instance.endSession(
-        sessionId: session1Id,
+        base,
         avgHr: 120,
         minHr: 100,
         maxHr: 140,
       );
-      await DatabaseService.instance.endSession(
-        sessionId: session2Id,
+      final session2Id = await _createCompletedSession(
+        'Device 2',
+        base.add(const Duration(minutes: 1)),
         avgHr: 130,
         minHr: 110,
         maxHr: 150,
       );
-      await DatabaseService.instance.endSession(
-        sessionId: session3Id,
+      final session3Id = await _createCompletedSession(
+        'Device 3',
+        base.add(const Duration(minutes: 2)),
         avgHr: 140,
         minHr: 120,
         maxHr: 160,

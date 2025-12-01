@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations
+@Timeout(Duration(seconds: 30))
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,12 +7,17 @@ import 'package:heart_rate_dashboard/models/sex.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
 import 'package:heart_rate_dashboard/models/scanned_device.dart';
+import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/session_state.dart';
 import 'package:heart_rate_dashboard/providers/device_scan_provider.dart';
 import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
 import 'package:heart_rate_dashboard/providers/session_provider.dart';
+import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
+import 'package:heart_rate_dashboard/screens/settings_screen.dart';
 import 'package:heart_rate_dashboard/utils/heart_rate_zone_calculator.dart';
+
+import '../helpers/fake_settings_notifier.dart';
 
 /// A simplified test widget for testing heart rate display behavior
 /// without the full screen's initialization logic (which requires database access).
@@ -121,6 +128,8 @@ class TestSettingsWidget extends StatelessWidget {
 /// - Session statistics calculation
 /// - Demo mode functioning as a real device
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Complete Workflow Integration Tests', () {
     testWidgets('device selection shows demo mode and navigates on tap', (
       WidgetTester tester,
@@ -400,6 +409,47 @@ void main() {
       expect(demoDevice.name, equals('Demo Mode'));
       expect(demoDevice.rssi, equals(-30)); // Excellent signal
     });
+  });
+
+  testWidgets('settings updates chart window and retention days', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final fakeNotifier = FakeSettingsNotifier(
+      const AppSettings(
+        age: 30,
+        chartWindowSeconds: 30,
+        sessionRetentionDays: 30,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsProvider.overrideWith(() => fakeNotifier)],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+
+    // Select a new chart window chip
+    await tester.tap(find.text('60s'));
+    await tester.pump();
+    expect(fakeNotifier.lastChartWindow, 60);
+
+    // Update retention days with valid value
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (w) =>
+            w is TextField &&
+            w.decoration?.labelText == 'Session Retention (days)',
+      ),
+      '120',
+    );
+    await tester.pump();
+    expect(fakeNotifier.lastRetentionDays, 120);
   });
 }
 
