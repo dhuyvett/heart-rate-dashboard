@@ -190,8 +190,13 @@ class SessionNotifier extends Notifier<SessionState> {
       _heartRateSubscription?.close();
       _heartRateSubscription = null;
 
-      // Save session statistics to database
-      if (state.avgHr != null && state.minHr != null && state.maxHr != null) {
+      // Save session statistics to database or delete empty session
+      if (state.readingsCount == 0) {
+        _logger.i('Deleting empty session with zero readings');
+        await _databaseService.deleteSession(state.currentSessionId!);
+      } else if (state.avgHr != null &&
+          state.minHr != null &&
+          state.maxHr != null) {
         await _databaseService.endSession(
           sessionId: state.currentSessionId!,
           avgHr: state.avgHr!,

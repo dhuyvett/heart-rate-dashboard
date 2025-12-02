@@ -154,6 +154,9 @@ class ReconnectionHandler {
   // Flag to track if this was a manual disconnect
   bool _wasManualDisconnect = false;
 
+  // Flag to prevent concurrent reconnection attempts
+  bool _isReconnecting = false;
+
   // Private constructor for singleton
   ReconnectionHandler._internal();
 
@@ -192,6 +195,7 @@ class ReconnectionHandler {
   void startMonitoring(String deviceId) {
     _targetDeviceId = deviceId;
     _wasManualDisconnect = false;
+    _isReconnecting = false;
 
     // Cancel any existing subscription
     _connectionSubscription?.cancel();
@@ -232,6 +236,11 @@ class ReconnectionHandler {
   /// Starts the reconnection process.
   void _startReconnection() {
     if (_targetDeviceId == null) return;
+    if (_isReconnecting) {
+      // Already reconnecting; ignore duplicate
+      return;
+    }
+    _isReconnecting = true;
 
     // Start from attempt 1
     _attemptReconnection(1);
@@ -252,6 +261,7 @@ class ReconnectionHandler {
               'Could not reconnect after $maxReconnectionAttempts attempts.',
         ),
       );
+      _isReconnecting = false;
       return;
     }
 
@@ -277,6 +287,8 @@ class ReconnectionHandler {
       _reconnectionTimer = Timer(delay, () {
         _attemptReconnection(attempt + 1);
       });
+    } finally {
+      // If no timer is scheduled (e.g., success path), ensure flag reset in success handler
     }
   }
 
@@ -286,6 +298,7 @@ class ReconnectionHandler {
     _reconnectionTimer = null;
     _updateState(ReconnectionState.idle());
     _wasManualDisconnect = false;
+    _isReconnecting = false;
   }
 
   /// Gets the delay before the next reconnection attempt.
@@ -323,6 +336,7 @@ class ReconnectionHandler {
     _sessionIdToResume = null;
     _lastKnownBpm = null;
     _wasManualDisconnect = false;
+    _isReconnecting = false;
   }
 
   /// Disposes of resources.

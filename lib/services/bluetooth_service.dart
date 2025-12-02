@@ -209,10 +209,15 @@ class BluetoothService {
         throw StateError('Device not found: $deviceId');
       }
 
-      // Set connection timeout
+      final connectionCompleter = Completer<void>();
       _connectionTimeoutTimer = Timer(const Duration(seconds: 15), () {
-        _updateConnectionState(ConnectionState.disconnected);
-        throw TimeoutException('Connection timeout');
+        if (!connectionCompleter.isCompleted) {
+          _logger.w('Connection timeout after 15 seconds');
+          _updateConnectionState(ConnectionState.disconnected);
+          connectionCompleter.completeError(
+            TimeoutException('Failed to connect to device within 15 seconds'),
+          );
+        }
       });
 
       // Connect to the device
@@ -221,15 +226,18 @@ class BluetoothService {
         autoConnect: false,
         mtu: null,
       );
-      _connectedDevice = device;
-      _connectedDeviceName = device.platformName.isNotEmpty
-          ? device.platformName
-          : 'Unknown Device';
-      _isInDemoMode = false;
-
-      // Cancel timeout timer
       _connectionTimeoutTimer?.cancel();
       _connectionTimeoutTimer = null;
+      if (!connectionCompleter.isCompleted) {
+        _connectedDevice = device;
+        _connectedDeviceName = device.platformName.isNotEmpty
+            ? device.platformName
+            : 'Unknown Device';
+        _isInDemoMode = false;
+        connectionCompleter.complete();
+      }
+
+      await connectionCompleter.future;
 
       // Discover services
       final services = await device.discoverServices();
@@ -352,6 +360,9 @@ class BluetoothService {
     }
 
     try {
+      await _heartRateSubscription?.cancel();
+      _heartRateSubscription = null;
+
       // Get services
       final services = await _connectedDevice!.discoverServices();
 

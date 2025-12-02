@@ -52,19 +52,28 @@ class DemoModeService {
   void startDemoMode() {
     if (_isActive) return;
 
-    _isActive = true;
-    _heartRateController = StreamController<int>.broadcast();
+    StreamController<int>? controller;
 
-    // Initialize simulation state
-    _currentBpm = 70.0 + _random.nextDouble() * 20; // Start between 70-90
-    _targetBpm = _currentBpm;
-    _samplesUntilTrendChange = _calculateSamplesUntilTrendChange();
+    try {
+      controller = StreamController<int>.broadcast();
+      _heartRateController = controller;
+      _isActive = true;
 
-    // Start generating values
-    _timer = Timer.periodic(
-      const Duration(milliseconds: hrSamplingIntervalMs),
-      (_) => _generateNextValue(),
-    );
+      // Initialize simulation state
+      _currentBpm = 70.0 + _random.nextDouble() * 20; // Start between 70-90
+      _targetBpm = _currentBpm;
+      _samplesUntilTrendChange = _calculateSamplesUntilTrendChange();
+
+      // Start generating values
+      _timer = Timer.periodic(
+        const Duration(milliseconds: hrSamplingIntervalMs),
+        (_) => _generateNextValue(),
+      );
+    } catch (e) {
+      controller?.close();
+      _isActive = false;
+      rethrow;
+    }
   }
 
   /// Returns a stream of simulated BPM values.
