@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:meta/meta.dart';
 import 'app_logger.dart';
 
 /// Manages secure encryption keys for the database.
@@ -302,19 +305,88 @@ class SecureKeyManager {
     }
   }
 
-  /// Encrypts a key using XOR cipher with SHA-256 key derivation.
+  /// Encrypts a key using AES-256-GCM (preferred) with XOR fallback for legacy data.
   ///
-  /// This is a simple encryption that's sufficient for our use case since:
-  /// - The encryption key is itself derived from device-specific data
-  /// - The encrypted data is stored in app-private storage
-  /// - We're not protecting against sophisticated attacks on the backup
-  ///
-  /// Returns base64-encoded encrypted data.
+  /// Returns base64-encoded encrypted data (IV + ciphertext for AES).
   static String _encryptKey(String plainKey, String encryptionKey) {
+    try {
+      final encrypted = _aesEncryptKey(plainKey, encryptionKey);
+      _logger.d('Encrypted key using AES-GCM backup');
+      return encrypted;
+    } catch (e, stackTrace) {
+      _logger.w(
+        'AES encryption failed, falling back to XOR',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return _xorEncryptKey(plainKey, encryptionKey);
+    }
+  }
+
+  /// Decrypts a key that was encrypted with _encryptKey.
+  ///
+  /// Tries AES-GCM first, then falls back to legacy XOR for backward compatibility.
+  /// Returns the decrypted key, or null if decryption fails.
+  static String? _decryptKey(String encryptedKey, String decryptionKey) {
+    try {
+      final decrypted = _aesDecryptKey(encryptedKey, decryptionKey);
+      if (decrypted != null) {
+        _logger.d('Decrypted key using AES-GCM backup');
+        return decrypted;
+      }
+      _logger.w('AES decryption failed, attempting XOR fallback');
+      return _xorDecryptKey(encryptedKey, decryptionKey);
+    } catch (e) {
+      _logger.w('Decryption failed: $e');
+      return null;
+    }
+  }
+
+  static String _aesEncryptKey(String plainKey, String encryptionKey) {
+    final keyBytes = base64.decode(encryptionKey);
+    final aesKey = encrypt.Key(Uint8List.fromList(keyBytes));
+    final ivBytes = Uint8List.fromList(
+      List<int>.generate(16, (_) => Random.secure().nextInt(256)),
+    );
+    final iv = encrypt.IV(ivBytes);
+    final encrypter = encrypt.Encrypter(
+      encrypt.AES(aesKey, mode: encrypt.AESMode.gcm),
+    );
+    final encrypted = encrypter.encrypt(plainKey, iv: iv);
+
+    final combined = Uint8List.fromList(ivBytes + encrypted.bytes);
+    return base64.encode(combined);
+  }
+
+  static String? _aesDecryptKey(String encryptedKey, String encryptionKey) {
+    try {
+      final allBytes = base64.decode(encryptedKey);
+      if (allBytes.length <= 16) {
+        return null;
+      }
+      final ivBytes = allBytes.sublist(0, 16);
+      final cipherBytes = allBytes.sublist(16);
+      final keyBytes = base64.decode(encryptionKey);
+      final aesKey = encrypt.Key(Uint8List.fromList(keyBytes));
+      final iv = encrypt.IV(ivBytes);
+      final encrypter = encrypt.Encrypter(
+        encrypt.AES(aesKey, mode: encrypt.AESMode.gcm),
+      );
+      final decrypted = encrypter.decrypt(
+        encrypt.Encrypted(cipherBytes),
+        iv: iv,
+      );
+      return decrypted;
+    } catch (e, stackTrace) {
+      _logger.w('AES decryption failed', error: e, stackTrace: stackTrace);
+      return null;
+    }
+  }
+
+  static String _xorEncryptKey(String plainKey, String encryptionKey) {
     final plainBytes = utf8.encode(plainKey);
     final keyHash = sha256.convert(utf8.encode(encryptionKey)).bytes;
 
-    // XOR encryption
     final encryptedBytes = <int>[];
     for (int i = 0; i < plainBytes.length; i++) {
       encryptedBytes.add(plainBytes[i] ^ keyHash[i % keyHash.length]);
@@ -323,15 +395,11 @@ class SecureKeyManager {
     return base64.encode(encryptedBytes);
   }
 
-  /// Decrypts a key that was encrypted with _encryptKey.
-  ///
-  /// Returns the decrypted key, or null if decryption fails.
-  static String? _decryptKey(String encryptedKey, String decryptionKey) {
+  static String? _xorDecryptKey(String encryptedKey, String decryptionKey) {
     try {
       final encryptedBytes = base64.decode(encryptedKey);
       final keyHash = sha256.convert(utf8.encode(decryptionKey)).bytes;
 
-      // XOR decryption (same operation as encryption)
       final decryptedBytes = <int>[];
       for (int i = 0; i < encryptedBytes.length; i++) {
         decryptedBytes.add(encryptedBytes[i] ^ keyHash[i % keyHash.length]);
@@ -339,10 +407,26 @@ class SecureKeyManager {
 
       return utf8.decode(decryptedBytes);
     } catch (e) {
-      _logger.w('Decryption failed: $e');
+      _logger.w('XOR decryption failed: $e');
       return null;
     }
   }
+
+  @visibleForTesting
+  static String aesEncryptForTest(String plainKey, String encryptionKey) =>
+      _aesEncryptKey(plainKey, encryptionKey);
+
+  @visibleForTesting
+  static String? aesDecryptForTest(String cipher, String encryptionKey) =>
+      _aesDecryptKey(cipher, encryptionKey);
+
+  @visibleForTesting
+  static String xorEncryptForTest(String plainKey, String encryptionKey) =>
+      _xorEncryptKey(plainKey, encryptionKey);
+
+  @visibleForTesting
+  static String? xorDecryptForTest(String cipher, String encryptionKey) =>
+      _xorDecryptKey(cipher, encryptionKey);
 
   /// Generates a fallback device ID when platform-specific ID is unavailable.
   ///

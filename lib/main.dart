@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/settings_provider.dart';
 import 'services/database_service.dart';
-import 'screens/permission_explanation_screen.dart';
 import 'screens/device_selection_screen.dart';
 import 'utils/app_logger.dart';
 
@@ -71,10 +71,13 @@ class InitialRouteResolver extends StatefulWidget {
   State<InitialRouteResolver> createState() => _InitialRouteResolverState();
 }
 
+enum PermissionCheckState { checking, granted, denied, checkFailed }
+
 class _InitialRouteResolverState extends State<InitialRouteResolver> {
   static final _logger = AppLogger.getLogger('InitialRouteResolver');
-  bool _isChecking = true;
-  bool _hasPermissions = false;
+  static final _permLogger = AppLogger.getLogger('PermissionsHandler');
+  PermissionCheckState _permissionState = PermissionCheckState.checking;
+  bool _warningPrompted = false;
 
   @override
   void initState() {
@@ -131,8 +134,6 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
 
   /// Checks if required Bluetooth permissions are granted.
   Future<void> _checkPermissions() async {
-    bool hasPermissions = false;
-
     try {
       if (Platform.isAndroid) {
         // Check Android permissions
@@ -140,39 +141,189 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
         final bluetoothConnect = await Permission.bluetoothConnect.isGranted;
         final location = await Permission.locationWhenInUse.isGranted;
 
-        hasPermissions = bluetoothScan && bluetoothConnect && location;
+        final hasPermissions = bluetoothScan && bluetoothConnect && location;
+        _permissionState = hasPermissions
+            ? PermissionCheckState.granted
+            : PermissionCheckState.denied;
       } else if (Platform.isIOS) {
         // Check iOS permission
-        hasPermissions = await Permission.bluetooth.isGranted;
+        final hasPermissions = await Permission.bluetooth.isGranted;
+        _permissionState = hasPermissions
+            ? PermissionCheckState.granted
+            : PermissionCheckState.denied;
       } else {
         // Desktop platforms - assume permissions are granted
-        hasPermissions = true;
+        _permissionState = PermissionCheckState.granted;
       }
     } catch (e) {
-      // If permission check fails, assume permissions not granted
-      hasPermissions = false;
+      _permLogger.e(
+        'Permission check failed',
+        error: e,
+        stackTrace: StackTrace.current,
+      );
+      _permissionState = PermissionCheckState.checkFailed;
     }
 
     if (mounted) {
       setState(() {
-        _hasPermissions = hasPermissions;
-        _isChecking = false;
+        _permissionState = _permissionState;
       });
     }
   }
 
+  Future<void> _requestPermissions() async {
+    try {
+      if (Platform.isAndroid) {
+        await [
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+          Permission.locationWhenInUse,
+        ].request();
+      } else if (Platform.isIOS) {
+        await Permission.bluetooth.request();
+      }
+    } catch (e, stackTrace) {
+      _permLogger.e(
+        'Permission request failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      await _checkPermissions();
+    }
+  }
+
+  Future<void> _maybeShowDesktopWarning(BuildContext context) async {
+    if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+      return;
+    }
+    if (_warningPrompted) return;
+    _warningPrompted = true;
+    final dialogContext = context;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final shown = prefs.getBool('desktop_encryption_warning_shown') ?? false;
+      if (shown || !mounted) {
+        return;
+      }
+
+      bool dontShowAgain = false;
+      if (!mounted) return;
+      await showDialog<void>(
+        // ignore: use_build_context_synchronously
+        context: dialogContext,
+        builder: (ctx) {
+          return AlertDialog(
+            title: const Text('Desktop Encryption Warning'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'On desktop platforms, the database is stored unencrypted. '
+                  'For maximum privacy, use the mobile app on Android or iOS.',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        return Checkbox(
+                          value: dontShowAgain,
+                          onChanged: (value) {
+                            setState(() {
+                              dontShowAgain = value ?? false;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(child: Text("Don't show again")),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('I Understand'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (dontShowAgain && mounted) {
+        await prefs.setBool('desktop_encryption_warning_shown', true);
+        _logger.i('Desktop encryption warning acknowledged');
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isChecking) {
+    if (_permissionState == PermissionCheckState.checking) {
       // Show loading screen while checking permissions
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Navigate to appropriate screen based on permission status
-    if (_hasPermissions) {
+    if (_permissionState == PermissionCheckState.granted) {
+      _maybeShowDesktopWarning(context);
       return const DeviceSelectionScreen();
-    } else {
-      return const PermissionExplanationScreen();
     }
+
+    if (_permissionState == PermissionCheckState.checkFailed) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Unable to check permissions. Please restart the app or check device settings.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: _checkPermissions,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Permission denied
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'Bluetooth permission is required to connect to heart rate monitors.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _requestPermissions,
+                child: const Text('Request Permission'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

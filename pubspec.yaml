@@ -69,6 +69,12 @@ dependencies:
   # Date formatting
   intl: ^0.20.2
 
+  # AES-GCM encryption for secure key backup
+  encrypt: ^5.0.0
+
+  # Annotations
+  meta: ^1.11.0
+
   # Logging framework
   logger: ^2.6.2
 
