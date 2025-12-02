@@ -19,7 +19,14 @@ final heartRateProvider = StreamProvider.autoDispose<HeartRateData>((
   final bluetoothService = BluetoothService.instance;
 
   // Watch settings for zone calculation
-  final settings = ref.watch(settingsProvider);
+  final settingsAsync = ref.watch(settingsProvider);
+  final settings = settingsAsync.asData?.value;
+  if (settings == null) {
+    if (settingsAsync.hasError) {
+      throw settingsAsync.error!;
+    }
+    return;
+  }
 
   // Subscribe to heart rate stream
   await for (final bpm in bluetoothService.subscribeToHeartRate()) {

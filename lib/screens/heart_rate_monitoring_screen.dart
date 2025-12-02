@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../models/app_settings.dart';
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
 import '../providers/bluetooth_provider.dart';
@@ -81,8 +82,8 @@ class _HeartRateMonitoringScreenState
 
   /// Updates the wake lock based on the current setting.
   void _updateWakeLock() {
-    final settings = ref.read(settingsProvider);
-    if (settings.keepScreenAwake) {
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings?.keepScreenAwake == true) {
       WakelockPlus.enable();
     } else {
       WakelockPlus.disable();
@@ -187,7 +188,8 @@ class _HeartRateMonitoringScreenState
     final sessionState = ref.read(sessionProvider);
     if (sessionState.currentSessionId == null) return;
 
-    final settings = ref.read(settingsProvider);
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings == null) return;
     final windowStart = DateTime.now().subtract(
       Duration(seconds: settings.chartWindowSeconds),
     );
@@ -231,7 +233,8 @@ class _HeartRateMonitoringScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settings = ref.watch(settingsProvider);
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.asData?.value;
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
@@ -248,13 +251,19 @@ class _HeartRateMonitoringScreenState
 
     // Update wake lock when setting changes
     ref.listen(settingsProvider, (previous, next) {
-      if (previous?.keepScreenAwake != next.keepScreenAwake) {
+      final prevValue = previous?.asData?.value;
+      final nextValue = next.asData?.value;
+      if (prevValue?.keepScreenAwake != nextValue?.keepScreenAwake) {
         _updateWakeLock();
       }
     });
 
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
+
+    if (settings == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -544,7 +553,7 @@ class _HeartRateMonitoringScreenState
   /// Builds the heart rate chart widget.
   Widget _buildChart({
     required ThemeData theme,
-    required dynamic settings,
+    required AppSettings settings,
     required AsyncValue heartRateAsync,
     required dynamic sessionState,
     required bool isReconnecting,

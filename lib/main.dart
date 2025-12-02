@@ -23,8 +23,13 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final brightness = settings.darkMode ? Brightness.dark : Brightness.light;
+    final settingsAsync = ref.watch(settingsProvider);
+    final brightness = settingsAsync.when(
+      data: (settings) =>
+          settings.darkMode ? Brightness.dark : Brightness.light,
+      loading: () => Brightness.light,
+      error: (error, stack) => Brightness.light,
+    );
 
     return MaterialApp(
       title: 'Heart Rate Dashboard',

@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/max_hr_calculation_method.dart';
 import 'package:heart_rate_dashboard/models/sex.dart';
@@ -20,35 +21,41 @@ class FakeSettingsNotifier extends SettingsNotifier {
   int? lastRetentionDays;
 
   @override
-  AppSettings build() => _initial;
+  Future<AppSettings> build() async => _initial;
 
   @override
   Future<void> updateAge(int age) async {
-    state = state.copyWith(age: age);
+    state = AsyncData((state.asData?.value ?? _initial).copyWith(age: age));
     lastAge = age;
   }
 
   @override
   Future<void> updateChartWindow(int seconds) async {
-    state = state.copyWith(chartWindowSeconds: seconds);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(chartWindowSeconds: seconds),
+    );
     lastChartWindow = seconds;
   }
 
   @override
   Future<void> updateKeepScreenAwake(bool enabled) async {
-    state = state.copyWith(keepScreenAwake: enabled);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(keepScreenAwake: enabled),
+    );
     lastKeepAwake = enabled;
   }
 
   @override
   Future<void> updateDarkMode(bool enabled) async {
-    state = state.copyWith(darkMode: enabled);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(darkMode: enabled),
+    );
     lastDarkMode = enabled;
   }
 
   @override
   Future<void> updateSex(Sex sex) async {
-    state = state.copyWith(sex: sex);
+    state = AsyncData((state.asData?.value ?? _initial).copyWith(sex: sex));
     lastSex = sex;
   }
 
@@ -56,19 +63,27 @@ class FakeSettingsNotifier extends SettingsNotifier {
   Future<void> updateMaxHRCalculationMethod(
     MaxHRCalculationMethod method,
   ) async {
-    state = state.copyWith(maxHRCalculationMethod: method);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(
+        maxHRCalculationMethod: method,
+      ),
+    );
     lastMethod = method;
   }
 
   @override
   Future<void> updateCustomMaxHR(int maxHR) async {
-    state = state.copyWith(customMaxHR: maxHR);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(customMaxHR: maxHR),
+    );
     lastCustomMaxHr = maxHR;
   }
 
   @override
   Future<void> updateSessionRetentionDays(int days) async {
-    state = state.copyWith(sessionRetentionDays: days);
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(sessionRetentionDays: days),
+    );
     lastRetentionDays = days;
   }
 }

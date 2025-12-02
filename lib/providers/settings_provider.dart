@@ -10,7 +10,7 @@ import '../utils/constants.dart';
 ///
 /// This notifier loads settings from the database on initialization
 /// and persists any changes immediately back to the database.
-class SettingsNotifier extends Notifier<AppSettings> {
+class SettingsNotifier extends AsyncNotifier<AppSettings> {
   static final _logger = AppLogger.getLogger('SettingsNotifier');
   DatabaseService get _databaseService => DatabaseService.instance;
 
@@ -33,17 +33,12 @@ class SettingsNotifier extends Notifier<AppSettings> {
   };
 
   @override
-  AppSettings build() {
-    // Load settings asynchronously
-    _loadSettings();
-    // Return default settings initially
-    return const AppSettings();
-  }
+  Future<AppSettings> build() async => _loadSettings();
 
   /// Loads settings from the database.
   ///
   /// If no settings are found, uses the default values.
-  Future<void> _loadSettings() async {
+  Future<AppSettings> _loadSettings() async {
     try {
       final ageString = await _databaseService.getSetting('user_age');
       final chartWindowString = await _databaseService.getSetting(
@@ -81,7 +76,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
           ? int.tryParse(sessionRetentionDaysString)
           : null;
 
-      state = AppSettings(
+      return AppSettings(
         age: age ?? defaultAge,
         sex: sex,
         maxHRCalculationMethod: maxHRMethod,
@@ -92,9 +87,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
         sessionRetentionDays: sessionRetentionDays ?? 30,
       );
     } catch (e, stackTrace) {
-      // If loading fails, keep default settings
-      // Log error for debugging
       _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
+      // propagate to AsyncValue.error
+      rethrow;
     }
   }
 
@@ -107,7 +102,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
       throw ArgumentError('Age must be between 10 and 100, got $age');
     }
 
-    state = state.copyWith(age: age);
+    final current = await future;
+    state = AsyncData(current.copyWith(age: age));
     await _databaseService.setSetting('user_age', age.toString());
   }
 
@@ -122,7 +118,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
       );
     }
 
-    state = state.copyWith(chartWindowSeconds: seconds);
+    final current = await future;
+    state = AsyncData(current.copyWith(chartWindowSeconds: seconds));
     await _databaseService.setSetting(
       'chart_window_seconds',
       seconds.toString(),
@@ -133,7 +130,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
   ///
   /// The change is persisted immediately to the database.
   Future<void> updateKeepScreenAwake(bool enabled) async {
-    state = state.copyWith(keepScreenAwake: enabled);
+    final current = await future;
+    state = AsyncData(current.copyWith(keepScreenAwake: enabled));
     await _databaseService.setSetting('keep_screen_awake', enabled.toString());
   }
 
@@ -141,7 +139,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
   ///
   /// The change is persisted immediately to the database.
   Future<void> updateDarkMode(bool enabled) async {
-    state = state.copyWith(darkMode: enabled);
+    final current = await future;
+    state = AsyncData(current.copyWith(darkMode: enabled));
     await _databaseService.setSetting('dark_mode', enabled.toString());
   }
 
@@ -149,7 +148,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
   ///
   /// The change is persisted immediately to the database.
   Future<void> updateSex(Sex sex) async {
-    state = state.copyWith(sex: sex);
+    final current = await future;
+    state = AsyncData(current.copyWith(sex: sex));
     await _databaseService.setSetting(
       'sex',
       sex == Sex.female ? 'female' : 'male',
@@ -162,7 +162,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
   Future<void> updateMaxHRCalculationMethod(
     MaxHRCalculationMethod method,
   ) async {
-    state = state.copyWith(maxHRCalculationMethod: method);
+    final current = await future;
+    state = AsyncData(current.copyWith(maxHRCalculationMethod: method));
     await _databaseService.setSetting(
       'max_hr_calculation_method',
       _maxHRMethodToString[method] ?? 'fox_formula',
@@ -180,7 +181,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
       );
     }
 
-    state = state.copyWith(customMaxHR: maxHR);
+    final current = await future;
+    state = AsyncData(current.copyWith(customMaxHR: maxHR));
     await _databaseService.setSetting('custom_max_hr', maxHR.toString());
   }
 
@@ -195,7 +197,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
       );
     }
 
-    state = state.copyWith(sessionRetentionDays: days);
+    final current = await future;
+    state = AsyncData(current.copyWith(sessionRetentionDays: days));
     await _databaseService.setSetting(
       'session_retention_days',
       days.toString(),
@@ -207,6 +210,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
 ///
 /// Exposes the current settings state and methods to update them.
 /// Settings are automatically persisted to the encrypted database.
-final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(() {
-  return SettingsNotifier();
-});
+final settingsProvider = AsyncNotifierProvider<SettingsNotifier, AppSettings>(
+  () {
+    return SettingsNotifier();
+  },
+);

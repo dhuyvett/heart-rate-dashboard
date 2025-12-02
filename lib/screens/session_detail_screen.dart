@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/app_settings.dart';
 import 'package:intl/intl.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/workout_session.dart';
@@ -211,73 +212,101 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settings = ref.watch(settingsProvider);
+    final settingsAsync = ref.watch(settingsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_currentSession.deviceName),
-        actions: [
-          // Previous session button
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _hasPreviousSession ? _navigateToPreviousSession : null,
-            tooltip: 'Previous session',
-          ),
-          // Next session button
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _hasNextSession ? _navigateToNextSession : null,
-            tooltip: 'Next session',
-          ),
-          // Delete button
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteSession,
-            tooltip: 'Delete session',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  _errorMessage!,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
+    return settingsAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (err, stack) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 12),
+                const Text(
+                  'Failed to load settings. Please retry.',
                   textAlign: TextAlign.center,
                 ),
-              ),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final isLandscape = _isLandscape(constraints);
-
-                if (isLandscape) {
-                  return _buildLandscapeLayout(
-                    theme: theme,
-                    settings: settings,
-                    constraints: constraints,
-                  );
-                } else {
-                  return _buildPortraitLayout(
-                    theme: theme,
-                    settings: settings,
-                    constraints: constraints,
-                  );
-                }
-              },
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(settingsProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+      data: (settings) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_currentSession.deviceName),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: _hasPreviousSession
+                    ? _navigateToPreviousSession
+                    : null,
+                tooltip: 'Previous session',
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: _hasNextSession ? _navigateToNextSession : null,
+                tooltip: 'Next session',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: _deleteSession,
+                tooltip: 'Delete session',
+              ),
+            ],
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      _errorMessage!,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isLandscape = _isLandscape(constraints);
+
+                    if (isLandscape) {
+                      return _buildLandscapeLayout(
+                        theme: theme,
+                        settings: settings,
+                        constraints: constraints,
+                      );
+                    } else {
+                      return _buildPortraitLayout(
+                        theme: theme,
+                        settings: settings,
+                        constraints: constraints,
+                      );
+                    }
+                  },
+                ),
+        );
+      },
     );
   }
 
   /// Builds the portrait (vertical stacking) layout.
   Widget _buildPortraitLayout({
     required ThemeData theme,
-    required dynamic settings,
+    required AppSettings settings,
     required BoxConstraints constraints,
   }) {
     return Padding(
@@ -324,7 +353,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   /// Builds the landscape (side-by-side) layout.
   Widget _buildLandscapeLayout({
     required ThemeData theme,
-    required dynamic settings,
+    required AppSettings settings,
     required BoxConstraints constraints,
   }) {
     return Padding(
@@ -399,7 +428,10 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   }
 
   /// Builds the heart rate chart widget.
-  Widget _buildChart({required ThemeData theme, required dynamic settings}) {
+  Widget _buildChart({
+    required ThemeData theme,
+    required AppSettings settings,
+  }) {
     // Handle case where session has no readings
     if (_readings.isEmpty) {
       return Center(
