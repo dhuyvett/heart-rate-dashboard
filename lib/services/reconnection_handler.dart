@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:meta/meta.dart';
 import '../utils/constants.dart';
 import 'bluetooth_service.dart';
 
@@ -129,6 +130,9 @@ class ReconnectionHandler {
   // Singleton instance
   static final ReconnectionHandler instance = ReconnectionHandler._internal();
 
+  // Bluetooth service dependency (injectable for testing)
+  BluetoothService _bluetoothService = BluetoothService.instance;
+
   // Stream controller for reconnection state
   final StreamController<ReconnectionState> _stateController =
       StreamController<ReconnectionState>.broadcast();
@@ -157,6 +161,9 @@ class ReconnectionHandler {
   // Flag to prevent concurrent reconnection attempts
   bool _isReconnecting = false;
 
+  // Delay calculator (overridable for faster tests)
+  Duration Function(int attempt) _delayCalculator = _defaultDelayForAttempt;
+
   // Private constructor for singleton
   ReconnectionHandler._internal();
 
@@ -178,6 +185,18 @@ class ReconnectionHandler {
 
   /// Gets the session ID to resume after reconnection.
   int? get sessionIdToResume => _sessionIdToResume;
+
+  /// Overrides the Bluetooth service (testing hook).
+  @visibleForTesting
+  set bluetoothService(BluetoothService service) {
+    _bluetoothService = service;
+  }
+
+  /// Overrides reconnection delays (testing hook).
+  @visibleForTesting
+  set delayCalculator(Duration Function(int attempt) calculator) {
+    _delayCalculator = calculator;
+  }
 
   /// Marks that the next disconnection should be treated as manual.
   ///
@@ -201,17 +220,17 @@ class ReconnectionHandler {
     _connectionSubscription?.cancel();
 
     // Monitor connection state
-    _connectionSubscription = BluetoothService.instance
-        .monitorConnectionState()
-        .listen((state) {
-          if (state == ConnectionState.disconnected && !_wasManualDisconnect) {
-            // Unexpected disconnection - start reconnection
-            _startReconnection();
-          } else if (state == ConnectionState.connected) {
-            // Successfully reconnected
-            _handleSuccessfulReconnection();
-          }
-        });
+    _connectionSubscription = _bluetoothService.monitorConnectionState().listen(
+      (state) {
+        if (state == ConnectionState.disconnected && !_wasManualDisconnect) {
+          // Unexpected disconnection - start reconnection
+          _startReconnection();
+        } else if (state == ConnectionState.connected) {
+          // Successfully reconnected
+          _handleSuccessfulReconnection();
+        }
+      },
+    );
   }
 
   /// Stops monitoring and cancels any pending reconnection attempts.
@@ -275,7 +294,7 @@ class ReconnectionHandler {
 
     try {
       // Attempt to connect
-      await BluetoothService.instance.connectToDevice(_targetDeviceId!);
+      await _bluetoothService.connectToDevice(_targetDeviceId!);
 
       // If we get here, connection succeeded
       // The connection state listener will handle the success
@@ -309,6 +328,10 @@ class ReconnectionHandler {
   /// - Attempt 3: 8 seconds
   /// - Attempt 4+: 30 seconds
   Duration _getDelayForAttempt(int attempt) {
+    return _delayCalculator(attempt);
+  }
+
+  static Duration _defaultDelayForAttempt(int attempt) {
     switch (attempt) {
       case 1:
         return const Duration(seconds: 2);

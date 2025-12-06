@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 import '../models/heart_rate_data.dart';
 import '../models/session_state.dart';
 import '../services/database_service.dart';
@@ -110,6 +111,9 @@ class SessionNotifier extends Notifier<SessionState> {
       );
     }
   }
+
+  @visibleForTesting
+  Future<void> handleReadingForTest(int bpm) => _handleHeartRateReading(bpm);
 
   /// Updates session statistics with a new reading.
   void _updateStatistics(int bpm) {

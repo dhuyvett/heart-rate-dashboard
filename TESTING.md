@@ -1,6 +1,12 @@
 # Testing Standards and Principles
 **Heart Rate Dashboard Application**
 
+## Current Coverage & Status
+- Unit tests cover crypto (AES/XOR migration), permission handling, stream cleanup, connection timeout/retry guards, async settings loading, and empty session deletion.
+- Integration/widget coverage includes settings and session detail screens, session provider + database flow, reconnection handler race-prevention, and the desktop encryption warning dialog.
+- Recent run: `flutter test test/integration/reconnection_handler_integration_test.dart test/integration/session_provider_integration_test.dart` (pass); analyzer is clean.
+- Known gaps: hardware BLE and permission channel paths are not exercised in CI; InitialRouteResolver + DeviceSelection depend on platform channels and still need manual device validation.
+
 ## Testing Principles
 
 ### 1. Timeout Protection
@@ -153,3 +159,4 @@ class FakeClock {
 - Location: `test/services`, `test/providers`, `test/models`, `test/utils`
 - Command: `flutter test test/services test/providers test/models test/utils`
 - Expectations: deterministic and isolated; no real BLE or database I/O—use in-memory fakes (e.g., `FakeSettingsNotifier`), `sqflite_common_ffi` test helpers, and stream timeouts instead of sleeps
+- Current focus areas: AES/XOR crypto, permission/UI state, timeout/retry logic, async settings loading, and empty session cleanup (see `test/utils`, `test/services`, `test/providers`)

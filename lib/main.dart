@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'widgets/desktop_encryption_warning_dialog.dart';
 import 'providers/settings_provider.dart';
 import 'services/database_service.dart';
 import 'screens/device_selection_screen.dart';
@@ -213,54 +214,14 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
         return;
       }
 
-      bool dontShowAgain = false;
       if (!mounted) return;
-      await showDialog<void>(
+      final dontShowAgain = await showDialog<bool>(
         // ignore: use_build_context_synchronously
         context: dialogContext,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('Desktop Encryption Warning'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'On desktop platforms, the database is stored unencrypted. '
-                  'For maximum privacy, use the mobile app on Android or iOS.',
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    StatefulBuilder(
-                      builder: (context, setState) {
-                        return Checkbox(
-                          value: dontShowAgain,
-                          onChanged: (value) {
-                            setState(() {
-                              dontShowAgain = value ?? false;
-                            });
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(child: Text("Don't show again")),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('I Understand'),
-              ),
-            ],
-          );
-        },
+        builder: (_) => const DesktopEncryptionWarningDialog(),
       );
 
-      if (dontShowAgain && mounted) {
+      if ((dontShowAgain ?? false) && mounted) {
         await prefs.setBool('desktop_encryption_warning_shown', true);
         _logger.i('Desktop encryption warning acknowledged');
       }

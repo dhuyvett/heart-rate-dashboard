@@ -151,6 +151,8 @@ flutter test
 
 ### Testing
 
+Testing standards, coverage notes, and commands live in `TESTING.md`; review it before opening a PR.
+
 - **Run all tests**: `flutter test`
 - **Run specific test**: `flutter test test/widget_test.dart`
 - **Run with coverage**: `flutter test --coverage`

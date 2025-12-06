@@ -3,14 +3,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
 import 'package:heart_rate_dashboard/models/session_state.dart';
 import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
+import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 import 'package:heart_rate_dashboard/providers/session_provider.dart';
 import 'package:heart_rate_dashboard/screens/heart_rate_monitoring_screen.dart';
 
 import '../integration/complete_workflow_test.dart' show MockSessionNotifier;
+import '../helpers/fake_settings_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +30,9 @@ void main() {
           overrides: [
             heartRateProvider.overrideWith(
               (ref) => Stream<HeartRateData>.error('failed'),
+            ),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(const AppSettings()),
             ),
             sessionProvider.overrideWith(
               () => MockSessionNotifier(SessionState.inactive()),
@@ -57,6 +63,9 @@ void main() {
               (ref) => Stream.value(
                 const HeartRateData(bpm: 150, zone: HeartRateZone.zone4),
               ),
+            ),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(const AppSettings()),
             ),
             sessionProvider.overrideWith(
               () => MockSessionNotifier(

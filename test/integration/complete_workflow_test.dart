@@ -434,6 +434,9 @@ void main() {
       ),
     );
 
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
     // Select a new chart window chip
     await tester.tap(find.text('60s'));
     await tester.pump();

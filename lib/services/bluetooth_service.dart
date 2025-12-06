@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:meta/meta.dart';
 import '../utils/constants.dart';
 import '../utils/app_logger.dart';
 import 'database_service.dart';
@@ -38,7 +39,28 @@ class BluetoothService {
   static final _logger = AppLogger.getLogger('BluetoothService');
 
   // Singleton instance
-  static final BluetoothService instance = BluetoothService._internal();
+  static BluetoothService _instance = BluetoothService._internal();
+
+  /// Primary access point for the singleton instance.
+  static BluetoothService get instance => _instance;
+
+  /// Allows tests to swap in a fake or controlled instance.
+  @visibleForTesting
+  static set debugInstance(BluetoothService service) {
+    _instance = service;
+  }
+
+  /// Creates a test-friendly instance with injectable behaviors.
+  @visibleForTesting
+  factory BluetoothService.test({
+    Stream<ConnectionState>? connectionStateStream,
+    Future<void> Function(String deviceId)? onConnect,
+  }) {
+    return _TestBluetoothService(
+      connectionStateStream: connectionStateStream,
+      onConnect: onConnect,
+    );
+  }
 
   // Current connection state
   ConnectionState _connectionState = ConnectionState.disconnected;
@@ -190,6 +212,10 @@ class BluetoothService {
   /// Throws [StateError] if Heart Rate Service is not found.
   /// Throws [Exception] for other connection errors.
   Future<void> connectToDevice(String deviceId) async {
+    if (this is _TestBluetoothService) {
+      return (this as _TestBluetoothService)._handleTestConnect(deviceId);
+    }
+
     // Check if this is demo mode
     if (isDemoModeDevice(deviceId)) {
       await _connectToDemoMode();
@@ -509,6 +535,10 @@ class BluetoothService {
   ///
   /// Returns a stream of [ConnectionState] values.
   Stream<ConnectionState> monitorConnectionState() {
+    if (this is _TestBluetoothService) {
+      return (this as _TestBluetoothService)._connectionStateStream ??
+          _connectionStateController.stream;
+    }
     return _connectionStateController.stream;
   }
 
@@ -573,5 +603,23 @@ class BluetoothService {
     await _scanResultsController.close();
     await _heartRateController.close();
     await _connectionStateController.close();
+  }
+}
+
+/// Lightweight test double to avoid platform channels in integration tests.
+class _TestBluetoothService extends BluetoothService {
+  _TestBluetoothService({
+    Stream<ConnectionState>? connectionStateStream,
+    this.onConnect,
+  }) : _connectionStateStream = connectionStateStream,
+       super._internal();
+
+  final Stream<ConnectionState>? _connectionStateStream;
+  final Future<void> Function(String deviceId)? onConnect;
+
+  Future<void> _handleTestConnect(String deviceId) async {
+    if (onConnect != null) {
+      await onConnect!(deviceId);
+    }
   }
 }

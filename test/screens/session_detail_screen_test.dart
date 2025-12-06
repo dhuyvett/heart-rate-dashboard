@@ -3,11 +3,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/workout_session.dart';
+import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 import 'package:heart_rate_dashboard/screens/session_detail_screen.dart';
+
+import '../helpers/fake_settings_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  Widget buildScreen(WorkoutSession session) {
+    return ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(
+          () => FakeSettingsNotifier(const AppSettings()),
+        ),
+      ],
+      child: MaterialApp(home: SessionDetailScreen(session: session)),
+    );
+  }
 
   group('SessionDetailScreen', () {
     testWidgets('renders with basic session data', (WidgetTester tester) async {
@@ -22,11 +37,7 @@ void main() {
         maxHr: 160,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(home: SessionDetailScreen(session: session)),
-        ),
-      );
+      await tester.pumpWidget(buildScreen(session));
 
       // Verify screen is rendered and loading indicator shows initially
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -56,11 +67,7 @@ void main() {
         maxHr: 160,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(home: SessionDetailScreen(session: session)),
-        ),
-      );
+      await tester.pumpWidget(buildScreen(session));
 
       // Wait for screen to load
       await tester.pump(const Duration(milliseconds: 100));
@@ -91,11 +98,7 @@ void main() {
         maxHr: 160,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(home: SessionDetailScreen(session: session)),
-        ),
-      );
+      await tester.pumpWidget(buildScreen(session));
 
       await tester.pump();
 
@@ -122,11 +125,7 @@ void main() {
         maxHr: 160,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(home: SessionDetailScreen(session: session)),
-        ),
-      );
+      await tester.pumpWidget(buildScreen(session));
 
       await tester.pump();
 
@@ -148,11 +147,7 @@ void main() {
         maxHr: 160,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(home: SessionDetailScreen(session: session)),
-        ),
-      );
+      await tester.pumpWidget(buildScreen(session));
 
       // Should show loading indicator immediately
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
