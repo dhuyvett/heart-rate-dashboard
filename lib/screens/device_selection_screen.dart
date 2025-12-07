@@ -194,6 +194,8 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
     });
 
     try {
+      // Invalidate provider to trigger a fresh scan stream.
+      ref.invalidate(deviceScanProvider);
       // Scanning happens via the device scan provider
       // The stream will emit devices as they are discovered
       await Future.delayed(const Duration(seconds: 5));

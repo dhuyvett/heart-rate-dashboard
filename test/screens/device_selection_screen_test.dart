@@ -92,5 +92,31 @@ void main() {
       expect(find.text('Scan for Devices'), findsOneWidget);
       expect(find.byIcon(Icons.bluetooth_searching), findsOneWidget);
     });
+
+    testWidgets('scan button triggers a fresh device scan', (
+      WidgetTester tester,
+    ) async {
+      var scanStarts = 0;
+
+      Stream<List<ScannedDevice>> buildStream() {
+        scanStarts++;
+        return Stream.value([ScannedDevice.demoMode()]);
+      }
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [deviceScanProvider.overrideWith((ref) => buildStream())],
+          child: const MaterialApp(home: DeviceSelectionScreen()),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(scanStarts, 1);
+
+      await tester.tap(find.text('Scan for Devices'));
+      await tester.pump(const Duration(seconds: 6));
+
+      expect(scanStarts, 2);
+    });
   });
 }
