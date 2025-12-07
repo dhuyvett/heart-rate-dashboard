@@ -222,6 +222,7 @@ class BluetoothService {
       return;
     }
 
+    BluetoothDevice? connectedDeviceRef;
     try {
       // Update state to connecting
       _updateConnectionState(ConnectionState.connecting);
@@ -256,6 +257,7 @@ class BluetoothService {
       _connectionTimeoutTimer = null;
       if (!connectionCompleter.isCompleted) {
         _connectedDevice = device;
+        connectedDeviceRef = device;
         _connectedDeviceName = device.platformName.isNotEmpty
             ? device.platformName
             : 'Unknown Device';
@@ -301,6 +303,25 @@ class BluetoothService {
       _updateConnectionState(ConnectionState.connected);
     } catch (e) {
       _connectionTimeoutTimer?.cancel();
+      _connectionTimeoutTimer = null;
+      if (connectedDeviceRef != null) {
+        try {
+          await connectedDeviceRef.disconnect();
+        } catch (disconnectError, stackTrace) {
+          _logger.w(
+            'Error during cleanup disconnect',
+            error: disconnectError,
+            stackTrace: stackTrace,
+          );
+        } finally {
+          _connectedDevice = null;
+          _connectedDeviceName = null;
+          await _deviceStateSubscription?.cancel();
+          _deviceStateSubscription = null;
+          await _heartRateSubscription?.cancel();
+          _heartRateSubscription = null;
+        }
+      }
       _updateConnectionState(ConnectionState.disconnected);
       rethrow;
     }
