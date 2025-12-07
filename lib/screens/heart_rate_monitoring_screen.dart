@@ -37,8 +37,17 @@ import 'settings_screen.dart';
 class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   /// The name of the connected device.
   final String deviceName;
+  final VoidCallback? onHeartRateUpdate;
+  final bool enableSessionRestore;
+  final bool loadRecentReadings;
 
-  const HeartRateMonitoringScreen({required this.deviceName, super.key});
+  const HeartRateMonitoringScreen({
+    required this.deviceName,
+    this.onHeartRateUpdate,
+    this.enableSessionRestore = true,
+    this.loadRecentReadings = true,
+    super.key,
+  });
 
   @override
   ConsumerState<HeartRateMonitoringScreen> createState() =>
@@ -51,6 +60,8 @@ class _HeartRateMonitoringScreenState
   List<HeartRateReading> _recentReadings = [];
   bool _sessionStarted = false;
   int? _lastKnownBpm;
+  ProviderSubscription<AsyncValue<HeartRateData>>? _heartRateListener;
+  ProviderSubscription<AsyncValue<AppSettings>>? _settingsListener;
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
@@ -67,6 +78,8 @@ class _HeartRateMonitoringScreenState
   @override
   void initState() {
     super.initState();
+    _listenToHeartRate();
+    _listenToSettings();
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
@@ -75,6 +88,8 @@ class _HeartRateMonitoringScreenState
   @override
   void dispose() {
     _reconnectionSubscription?.cancel();
+    _heartRateListener?.close();
+    _settingsListener?.close();
     // Always disable wake lock when leaving the screen
     WakelockPlus.disable();
     super.dispose();
@@ -167,19 +182,23 @@ class _HeartRateMonitoringScreenState
       // Set up reconnection monitoring
       final bluetoothService = bt.BluetoothService.instance;
       if (!bluetoothService.isInDemoMode) {
-        // Start monitoring for reconnection (not needed for demo mode)
-        final lastDeviceId = await DatabaseService.instance.getSetting(
-          'last_connected_device_id',
-        );
-        if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
-          ReconnectionHandler.instance.setSessionIdToResume(
-            ref.read(sessionProvider).currentSessionId,
+        if (widget.enableSessionRestore) {
+          // Start monitoring for reconnection (not needed for demo mode)
+          final lastDeviceId = await DatabaseService.instance.getSetting(
+            'last_connected_device_id',
           );
-          ReconnectionHandler.instance.startMonitoring(lastDeviceId);
+          if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
+            ReconnectionHandler.instance.setSessionIdToResume(
+              ref.read(sessionProvider).currentSessionId,
+            );
+            ReconnectionHandler.instance.startMonitoring(lastDeviceId);
+          }
         }
       }
 
-      _loadRecentReadings();
+      if (widget.loadRecentReadings) {
+        _loadRecentReadings();
+      }
     }
   }
 
@@ -230,6 +249,34 @@ class _HeartRateMonitoringScreenState
     return constraints.maxWidth > constraints.maxHeight;
   }
 
+  void _listenToHeartRate() {
+    _heartRateListener = ref.listenManual<AsyncValue<HeartRateData>>(
+      heartRateProvider,
+      (previous, next) {
+        final sessionState = ref.read(sessionProvider);
+        if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
+          widget.onHeartRateUpdate?.call();
+          _lastKnownBpm = next.value.bpm;
+          ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
+          _loadRecentReadings();
+        }
+      },
+    );
+  }
+
+  void _listenToSettings() {
+    _settingsListener = ref.listenManual<AsyncValue<AppSettings>>(
+      settingsProvider,
+      (previous, next) {
+        final prevValue = previous?.asData?.value;
+        final nextValue = next.asData?.value;
+        if (prevValue?.keepScreenAwake != nextValue?.keepScreenAwake) {
+          _updateWakeLock();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -238,25 +285,6 @@ class _HeartRateMonitoringScreenState
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
-
-    // Periodically reload readings for the chart and track last known BPM
-    // Skip updates when session is paused
-    ref.listen(heartRateProvider, (previous, next) {
-      if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
-        _lastKnownBpm = next.value.bpm;
-        ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
-        _loadRecentReadings();
-      }
-    });
-
-    // Update wake lock when setting changes
-    ref.listen(settingsProvider, (previous, next) {
-      final prevValue = previous?.asData?.value;
-      final nextValue = next.asData?.value;
-      if (prevValue?.keepScreenAwake != nextValue?.keepScreenAwake) {
-        _updateWakeLock();
-      }
-    });
 
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
