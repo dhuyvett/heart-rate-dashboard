@@ -3,6 +3,25 @@ import 'package:meta/meta.dart';
 import '../utils/constants.dart';
 import 'bluetooth_service.dart';
 
+/// Public interface for reconnection handling to allow injection in tests.
+abstract class ReconnectionController {
+  ReconnectionState get state;
+  Stream<ReconnectionState> get stateStream;
+  void setLastKnownBpm(int bpm);
+  void setSessionIdToResume(int? sessionId);
+  int? get sessionIdToResume;
+  @visibleForTesting
+  set bluetoothService(BluetoothService service);
+  @visibleForTesting
+  set delayCalculator(Duration Function(int attempt) calculator);
+  void markManualDisconnect();
+  void startMonitoring(String deviceId);
+  void stopMonitoring();
+  Future<void> retryReconnection();
+  void reset();
+  Future<void> dispose();
+}
+
 /// Represents the current state of a reconnection attempt.
 class ReconnectionState {
   /// Whether reconnection is currently in progress.
@@ -126,7 +145,7 @@ class ReconnectionState {
 /// - Attempts 1-3: 2s, 4s, 8s delays
 /// - Attempts 4+: 30s delays
 /// - Maximum 10 attempts total
-class ReconnectionHandler {
+class ReconnectionHandler implements ReconnectionController {
   // Singleton instance
   static final ReconnectionHandler instance = ReconnectionHandler._internal();
 
@@ -168,32 +187,39 @@ class ReconnectionHandler {
   ReconnectionHandler._internal();
 
   /// Gets the current reconnection state.
+  @override
   ReconnectionState get state => _state;
 
   /// Stream of reconnection state changes.
+  @override
   Stream<ReconnectionState> get stateStream => _stateController.stream;
 
   /// Sets the last known BPM value for display during reconnection.
+  @override
   void setLastKnownBpm(int bpm) {
     _lastKnownBpm = bpm;
   }
 
   /// Sets the session ID to resume after successful reconnection.
+  @override
   void setSessionIdToResume(int? sessionId) {
     _sessionIdToResume = sessionId;
   }
 
   /// Gets the session ID to resume after reconnection.
+  @override
   int? get sessionIdToResume => _sessionIdToResume;
 
   /// Overrides the Bluetooth service (testing hook).
   @visibleForTesting
+  @override
   set bluetoothService(BluetoothService service) {
     _bluetoothService = service;
   }
 
   /// Overrides reconnection delays (testing hook).
   @visibleForTesting
+  @override
   set delayCalculator(Duration Function(int attempt) calculator) {
     _delayCalculator = calculator;
   }
@@ -202,6 +228,7 @@ class ReconnectionHandler {
   ///
   /// Call this before initiating a manual disconnect to prevent
   /// auto-reconnection attempts.
+  @override
   void markManualDisconnect() {
     _wasManualDisconnect = true;
   }
@@ -211,6 +238,7 @@ class ReconnectionHandler {
   /// [deviceId] is the ID of the currently connected device.
   /// When an unexpected disconnection occurs, reconnection attempts
   /// will begin automatically.
+  @override
   void startMonitoring(String deviceId) {
     _targetDeviceId = deviceId;
     _wasManualDisconnect = false;
@@ -234,6 +262,7 @@ class ReconnectionHandler {
   }
 
   /// Stops monitoring and cancels any pending reconnection attempts.
+  @override
   void stopMonitoring() {
     _connectionSubscription?.cancel();
     _connectionSubscription = null;
@@ -245,6 +274,7 @@ class ReconnectionHandler {
   /// Manually triggers reconnection attempts.
   ///
   /// Useful when the user chooses to retry after all attempts have failed.
+  @override
   Future<void> retryReconnection() async {
     if (_targetDeviceId == null) return;
 
@@ -353,6 +383,7 @@ class ReconnectionHandler {
   }
 
   /// Resets the handler to initial state.
+  @override
   void reset() {
     stopMonitoring();
     _targetDeviceId = null;
@@ -363,6 +394,7 @@ class ReconnectionHandler {
   }
 
   /// Disposes of resources.
+  @override
   Future<void> dispose() async {
     stopMonitoring();
     await _stateController.close();

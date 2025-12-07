@@ -10,14 +10,62 @@ import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
 import 'package:heart_rate_dashboard/models/session_state.dart';
 import 'package:heart_rate_dashboard/providers/bluetooth_provider.dart';
 import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
+import 'package:heart_rate_dashboard/providers/reconnection_handler_provider.dart';
 import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 import 'package:heart_rate_dashboard/providers/session_provider.dart';
 import 'package:heart_rate_dashboard/screens/heart_rate_monitoring_screen.dart';
 import 'package:heart_rate_dashboard/services/bluetooth_service.dart' as bt;
 import 'package:heart_rate_dashboard/services/database_service.dart';
+import 'package:heart_rate_dashboard/services/reconnection_handler.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../helpers/fake_settings_notifier.dart';
+
+class _FakeReconnectionHandler implements ReconnectionController {
+  bool manualDisconnectMarked = false;
+
+  @override
+  void markManualDisconnect() {
+    manualDisconnectMarked = true;
+  }
+
+  @override
+  Stream<ReconnectionState> get stateStream =>
+      const Stream<ReconnectionState>.empty();
+
+  @override
+  ReconnectionState get state => ReconnectionState.idle();
+
+  @override
+  void setLastKnownBpm(int bpm) {}
+
+  @override
+  void setSessionIdToResume(int? sessionId) {}
+
+  @override
+  int? get sessionIdToResume => null;
+
+  @override
+  set bluetoothService(bt.BluetoothService service) {}
+
+  @override
+  set delayCalculator(Duration Function(int attempt) calculator) {}
+
+  @override
+  Future<void> retryReconnection() async {}
+
+  @override
+  void startMonitoring(String deviceId) {}
+
+  @override
+  void stopMonitoring() {}
+
+  @override
+  void reset() {}
+
+  @override
+  Future<void> dispose() async {}
+}
 
 class _NoopSessionNotifier extends SessionNotifier {
   _NoopSessionNotifier(this._state);
@@ -73,6 +121,7 @@ void main() {
               deviceName: 'Polar',
               enableSessionRestore: false,
               loadRecentReadings: false,
+              onChangeDevice: null,
             ),
           ),
         ),
@@ -188,6 +237,57 @@ void main() {
       await tester.pump();
 
       expect(callbackCount, equals(1));
+    });
+
+    testWidgets('marks manual disconnect when changing device', (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final fakeReconnection = _FakeReconnectionHandler();
+      var changeDeviceCalled = false;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            heartRateProvider.overrideWith((ref) => const Stream.empty()),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(const AppSettings()),
+            ),
+            sessionProvider.overrideWith(
+              () => _NoopSessionNotifier(SessionState.inactive()),
+            ),
+            bluetoothConnectionProvider.overrideWith(
+              (ref) => Stream.value(
+                BluetoothConnectionInfo(
+                  connectionState: bt.ConnectionState.connected,
+                  deviceName: 'Test Device',
+                ),
+              ),
+            ),
+            reconnectionHandlerProvider.overrideWith((ref) => fakeReconnection),
+          ],
+          child: MaterialApp(
+            home: HeartRateMonitoringScreen(
+              deviceName: 'Polar',
+              enableSessionRestore: false,
+              loadRecentReadings: false,
+              onChangeDevice: () {
+                changeDeviceCalled = true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      final state =
+          tester.state(find.byType(HeartRateMonitoringScreen)) as dynamic;
+      await state.triggerChangeDevice();
+
+      expect(fakeReconnection.manualDisconnectMarked, isTrue);
+      expect(changeDeviceCalled, isTrue);
     });
   });
 }

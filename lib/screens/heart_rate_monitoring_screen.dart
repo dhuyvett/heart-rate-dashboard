@@ -7,6 +7,7 @@ import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
 import '../providers/bluetooth_provider.dart';
 import '../providers/heart_rate_provider.dart';
+import '../providers/reconnection_handler_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/bluetooth_service.dart' as bt;
@@ -38,12 +39,14 @@ class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   /// The name of the connected device.
   final String deviceName;
   final VoidCallback? onHeartRateUpdate;
+  final VoidCallback? onChangeDevice;
   final bool enableSessionRestore;
   final bool loadRecentReadings;
 
   const HeartRateMonitoringScreen({
     required this.deviceName,
     this.onHeartRateUpdate,
+    this.onChangeDevice,
     this.enableSessionRestore = true,
     this.loadRecentReadings = true,
     super.key,
@@ -60,6 +63,7 @@ class _HeartRateMonitoringScreenState
   List<HeartRateReading> _recentReadings = [];
   bool _sessionStarted = false;
   int? _lastKnownBpm;
+  late final ReconnectionController _reconnectionHandler;
   ProviderSubscription<AsyncValue<HeartRateData>>? _heartRateListener;
   ProviderSubscription<AsyncValue<AppSettings>>? _settingsListener;
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
@@ -78,6 +82,7 @@ class _HeartRateMonitoringScreenState
   @override
   void initState() {
     super.initState();
+    _reconnectionHandler = ref.read(reconnectionHandlerProvider);
     _listenToHeartRate();
     _listenToSettings();
     _startSession();
@@ -90,6 +95,7 @@ class _HeartRateMonitoringScreenState
     _reconnectionSubscription?.cancel();
     _heartRateListener?.close();
     _settingsListener?.close();
+    _reconnectionHandler.stopMonitoring();
     // Always disable wake lock when leaving the screen
     WakelockPlus.disable();
     super.dispose();
@@ -107,20 +113,20 @@ class _HeartRateMonitoringScreenState
 
   /// Sets up the reconnection state listener.
   void _setupReconnectionListener() {
-    _reconnectionSubscription = ReconnectionHandler.instance.stateStream.listen(
-      (state) {
-        if (mounted) {
-          setState(() {
-            _reconnectionState = state;
-          });
+    _reconnectionSubscription = _reconnectionHandler.stateStream.listen((
+      state,
+    ) {
+      if (mounted) {
+        setState(() {
+          _reconnectionState = state;
+        });
 
-          // If all attempts failed, show the failure dialog
-          if (state.hasFailed) {
-            _showReconnectionFailedDialog();
-          }
+        // If all attempts failed, show the failure dialog
+        if (state.hasFailed) {
+          _showReconnectionFailedDialog();
         }
-      },
-    );
+      }
+    });
   }
 
   /// Shows the reconnection failed dialog with retry/select device options.
@@ -133,7 +139,7 @@ class _HeartRateMonitoringScreenState
     if (mounted) {
       if (shouldRetry) {
         // Retry reconnection
-        await ReconnectionHandler.instance.retryReconnection();
+        await _reconnectionHandler.retryReconnection();
       } else {
         // End session and go to device selection
         await _endSessionAndNavigateToDeviceSelection();
@@ -143,7 +149,7 @@ class _HeartRateMonitoringScreenState
 
   /// Ends the current session and navigates to device selection.
   Future<void> _endSessionAndNavigateToDeviceSelection() async {
-    ReconnectionHandler.instance.stopMonitoring();
+    _reconnectionHandler.stopMonitoring();
     await ref.read(sessionProvider.notifier).endSession();
 
     if (mounted) {
@@ -156,10 +162,12 @@ class _HeartRateMonitoringScreenState
   /// Navigates to the device selection screen from the menu.
   Future<void> _navigateToDeviceSelection() async {
     // Disconnect from current device
+    _reconnectionHandler.markManualDisconnect();
+    widget.onChangeDevice?.call();
     await bt.BluetoothService.instance.disconnect();
 
     // Stop reconnection monitoring
-    ReconnectionHandler.instance.stopMonitoring();
+    _reconnectionHandler.stopMonitoring();
 
     // End the current session
     await ref.read(sessionProvider.notifier).endSession();
@@ -172,6 +180,9 @@ class _HeartRateMonitoringScreenState
       );
     }
   }
+
+  @visibleForTesting
+  Future<void> triggerChangeDevice() => _navigateToDeviceSelection();
 
   /// Starts a new workout session.
   Future<void> _startSession() async {
@@ -188,10 +199,10 @@ class _HeartRateMonitoringScreenState
             'last_connected_device_id',
           );
           if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
-            ReconnectionHandler.instance.setSessionIdToResume(
+            _reconnectionHandler.setSessionIdToResume(
               ref.read(sessionProvider).currentSessionId,
             );
-            ReconnectionHandler.instance.startMonitoring(lastDeviceId);
+            _reconnectionHandler.startMonitoring(lastDeviceId);
           }
         }
       }
@@ -221,11 +232,10 @@ class _HeartRateMonitoringScreenState
             DateTime.now(),
           );
 
-      if (mounted) {
-        setState(() {
-          _recentReadings = readings;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _recentReadings = readings;
+      });
     } catch (e, stackTrace) {
       // Log error but continue - chart will show available data
       _logger.w(
@@ -257,8 +267,10 @@ class _HeartRateMonitoringScreenState
         if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
           widget.onHeartRateUpdate?.call();
           _lastKnownBpm = next.value.bpm;
-          ReconnectionHandler.instance.setLastKnownBpm(next.value.bpm);
-          _loadRecentReadings();
+          _reconnectionHandler.setLastKnownBpm(next.value.bpm);
+          if (widget.loadRecentReadings) {
+            _loadRecentReadings();
+          }
         }
       },
     );
@@ -337,6 +349,7 @@ class _HeartRateMonitoringScreenState
             itemBuilder: (BuildContext context) => [
               const PopupMenuItem<String>(
                 value: 'change_device',
+                key: ValueKey('change_device_menu_item'),
                 child: Row(
                   children: [
                     Icon(Icons.bluetooth_searching),
