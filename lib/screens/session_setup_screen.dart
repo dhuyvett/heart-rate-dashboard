@@ -17,16 +17,27 @@ class SessionSetupScreen extends StatefulWidget {
 
 class _SessionSetupScreenState extends State<SessionSetupScreen> {
   late final TextEditingController _nameController;
+  late final FocusNode _nameFocusNode;
   bool _starting = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: _buildDefaultName());
+    _nameFocusNode = FocusNode();
+    _nameFocusNode.addListener(() {
+      if (_nameFocusNode.hasFocus) {
+        _nameController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _nameController.text.length,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _nameFocusNode.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -68,18 +79,19 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Set a name before starting your session.',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Set the session name', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             TextField(
               controller: _nameController,
+              focusNode: _nameFocusNode,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                labelText: 'Session name',
-                helperText: 'Defaults to date and time; edit as needed.',
-              ),
+              onTap: () {
+                _nameController.selection = TextSelection(
+                  baseOffset: 0,
+                  extentOffset: _nameController.text.length,
+                );
+              },
+              decoration: const InputDecoration(labelText: 'Session name'),
             ),
             const Spacer(),
             Row(

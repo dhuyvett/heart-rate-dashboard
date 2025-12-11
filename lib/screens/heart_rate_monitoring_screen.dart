@@ -392,11 +392,14 @@ class _HeartRateMonitoringScreenState
     return Scaffold(
       appBar: AppBar(
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(widget.deviceName),
             Text(
               currentSessionName,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              widget.deviceName,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -850,56 +853,6 @@ class _HeartRateMonitoringScreenState
                 foregroundColor: sessionState.isPaused
                     ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Restart Button
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                // Show confirmation dialog
-                final shouldRestart = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Restart Session?'),
-                    content: const Text(
-                      'This will end the current session and start a new one. '
-                      'Your current session data will be saved.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Restart'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (shouldRestart == true) {
-                  final nextName =
-                      sessionState.sessionName ?? widget.sessionName;
-                  await ref
-                      .read(sessionProvider.notifier)
-                      .restartSession(widget.deviceName, sessionName: nextName);
-                  // Clear recent readings for the chart
-                  if (mounted) {
-                    setState(() {
-                      _recentReadings = [];
-                    });
-                  }
-                }
-              },
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text('Restart'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                backgroundColor: theme.colorScheme.errorContainer,
-                foregroundColor: theme.colorScheme.onErrorContainer,
               ),
             ),
           ),

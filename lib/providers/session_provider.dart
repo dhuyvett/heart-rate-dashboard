@@ -190,18 +190,6 @@ class SessionNotifier extends Notifier<SessionState> {
     state = state.copyWith(isPaused: false);
   }
 
-  /// Restarts the session by ending the current one and starting a new one.
-  ///
-  /// Saves the current session's statistics and begins a fresh session
-  /// with the same device.
-  Future<void> restartSession(
-    String deviceName, {
-    required String sessionName,
-  }) async {
-    await endSession();
-    await startSession(deviceName: deviceName, sessionName: sessionName);
-  }
-
   /// Ends the current session.
   ///
   /// Saves final statistics to the database and resets to inactive state.
