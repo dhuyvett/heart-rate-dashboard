@@ -74,6 +74,9 @@ class BluetoothService {
   // Connected device name (for demo mode tracking)
   String? _connectedDeviceName;
 
+  /// Timeout used for BLE connections. Overridable in tests.
+  static Duration connectionTimeout = const Duration(seconds: 15);
+
   // Stream controllers for managing data flows
   final StreamController<List<BluetoothDevice>> _scanResultsController =
       StreamController<List<BluetoothDevice>>.broadcast();
@@ -87,9 +90,6 @@ class BluetoothService {
   StreamSubscription<BluetoothConnectionState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _heartRateSubscription;
   StreamSubscription<int>? _demoModeSubscription;
-
-  // Connection timeout timer
-  Timer? _connectionTimeoutTimer;
 
   // Private constructor for singleton
   BluetoothService._internal();
@@ -236,36 +236,27 @@ class BluetoothService {
         throw StateError('Device not found: $deviceId');
       }
 
-      final connectionCompleter = Completer<void>();
-      _connectionTimeoutTimer = Timer(const Duration(seconds: 15), () {
-        if (!connectionCompleter.isCompleted) {
-          _logger.w('Connection timeout after 15 seconds');
-          _updateConnectionState(ConnectionState.disconnected);
-          connectionCompleter.completeError(
-            TimeoutException('Failed to connect to device within 15 seconds'),
-          );
-        }
-      });
-
       // Connect to the device
-      await device.connect(
-        license: License.free,
-        autoConnect: false,
-        mtu: null,
-      );
-      _connectionTimeoutTimer?.cancel();
-      _connectionTimeoutTimer = null;
-      if (!connectionCompleter.isCompleted) {
-        _connectedDevice = device;
-        connectedDeviceRef = device;
-        _connectedDeviceName = device.platformName.isNotEmpty
-            ? device.platformName
-            : 'Unknown Device';
-        _isInDemoMode = false;
-        connectionCompleter.complete();
-      }
-
-      await connectionCompleter.future;
+      await device
+          .connect(license: License.free, autoConnect: false, mtu: null)
+          .timeout(
+            connectionTimeout,
+            onTimeout: () {
+              _logger.w(
+                'Connection timeout after ${connectionTimeout.inSeconds} seconds',
+              );
+              _updateConnectionState(ConnectionState.disconnected);
+              throw TimeoutException(
+                'Failed to connect to device within ${connectionTimeout.inSeconds} seconds',
+              );
+            },
+          );
+      _connectedDevice = device;
+      connectedDeviceRef = device;
+      _connectedDeviceName = device.platformName.isNotEmpty
+          ? device.platformName
+          : 'Unknown Device';
+      _isInDemoMode = false;
 
       // Discover services
       final services = await device.discoverServices();
@@ -302,8 +293,6 @@ class BluetoothService {
       // Update state to connected
       _updateConnectionState(ConnectionState.connected);
     } catch (e) {
-      _connectionTimeoutTimer?.cancel();
-      _connectionTimeoutTimer = null;
       if (connectedDeviceRef != null) {
         try {
           await connectedDeviceRef.disconnect();
@@ -620,7 +609,6 @@ class BluetoothService {
   Future<void> dispose() async {
     await stopScan();
     await disconnect();
-    _connectionTimeoutTimer?.cancel();
     await _scanResultsController.close();
     await _heartRateController.close();
     await _connectionStateController.close();
@@ -639,8 +627,28 @@ class _TestBluetoothService extends BluetoothService {
   final Future<void> Function(String deviceId)? onConnect;
 
   Future<void> _handleTestConnect(String deviceId) async {
-    if (onConnect != null) {
-      await onConnect!(deviceId);
+    _updateConnectionState(ConnectionState.connecting);
+    try {
+      final connectFuture = onConnect != null
+          ? onConnect!(deviceId)
+          : Future<void>.value();
+
+      await connectFuture.timeout(
+        BluetoothService.connectionTimeout,
+        onTimeout: () {
+          _updateConnectionState(ConnectionState.disconnected);
+          throw TimeoutException(
+            'Failed to connect to device within '
+            '${BluetoothService.connectionTimeout.inSeconds} seconds',
+          );
+        },
+      );
+
+      _connectedDeviceName = deviceId;
+      _updateConnectionState(ConnectionState.connected);
+    } catch (e) {
+      _updateConnectionState(ConnectionState.disconnected);
+      rethrow;
     }
   }
 }

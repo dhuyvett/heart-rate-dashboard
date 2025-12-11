@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/services/bluetooth_service.dart';
 
@@ -77,6 +79,34 @@ void main() {
         () => service.parseHeartRateValue(data),
         throwsA(isA<FormatException>()),
       );
+    });
+
+    test('connectToDevice times out and resets state', () {
+      fakeAsync((async) {
+        final previousTimeout = BluetoothService.connectionTimeout;
+        BluetoothService.connectionTimeout = const Duration(milliseconds: 100);
+
+        try {
+          final hang = Completer<void>();
+          final testService = BluetoothService.test(
+            onConnect: (_) => hang.future,
+          );
+
+          expect(testService.connectionState, ConnectionState.disconnected);
+
+          final future = testService.connectToDevice('TEST_DEVICE');
+
+          expect(future, throwsA(isA<TimeoutException>()));
+
+          async.elapse(const Duration(milliseconds: 100));
+          async.flushMicrotasks();
+
+          async.flushMicrotasks();
+          expect(testService.connectionState, ConnectionState.disconnected);
+        } finally {
+          BluetoothService.connectionTimeout = previousTimeout;
+        }
+      });
     });
   });
 }

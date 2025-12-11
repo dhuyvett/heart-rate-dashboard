@@ -26,7 +26,7 @@ import 'app_logger.dart';
 class SecureKeyManager {
   static final _logger = AppLogger.getLogger('SecureKeyManager');
   static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
   );
   static const _keyName = 'hr_db_encryption_key';
   static const _backupKeyName = 'hr_db_encryption_key_backup';
