@@ -30,6 +30,7 @@ void main() {
       final session = WorkoutSession(
         id: 1,
         deviceName: 'Test Device',
+        name: 'Session 1',
         startTime: DateTime(2025, 11, 25, 14, 30),
         endTime: DateTime(2025, 11, 25, 15, 30),
         avgHr: 140,
@@ -60,6 +61,7 @@ void main() {
       final session = WorkoutSession(
         id: 3,
         deviceName: 'Test Device',
+        name: 'Session 3',
         startTime: DateTime(2025, 11, 25, 14, 30),
         endTime: DateTime(2025, 11, 25, 15, 30),
         avgHr: 140,
@@ -91,6 +93,7 @@ void main() {
       final session = WorkoutSession(
         id: 4,
         deviceName: 'My HRM Device',
+        name: 'Session 4',
         startTime: DateTime(2025, 11, 25, 14, 30),
         endTime: DateTime(2025, 11, 25, 15, 30),
         avgHr: 140,
@@ -109,7 +112,7 @@ void main() {
       // Verify action buttons in AppBar
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
       expect(appBar.actions, isNotNull);
-      expect(appBar.actions!.length, equals(3));
+      expect(appBar.actions!.length, equals(4)); // prev, next, rename, delete
     });
 
     testWidgets('uses ConsumerStatefulWidget pattern', (
@@ -118,6 +121,7 @@ void main() {
       final session = WorkoutSession(
         id: 5,
         deviceName: 'Test Device',
+        name: 'Session 5',
         startTime: DateTime(2025, 11, 25, 14, 30),
         endTime: DateTime(2025, 11, 25, 15, 30),
         avgHr: 140,
@@ -140,6 +144,7 @@ void main() {
       final session = WorkoutSession(
         id: 6,
         deviceName: 'Test Device',
+        name: 'Session 6',
         startTime: DateTime(2025, 11, 25, 14, 30),
         endTime: DateTime(2025, 11, 25, 15, 30),
         avgHr: 140,

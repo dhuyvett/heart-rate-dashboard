@@ -53,7 +53,8 @@ void main() {
 
         // Create old session (45 days ago)
         final oldSessionId = await DatabaseService.instance.createSession(
-          'Old Device',
+          deviceName: 'Old Device',
+          name: 'Old Session',
         );
         final dbInstance = await DatabaseService.instance.database;
         await dbInstance.update(
@@ -75,7 +76,8 @@ void main() {
 
         // Create recent session (15 days ago)
         final recentSessionId = await DatabaseService.instance.createSession(
-          'Recent Device',
+          deviceName: 'Recent Device',
+          name: 'Recent Session',
         );
         await dbInstance.update(
           'workout_sessions',
@@ -143,7 +145,8 @@ void main() {
 
         // Create session 50 days old (should be kept with 60-day retention)
         final sessionId = await DatabaseService.instance.createSession(
-          'Test Device',
+          deviceName: 'Test Device',
+          name: 'Retention Session',
         );
         final dbInstance = await DatabaseService.instance.database;
         await dbInstance.update(
@@ -185,7 +188,8 @@ void main() {
       () async {
         // Create session with readings
         final sessionId = await DatabaseService.instance.createSession(
-          'Test Device',
+          deviceName: 'Test Device',
+          name: 'Privacy Session',
         );
 
         // Add multiple readings
@@ -234,7 +238,8 @@ void main() {
       // Create multiple sessions with readings
       for (var i = 0; i < 5; i++) {
         final sessionId = await DatabaseService.instance.createSession(
-          'Device $i',
+          deviceName: 'Device $i',
+          name: 'Session $i',
         );
         await DatabaseService.instance.insertHeartRateReading(
           sessionId,
@@ -276,7 +281,8 @@ void main() {
         // Create 150 sessions
         for (var i = 0; i < 150; i++) {
           final sessionId = await DatabaseService.instance.createSession(
-            'Device $i',
+            deviceName: 'Device $i',
+            name: 'Session $i',
           );
           await DatabaseService.instance.endSession(
             sessionId: sessionId,

@@ -49,6 +49,26 @@ class SessionHistoryNotifier extends Notifier<List<WorkoutSession>> {
     }
   }
 
+  /// Renames a session and updates local state.
+  Future<void> renameSession(int sessionId, String name) async {
+    try {
+      await _databaseService.updateSessionName(
+        sessionId: sessionId,
+        name: name,
+      );
+      state = [
+        for (final session in state)
+          if (session.id == sessionId)
+            session.copyWith(name: name)
+          else
+            session,
+      ];
+    } catch (e, stackTrace) {
+      _logger.e('Error renaming session', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
   /// Deletes all sessions and all associated heart rate readings.
   ///
   /// Updates the state to an empty list.

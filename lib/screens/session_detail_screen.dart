@@ -145,6 +145,62 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
   }
 
+  Future<void> _renameSession() async {
+    final controller = TextEditingController(text: _currentSession.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Session'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Session name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              Navigator.of(context).pop(trimmed.isEmpty ? null : trimmed);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null) {
+      try {
+        await DatabaseService.instance.updateSessionName(
+          sessionId: _currentSession.id!,
+          name: newName,
+        );
+        setState(() {
+          _currentSession = _currentSession.copyWith(name: newName);
+        });
+        // Refresh session history to reflect the rename
+        if (mounted) {
+          ref.read(sessionHistoryProvider.notifier).loadSessions();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Session renamed')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error renaming session: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   /// Shows confirmation dialog and deletes the session.
   Future<void> _deleteSession() async {
     final confirmed = await showDialog<bool>(
@@ -256,6 +312,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                 icon: const Icon(Icons.chevron_right),
                 onPressed: _hasNextSession ? _navigateToNextSession : null,
                 tooltip: 'Next session',
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: _renameSession,
+                tooltip: 'Rename session',
               ),
               IconButton(
                 icon: const Icon(Icons.delete),
@@ -411,13 +472,25 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.calendar_today, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Text(
+                  dateTimeStr,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(
-              dateTimeStr,
-              style: theme.textTheme.titleMedium?.copyWith(
+              _currentSession.name,
+              style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),

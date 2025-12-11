@@ -76,7 +76,10 @@ class _NoopSessionNotifier extends SessionNotifier {
   SessionState build() => _state;
 
   @override
-  Future<void> startSession(String deviceName) async {}
+  Future<void> startSession({
+    required String deviceName,
+    required String sessionName,
+  }) async {}
 
   @override
   Future<void> endSession() async {}
@@ -119,6 +122,7 @@ void main() {
           child: const MaterialApp(
             home: HeartRateMonitoringScreen(
               deviceName: 'Polar',
+              sessionName: 'Test Session',
               enableSessionRestore: false,
               loadRecentReadings: false,
               onChangeDevice: null,
@@ -167,6 +171,7 @@ void main() {
           child: const MaterialApp(
             home: HeartRateMonitoringScreen(
               deviceName: 'Polar',
+              sessionName: 'Test Session',
               enableSessionRestore: false,
               loadRecentReadings: false,
             ),
@@ -219,6 +224,7 @@ void main() {
           child: MaterialApp(
             home: HeartRateMonitoringScreen(
               deviceName: 'Polar',
+              sessionName: 'Test Session',
               enableSessionRestore: false,
               loadRecentReadings: false,
               onHeartRateUpdate: () {
@@ -271,6 +277,7 @@ void main() {
           child: MaterialApp(
             home: HeartRateMonitoringScreen(
               deviceName: 'Polar',
+              sessionName: 'Test Session',
               enableSessionRestore: false,
               loadRecentReadings: false,
               onChangeDevice: () {

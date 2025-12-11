@@ -33,6 +33,9 @@ class SessionState {
   /// Whether the session is currently paused.
   final bool isPaused;
 
+  /// The name of the current session (running/active).
+  final String? sessionName;
+
   /// Creates a session state instance.
   const SessionState({
     this.currentSessionId,
@@ -43,6 +46,7 @@ class SessionState {
     this.maxHr,
     this.readingsCount = 0,
     this.isPaused = false,
+    this.sessionName,
   });
 
   /// Factory constructor for creating an inactive session state.
@@ -63,6 +67,7 @@ class SessionState {
     int? maxHr,
     int? readingsCount,
     bool? isPaused,
+    String? sessionName,
   }) {
     return SessionState(
       currentSessionId: currentSessionId ?? this.currentSessionId,
@@ -73,6 +78,7 @@ class SessionState {
       maxHr: maxHr ?? this.maxHr,
       readingsCount: readingsCount ?? this.readingsCount,
       isPaused: isPaused ?? this.isPaused,
+      sessionName: sessionName ?? this.sessionName,
     );
   }
 
@@ -88,7 +94,8 @@ class SessionState {
         other.minHr == minHr &&
         other.maxHr == maxHr &&
         other.readingsCount == readingsCount &&
-        other.isPaused == isPaused;
+        other.isPaused == isPaused &&
+        other.sessionName == sessionName;
   }
 
   @override
@@ -102,6 +109,7 @@ class SessionState {
       maxHr,
       readingsCount,
       isPaused,
+      sessionName,
     );
   }
 
@@ -109,6 +117,7 @@ class SessionState {
   String toString() {
     return 'SessionState(currentSessionId: $currentSessionId, startTime: $startTime, '
         'duration: $duration, avgHr: $avgHr, minHr: $minHr, maxHr: $maxHr, '
-        'readingsCount: $readingsCount, isPaused: $isPaused)';
+        'readingsCount: $readingsCount, isPaused: $isPaused, '
+        'sessionName: $sessionName)';
   }
 }

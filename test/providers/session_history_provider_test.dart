@@ -9,11 +9,15 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 Future<int> _createCompletedSession(
   String deviceName,
   DateTime startTime, {
+  required String name,
   required int avgHr,
   required int minHr,
   required int maxHr,
 }) async {
-  final sessionId = await DatabaseService.instance.createSession(deviceName);
+  final sessionId = await DatabaseService.instance.createSession(
+    deviceName: deviceName,
+    name: name,
+  );
   await DatabaseService.instance.endSession(
     sessionId: sessionId,
     avgHr: avgHr,
@@ -63,6 +67,7 @@ void main() {
       final session1Id = await _createCompletedSession(
         'Device 1',
         base,
+        name: 'Session 1',
         avgHr: 120,
         minHr: 100,
         maxHr: 140,
@@ -70,6 +75,7 @@ void main() {
       final session2Id = await _createCompletedSession(
         'Device 2',
         base.add(const Duration(minutes: 1)),
+        name: 'Session 2',
         avgHr: 130,
         minHr: 110,
         maxHr: 150,
@@ -77,6 +83,7 @@ void main() {
       final session3Id = await _createCompletedSession(
         'Device 3',
         base.add(const Duration(minutes: 2)),
+        name: 'Session 3',
         avgHr: 140,
         minHr: 120,
         maxHr: 160,
@@ -105,7 +112,8 @@ void main() {
     test('deleteSession removes session and updates list', () async {
       // Create and end a session
       final sessionId = await DatabaseService.instance.createSession(
-        'Device 1',
+        deviceName: 'Device 1',
+        name: 'Session 1',
       );
       await DatabaseService.instance.endSession(
         sessionId: sessionId,
@@ -134,10 +142,12 @@ void main() {
     test('deleteAllSessions removes all sessions and clears list', () async {
       // Create multiple sessions
       final session1Id = await DatabaseService.instance.createSession(
-        'Device 1',
+        deviceName: 'Device 1',
+        name: 'Session 1',
       );
       final session2Id = await DatabaseService.instance.createSession(
-        'Device 2',
+        deviceName: 'Device 2',
+        name: 'Session 2',
       );
 
       await DatabaseService.instance.endSession(

@@ -49,6 +49,7 @@ void main() {
         WorkoutSession(
           id: 1,
           deviceName: 'Test Device',
+          name: 'Session 1',
           startTime: DateTime(2025, 11, 25, 14, 30),
           endTime: DateTime(2025, 11, 25, 15, 30),
           avgHr: 140,
@@ -58,6 +59,7 @@ void main() {
         WorkoutSession(
           id: 2,
           deviceName: 'Test Device',
+          name: 'Session 2',
           startTime: DateTime(2025, 11, 24, 10, 0),
           endTime: DateTime(2025, 11, 24, 11, 0),
           avgHr: 135,
@@ -80,11 +82,12 @@ void main() {
       await tester.pump();
 
       // Verify sessions are displayed
-      expect(find.text('Nov 25, 2025 2:30 PM'), findsOneWidget);
-      expect(find.text('Nov 24, 2025 10:00 AM'), findsOneWidget);
+      // Verify session names are displayed (titles)
+      expect(find.text('Session 1'), findsOneWidget);
+      expect(find.text('Session 2'), findsOneWidget);
 
-      // Verify durations are displayed
-      expect(find.textContaining('01:00:00'), findsNWidgets(2));
+      // Verify subtitles contain duration text
+      expect(find.textContaining('Duration: 01:00:00'), findsNWidgets(2));
     });
 
     testWidgets('shows delete confirmation dialog on swipe', (
@@ -94,6 +97,7 @@ void main() {
         WorkoutSession(
           id: 1,
           deviceName: 'Test Device',
+          name: 'Session 1',
           startTime: DateTime(2025, 11, 25, 14, 30),
           endTime: DateTime(2025, 11, 25, 15, 30),
           avgHr: 140,
@@ -135,6 +139,7 @@ void main() {
         WorkoutSession(
           id: 1,
           deviceName: 'Test Device',
+          name: 'Session 1',
           startTime: DateTime(2025, 11, 25, 14, 30),
           endTime: DateTime(2025, 11, 25, 15, 30),
           avgHr: 140,
@@ -182,6 +187,7 @@ void main() {
         WorkoutSession(
           id: 1,
           deviceName: 'Test Device',
+          name: 'Session 1',
           startTime: DateTime(2025, 11, 25, 14, 30),
           endTime: DateTime(2025, 11, 25, 15, 30),
           avgHr: 140,

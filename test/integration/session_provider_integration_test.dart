@@ -35,7 +35,10 @@ void main() {
 
     test('deletes an empty session on endSession', () async {
       final notifier = container.read(sessionProvider.notifier);
-      await notifier.startSession('Test Device');
+      await notifier.startSession(
+        deviceName: 'Test Device',
+        sessionName: 'Integration Session',
+      );
       final sessionId = container.read(sessionProvider).currentSessionId!;
 
       await notifier.endSession();
@@ -46,7 +49,10 @@ void main() {
 
     test('persists stats and readings when data exists', () async {
       final notifier = container.read(sessionProvider.notifier);
-      await notifier.startSession('Test Device');
+      await notifier.startSession(
+        deviceName: 'Test Device',
+        sessionName: 'Integration Session',
+      );
       final sessionId = container.read(sessionProvider).currentSessionId!;
 
       await notifier.handleReadingForTest(110);

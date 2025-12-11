@@ -30,12 +30,13 @@ Future<int> _createCompletedSession(
   DatabaseService db,
   String deviceName, {
   required DateTime start,
+  required String name,
   required int avgHr,
   required int minHr,
   required int maxHr,
   DateTime? end,
 }) async {
-  final sessionId = await db.createSession(deviceName);
+  final sessionId = await db.createSession(deviceName: deviceName, name: name);
   await db.endSession(
     sessionId: sessionId,
     avgHr: avgHr,
@@ -72,7 +73,10 @@ void main() {
 
     test('getAllCompletedSessions returns only completed sessions', () async {
       // Create a completed session
-      final completedSessionId = await db.createSession('Polar H10');
+      final completedSessionId = await db.createSession(
+        deviceName: 'Polar H10',
+        name: 'Completed',
+      );
       await db.endSession(
         sessionId: completedSessionId,
         avgHr: 140,
@@ -81,7 +85,7 @@ void main() {
       );
 
       // Create an active session (not completed)
-      await db.createSession('Garmin HRM');
+      await db.createSession(deviceName: 'Garmin HRM', name: 'Active');
 
       // Query completed sessions
       final sessions = await db.getAllCompletedSessions();
@@ -100,6 +104,7 @@ void main() {
         final session1Id = await _createCompletedSession(
           db,
           'Device 1',
+          name: 'Session 1',
           start: base,
           avgHr: 130,
           minHr: 70,
@@ -108,6 +113,7 @@ void main() {
         final session2Id = await _createCompletedSession(
           db,
           'Device 2',
+          name: 'Session 2',
           start: base.add(const Duration(minutes: 1)),
           avgHr: 140,
           minHr: 80,
@@ -116,6 +122,7 @@ void main() {
         final session3Id = await _createCompletedSession(
           db,
           'Device 3',
+          name: 'Session 3',
           start: base.add(const Duration(minutes: 2)),
           avgHr: 150,
           minHr: 90,
@@ -134,7 +141,10 @@ void main() {
 
     test('deleteSession removes session and all associated readings', () async {
       // Create a session
-      final sessionId = await db.createSession('Test Device');
+      final sessionId = await db.createSession(
+        deviceName: 'Test Device',
+        name: 'Test Session',
+      );
 
       // Add heart rate readings
       await db.insertHeartRateReading(sessionId, DateTime.now(), 120);
@@ -170,7 +180,10 @@ void main() {
     test('deleteAllSessions removes all sessions and readings', () async {
       // Create multiple sessions with readings
       for (var i = 0; i < 3; i++) {
-        final sessionId = await db.createSession('Device $i');
+        final sessionId = await db.createSession(
+          deviceName: 'Device $i',
+          name: 'Session $i',
+        );
         await db.insertHeartRateReading(sessionId, DateTime.now(), 120 + i);
         await db.insertHeartRateReading(sessionId, DateTime.now(), 125 + i);
         await db.endSession(
@@ -203,6 +216,7 @@ void main() {
       final oldSessionId = await _createCompletedSession(
         db,
         'Old Device',
+        name: 'Old Session',
         start: oldStart,
         avgHr: 130,
         minHr: 70,
@@ -214,6 +228,7 @@ void main() {
       await _createCompletedSession(
         db,
         'Recent Device',
+        name: 'Recent Session',
         start: recentStart,
         avgHr: 140,
         minHr: 80,
@@ -237,6 +252,7 @@ void main() {
         final session1Id = await _createCompletedSession(
           db,
           'Device 1',
+          name: 'Session 1',
           start: base,
           avgHr: 130,
           minHr: 70,
@@ -245,6 +261,7 @@ void main() {
         final session2Id = await _createCompletedSession(
           db,
           'Device 2',
+          name: 'Session 2',
           start: base.add(const Duration(minutes: 1)),
           avgHr: 140,
           minHr: 80,
@@ -253,6 +270,7 @@ void main() {
         await _createCompletedSession(
           db,
           'Device 3',
+          name: 'Session 3',
           start: base.add(const Duration(minutes: 2)),
           avgHr: 150,
           minHr: 90,
@@ -273,6 +291,7 @@ void main() {
       final session2Id = await _createCompletedSession(
         db,
         'Device 2',
+        name: 'Session 2',
         start: base.add(const Duration(minutes: 1)),
         avgHr: 140,
         minHr: 80,
@@ -281,6 +300,7 @@ void main() {
       final session3Id = await _createCompletedSession(
         db,
         'Device 3',
+        name: 'Session 3',
         start: base.add(const Duration(minutes: 2)),
         avgHr: 150,
         minHr: 90,
@@ -295,7 +315,10 @@ void main() {
     });
 
     test('getPreviousSession returns null for oldest session', () async {
-      final sessionId = await db.createSession('Only Device');
+      final sessionId = await db.createSession(
+        deviceName: 'Only Device',
+        name: 'Only Session',
+      );
       await db.endSession(
         sessionId: sessionId,
         avgHr: 130,

@@ -18,6 +18,7 @@ void main() {
       final session = WorkoutSession(
         id: 1,
         deviceName: 'Test Device',
+        name: 'Test Session',
         startTime: DateTime(2025, 1, 1, 10),
         endTime: DateTime(2025, 1, 1, 11),
         avgHr: 120,

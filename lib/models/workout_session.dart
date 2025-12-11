@@ -21,6 +21,9 @@ class WorkoutSession {
   /// Can be "Demo Mode" for simulated sessions.
   final String deviceName;
 
+  /// The user-provided or default session name.
+  final String name;
+
   /// Average heart rate for the entire session in BPM.
   /// Calculated and stored when the session ends.
   /// Null for active sessions.
@@ -42,6 +45,7 @@ class WorkoutSession {
     required this.startTime,
     this.endTime,
     required this.deviceName,
+    required this.name,
     this.avgHr,
     this.minHr,
     this.maxHr,
@@ -70,6 +74,7 @@ class WorkoutSession {
       'start_time': startTime.millisecondsSinceEpoch,
       'end_time': endTime?.millisecondsSinceEpoch,
       'device_name': deviceName,
+      'name': name,
       'avg_hr': avgHr,
       'min_hr': minHr,
       'max_hr': maxHr,
@@ -80,13 +85,17 @@ class WorkoutSession {
   ///
   /// Reconstructs DateTimes from the stored Unix timestamps.
   factory WorkoutSession.fromMap(Map<String, dynamic> map) {
+    final startTime = DateTime.fromMillisecondsSinceEpoch(
+      map['start_time'] as int,
+    );
     return WorkoutSession(
       id: map['id'] as int?,
-      startTime: DateTime.fromMillisecondsSinceEpoch(map['start_time'] as int),
+      startTime: startTime,
       endTime: map['end_time'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['end_time'] as int)
           : null,
       deviceName: map['device_name'] as String,
+      name: (map['name'] as String?) ?? _buildFallbackName(startTime),
       avgHr: map['avg_hr'] as int?,
       minHr: map['min_hr'] as int?,
       maxHr: map['max_hr'] as int?,
@@ -101,6 +110,7 @@ class WorkoutSession {
     DateTime? startTime,
     DateTime? endTime,
     String? deviceName,
+    String? name,
     int? avgHr,
     int? minHr,
     int? maxHr,
@@ -110,6 +120,7 @@ class WorkoutSession {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       deviceName: deviceName ?? this.deviceName,
+      name: name ?? this.name,
       avgHr: avgHr ?? this.avgHr,
       minHr: minHr ?? this.minHr,
       maxHr: maxHr ?? this.maxHr,
@@ -119,7 +130,8 @@ class WorkoutSession {
   @override
   String toString() {
     return 'WorkoutSession(id: $id, startTime: $startTime, endTime: $endTime, '
-        'deviceName: $deviceName, avgHr: $avgHr, minHr: $minHr, maxHr: $maxHr)';
+        'deviceName: $deviceName, name: $name, avgHr: $avgHr, '
+        'minHr: $minHr, maxHr: $maxHr)';
   }
 
   @override
@@ -131,6 +143,7 @@ class WorkoutSession {
         other.startTime == startTime &&
         other.endTime == endTime &&
         other.deviceName == deviceName &&
+        other.name == name &&
         other.avgHr == avgHr &&
         other.minHr == minHr &&
         other.maxHr == maxHr;
@@ -138,6 +151,24 @@ class WorkoutSession {
 
   @override
   int get hashCode {
-    return Object.hash(id, startTime, endTime, deviceName, avgHr, minHr, maxHr);
+    return Object.hash(
+      id,
+      startTime,
+      endTime,
+      deviceName,
+      name,
+      avgHr,
+      minHr,
+      maxHr,
+    );
+  }
+
+  static String _buildFallbackName(DateTime startTime) {
+    return 'Session - '
+        '${startTime.year.toString().padLeft(4, '0')}-'
+        '${startTime.month.toString().padLeft(2, '0')}-'
+        '${startTime.day.toString().padLeft(2, '0')} '
+        '${startTime.hour.toString().padLeft(2, '0')}:'
+        '${startTime.minute.toString().padLeft(2, '0')}';
   }
 }

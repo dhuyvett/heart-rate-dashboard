@@ -38,10 +38,27 @@ class SessionNotifier extends Notifier<SessionState> {
   ///
   /// Creates a session in the database and begins listening to heart rate
   /// readings for automatic recording and statistics calculation.
-  Future<void> startSession(String deviceName) async {
+  Future<void> startSession({
+    required String deviceName,
+    required String sessionName,
+  }) async {
+    if (state.isActive) {
+      _logger.w('Attempted to start a new session while one is active');
+      throw StateError('A session is already active');
+    }
+
     try {
+      final hasActiveSession = await _databaseService.hasActiveSession();
+      if (hasActiveSession) {
+        _logger.w('Database reports an active session; blocking new start');
+        throw StateError('Another session is still active');
+      }
+
       // Create session in database
-      final sessionId = await _databaseService.createSession(deviceName);
+      final sessionId = await _databaseService.createSession(
+        deviceName: deviceName,
+        name: sessionName,
+      );
       final startTime = DateTime.now();
 
       // Initialize session state
@@ -49,6 +66,7 @@ class SessionNotifier extends Notifier<SessionState> {
         currentSessionId: sessionId,
         startTime: startTime,
         duration: Duration.zero,
+        sessionName: sessionName,
       );
 
       // Reset statistics accumulators
@@ -176,9 +194,12 @@ class SessionNotifier extends Notifier<SessionState> {
   ///
   /// Saves the current session's statistics and begins a fresh session
   /// with the same device.
-  Future<void> restartSession(String deviceName) async {
+  Future<void> restartSession(
+    String deviceName, {
+    required String sessionName,
+  }) async {
     await endSession();
-    await startSession(deviceName);
+    await startSession(deviceName: deviceName, sessionName: sessionName);
   }
 
   /// Ends the current session.
@@ -219,6 +240,25 @@ class SessionNotifier extends Notifier<SessionState> {
     } catch (e, stackTrace) {
       // Log error for debugging
       _logger.e('Error ending session', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Renames the active session and persists the change.
+  Future<void> renameActiveSession(String name) async {
+    if (!state.isActive || state.currentSessionId == null) return;
+    try {
+      await _databaseService.updateSessionName(
+        sessionId: state.currentSessionId!,
+        name: name,
+      );
+      state = state.copyWith(sessionName: name);
+    } catch (e, stackTrace) {
+      _logger.e(
+        'Error renaming active session',
+        error: e,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
   }

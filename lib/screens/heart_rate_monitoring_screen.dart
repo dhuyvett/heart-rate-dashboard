@@ -38,6 +38,7 @@ import 'settings_screen.dart';
 class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   /// The name of the connected device.
   final String deviceName;
+  final String sessionName;
   final VoidCallback? onHeartRateUpdate;
   final VoidCallback? onChangeDevice;
   final bool enableSessionRestore;
@@ -45,6 +46,7 @@ class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
 
   const HeartRateMonitoringScreen({
     required this.deviceName,
+    required this.sessionName,
     this.onHeartRateUpdate,
     this.onChangeDevice,
     this.enableSessionRestore = true,
@@ -150,6 +152,17 @@ class _HeartRateMonitoringScreenState
   /// Ends the current session and navigates to device selection.
   Future<void> _endSessionAndNavigateToDeviceSelection() async {
     _reconnectionHandler.stopMonitoring();
+    final lastDeviceId = await DatabaseService.instance.getSetting(
+      'last_connected_device_id',
+    );
+    widget.onChangeDevice?.call();
+    await bt.BluetoothService.instance.disconnect();
+    if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
+      await DatabaseService.instance.setSetting(
+        'last_connected_device_id',
+        lastDeviceId,
+      );
+    }
     await ref.read(sessionProvider.notifier).endSession();
 
     if (mounted) {
@@ -184,11 +197,81 @@ class _HeartRateMonitoringScreenState
   @visibleForTesting
   Future<void> triggerChangeDevice() => _navigateToDeviceSelection();
 
+  Future<void> _promptRenameSession() async {
+    final sessionState = ref.read(sessionProvider);
+    final controller = TextEditingController(
+      text: sessionState.sessionName ?? widget.sessionName,
+    );
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Session'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Session name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              Navigator.of(context).pop(trimmed.isEmpty ? null : trimmed);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      try {
+        await ref.read(sessionProvider.notifier).renameActiveSession(newName);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Session renamed')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error renaming session: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   /// Starts a new workout session.
   Future<void> _startSession() async {
     if (!_sessionStarted) {
       _sessionStarted = true;
-      await ref.read(sessionProvider.notifier).startSession(widget.deviceName);
+      try {
+        await ref
+            .read(sessionProvider.notifier)
+            .startSession(
+              deviceName: widget.deviceName,
+              sessionName: widget.sessionName,
+            );
+      } catch (e) {
+        _logger.e('Failed to start session', error: e);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not start session: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+        return;
+      }
 
       // Set up reconnection monitoring
       final bluetoothService = bt.BluetoothService.instance;
@@ -297,6 +380,7 @@ class _HeartRateMonitoringScreenState
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
+    final currentSessionName = sessionState.sessionName ?? widget.sessionName;
 
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
@@ -307,7 +391,16 @@ class _HeartRateMonitoringScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.deviceName),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.deviceName),
+            Text(
+              currentSessionName,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
         automaticallyImplyLeading: false,
         leading: connectionAsync.when(
           data: (connectionInfo) => Padding(
@@ -326,7 +419,9 @@ class _HeartRateMonitoringScreenState
             icon: const Icon(Icons.menu),
             tooltip: 'Menu',
             onSelected: (value) async {
-              if (value == 'session_history') {
+              if (value == 'rename_session') {
+                await _promptRenameSession();
+              } else if (value == 'session_history') {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SessionHistoryScreen(),
@@ -347,6 +442,16 @@ class _HeartRateMonitoringScreenState
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'rename_session',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 12),
+                    Text('Rename Session'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'change_device',
                 key: ValueKey('change_device_menu_item'),
@@ -776,9 +881,11 @@ class _HeartRateMonitoringScreenState
                 );
 
                 if (shouldRestart == true) {
+                  final nextName =
+                      sessionState.sessionName ?? widget.sessionName;
                   await ref
                       .read(sessionProvider.notifier)
-                      .restartSession(widget.deviceName);
+                      .restartSession(widget.deviceName, sessionName: nextName);
                   // Clear recent readings for the chart
                   if (mounted) {
                     setState(() {
@@ -793,6 +900,44 @@ class _HeartRateMonitoringScreenState
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 backgroundColor: theme.colorScheme.errorContainer,
                 foregroundColor: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // End Session Button
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final shouldEnd = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('End Session?'),
+                    content: const Text(
+                      'This will stop recording and return to device selection.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('End Session'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldEnd == true) {
+                  await _endSessionAndNavigateToDeviceSelection();
+                }
+              },
+              icon: const Icon(Icons.stop, size: 18),
+              label: const Text('End Session'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
           ),

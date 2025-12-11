@@ -12,7 +12,7 @@ import '../utils/error_messages.dart';
 import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
 import 'about_screen.dart';
-import 'heart_rate_monitoring_screen.dart';
+import 'session_setup_screen.dart';
 import 'session_history_screen.dart';
 import 'settings_screen.dart';
 
@@ -243,10 +243,9 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
 
       // Navigate to monitoring screen on successful connection
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) =>
-                HeartRateMonitoringScreen(deviceName: device.name),
+            builder: (context) => SessionSetupScreen(deviceName: device.name),
           ),
         );
       }

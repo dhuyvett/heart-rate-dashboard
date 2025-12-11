@@ -36,7 +36,7 @@ class DatabaseService {
 
   // Database configuration
   static const String _databaseName = 'heart_rate_dashboard.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   // Table names
   static const String _tableHeartRateReadings = 'heart_rate_readings';
@@ -159,6 +159,7 @@ class DatabaseService {
         start_time INTEGER NOT NULL,
         end_time INTEGER,
         device_name TEXT NOT NULL,
+        name TEXT NOT NULL,
         avg_hr INTEGER,
         min_hr INTEGER,
         max_hr INTEGER
@@ -182,19 +183,32 @@ class DatabaseService {
 
   /// Handles database schema upgrades for future versions.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here when schema changes in future versions
-    // For now, we're at version 1, so no migrations needed
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $_tableWorkoutSessions ADD COLUMN name TEXT',
+      );
+
+      await db.execute('''
+        UPDATE $_tableWorkoutSessions
+        SET name = 'Session - ' || strftime('%Y-%m-%d %H:%M', start_time / 1000, 'unixepoch')
+        WHERE name IS NULL
+      ''');
+    }
   }
 
   /// Creates a new workout session.
   ///
   /// [deviceName] is the name of the connected heart rate monitor.
   /// Returns the ID of the newly created session.
-  Future<int> createSession(String deviceName) async {
+  Future<int> createSession({
+    required String deviceName,
+    required String name,
+  }) async {
     final db = await database;
     final session = WorkoutSession(
       startTime: DateTime.now(),
       deviceName: deviceName,
+      name: name,
     );
 
     return await db.insert(_tableWorkoutSessions, session.toMap());
@@ -209,12 +223,13 @@ class DatabaseService {
     required int avgHr,
     required int minHr,
     required int maxHr,
+    DateTime? endTime,
   }) async {
     final db = await database;
     await db.update(
       _tableWorkoutSessions,
       {
-        'end_time': DateTime.now().millisecondsSinceEpoch,
+        'end_time': (endTime ?? DateTime.now()).millisecondsSinceEpoch,
         'avg_hr': avgHr,
         'min_hr': minHr,
         'max_hr': maxHr,
@@ -303,6 +318,17 @@ class DatabaseService {
     return WorkoutSession.fromMap(maps.first);
   }
 
+  /// Checks if any session is currently active.
+  Future<bool> hasActiveSession() async {
+    final db = await database;
+    final maps = await db.query(
+      _tableWorkoutSessions,
+      where: 'end_time IS NULL',
+      limit: 1,
+    );
+    return maps.isNotEmpty;
+  }
+
   /// Gets a session by its ID.
   ///
   /// Returns the session or null if not found.
@@ -332,6 +358,20 @@ class DatabaseService {
     );
 
     return maps.map((map) => WorkoutSession.fromMap(map)).toList();
+  }
+
+  /// Updates the name of a workout session.
+  Future<void> updateSessionName({
+    required int sessionId,
+    required String name,
+  }) async {
+    final db = await database;
+    await db.update(
+      _tableWorkoutSessions,
+      {'name': name},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
   }
 
   /// Deletes a workout session and all its associated heart rate readings.
@@ -392,6 +432,43 @@ class DatabaseService {
     );
 
     return maps.map((map) => WorkoutSession.fromMap(map)).toList();
+  }
+
+  /// Retrieves the last reading timestamp for a session, if any.
+  Future<DateTime?> getLastReadingTimestamp(int sessionId) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableHeartRateReadings,
+      columns: ['timestamp'],
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return DateTime.fromMillisecondsSinceEpoch(maps.first['timestamp'] as int);
+  }
+
+  /// Completes any active session using the last recorded timestamp.
+  ///
+  /// If no readings exist, the session is marked ended at start time.
+  /// Statistics remain null when reconstructed outside of the live session.
+  Future<void> completeActiveSessionWithLastReading() async {
+    final activeSession = await getCurrentSession();
+    if (activeSession == null || activeSession.id == null) return;
+
+    final lastReadingTime =
+        await getLastReadingTimestamp(activeSession.id!) ??
+        activeSession.startTime;
+
+    final db = await database;
+    await db.update(
+      _tableWorkoutSessions,
+      {'end_time': lastReadingTime.millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [activeSession.id],
+    );
   }
 
   /// Gets the previous session (older) relative to the current session.

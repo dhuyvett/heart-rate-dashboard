@@ -70,6 +70,56 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     return result ?? false;
   }
 
+  Future<void> _promptRenameSession(WorkoutSession session) async {
+    final controller = TextEditingController(text: session.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Session'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Session name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              Navigator.of(context).pop(trimmed.isEmpty ? null : trimmed);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null) {
+      try {
+        await ref
+            .read(sessionHistoryProvider.notifier)
+            .renameSession(session.id!, newName);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Session renamed')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error renaming session: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   /// Shows confirmation dialog for deleting all sessions.
   Future<void> _showDeleteAllConfirmation() async {
     final confirmed = await showDialog<bool>(
@@ -252,12 +302,22 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       child: Column(
         children: [
           ListTile(
-            title: Text(dateTimeStr),
+            title: Text(session.name),
             subtitle: Text(
-              'Duration: ${_formatDuration(duration)}',
+              '$dateTimeStr • Duration: ${_formatDuration(duration)}',
               style: theme.textTheme.bodySmall,
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  tooltip: 'Rename session',
+                  onPressed: () => _promptRenameSession(session),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
             onTap: () => _navigateToSessionDetail(session),
           ),
           const Divider(height: 1),

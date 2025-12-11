@@ -50,7 +50,10 @@ void main() {
       final now = DateTime.now();
 
       // Create an old session (45 days ago)
-      final oldSessionId = await db.createSession('Old Device');
+      final oldSessionId = await db.createSession(
+        deviceName: 'Old Device',
+        name: 'Old Session',
+      );
       // Manually update the session timestamps to simulate old data
       final dbInstance = await db.database;
       await dbInstance.update(
@@ -78,7 +81,10 @@ void main() {
       );
 
       // Create a recent session (15 days ago)
-      final recentSessionId = await db.createSession('Recent Device');
+      final recentSessionId = await db.createSession(
+        deviceName: 'Recent Device',
+        name: 'Recent Session',
+      );
       await dbInstance.update(
         'workout_sessions',
         {

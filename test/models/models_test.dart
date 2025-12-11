@@ -178,6 +178,7 @@ void main() {
       final session = WorkoutSession(
         startTime: startTime,
         deviceName: 'Test Device',
+        name: 'Morning Ride',
       );
 
       expect(session.id, isNull);
@@ -197,6 +198,7 @@ void main() {
         startTime: startTime,
         endTime: endTime,
         deviceName: 'Polar H10',
+        name: 'Interval Session',
         avgHr: 140,
         minHr: 80,
         maxHr: 180,
@@ -213,6 +215,7 @@ void main() {
       final session = WorkoutSession(
         startTime: DateTime.now(),
         deviceName: 'Test',
+        name: 'Active Session',
       );
 
       expect(session.isActive, isTrue);
@@ -223,6 +226,7 @@ void main() {
         startTime: DateTime.now(),
         endTime: DateTime.now(),
         deviceName: 'Test',
+        name: 'Ended Session',
       );
 
       expect(session.isActive, isFalse);
@@ -235,6 +239,7 @@ void main() {
         startTime: startTime,
         endTime: endTime,
         deviceName: 'Test',
+        name: 'Duration Session',
       );
 
       expect(session.getDuration(), equals(const Duration(minutes: 30)));
@@ -248,6 +253,7 @@ void main() {
         startTime: startTime,
         endTime: endTime,
         deviceName: 'Polar H10',
+        name: 'Mapped Session',
         avgHr: 130,
         minHr: 70,
         maxHr: 175,
@@ -258,6 +264,7 @@ void main() {
       expect(map['id'], equals(5));
       expect(map['start_time'], equals(startTime.millisecondsSinceEpoch));
       expect(map['end_time'], equals(endTime.millisecondsSinceEpoch));
+      expect(map['name'], equals('Mapped Session'));
       expect(map['device_name'], equals('Polar H10'));
       expect(map['avg_hr'], equals(130));
       expect(map['min_hr'], equals(70));
@@ -268,6 +275,7 @@ void main() {
       final session = WorkoutSession(
         startTime: DateTime.now(),
         deviceName: 'Test',
+        name: 'Unnamed',
       );
 
       final map = session.toMap();
@@ -287,6 +295,7 @@ void main() {
         'start_time': startTime.millisecondsSinceEpoch,
         'end_time': endTime.millisecondsSinceEpoch,
         'device_name': 'Garmin HRM',
+        'name': 'Garmin Morning',
         'avg_hr': 145,
         'min_hr': 85,
         'max_hr': 190,
@@ -298,6 +307,7 @@ void main() {
       expect(session.startTime, equals(startTime));
       expect(session.endTime, equals(endTime));
       expect(session.deviceName, equals('Garmin HRM'));
+      expect(session.name, equals('Garmin Morning'));
       expect(session.avgHr, equals(145));
       expect(session.minHr, equals(85));
       expect(session.maxHr, equals(190));
@@ -310,6 +320,7 @@ void main() {
         'start_time': startTime.millisecondsSinceEpoch,
         'end_time': null,
         'device_name': 'Test',
+        'name': 'No End',
         'avg_hr': null,
         'min_hr': null,
         'max_hr': null,
@@ -322,11 +333,29 @@ void main() {
       expect(session.avgHr, isNull);
     });
 
+    test('fromMap builds fallback name when missing', () {
+      final startTime = DateTime(2024, 1, 1, 10, 0, 0);
+      final map = {
+        'id': 2,
+        'start_time': startTime.millisecondsSinceEpoch,
+        'end_time': null,
+        'device_name': 'Test',
+        'avg_hr': null,
+        'min_hr': null,
+        'max_hr': null,
+      };
+
+      final session = WorkoutSession.fromMap(map);
+
+      expect(session.name, startsWith('Session - 2024-01-01 10:00'));
+    });
+
     test('copyWith updates specified fields', () {
       final session = WorkoutSession(
         id: 1,
         startTime: DateTime(2024, 1, 1),
         deviceName: 'Test',
+        name: 'Copy Source',
       );
 
       final updated = session.copyWith(
@@ -350,16 +379,19 @@ void main() {
         id: 1,
         startTime: startTime,
         deviceName: 'Test',
+        name: 'Equal Session',
       );
       final session2 = WorkoutSession(
         id: 1,
         startTime: startTime,
         deviceName: 'Test',
+        name: 'Equal Session',
       );
       final session3 = WorkoutSession(
         id: 2,
         startTime: startTime,
         deviceName: 'Test',
+        name: 'Different Session',
       );
 
       expect(session1 == session2, isTrue);
@@ -372,6 +404,7 @@ void main() {
         id: 1,
         startTime: DateTime(2024, 1, 1),
         deviceName: 'Polar H10',
+        name: 'String Session',
         avgHr: 140,
       );
 

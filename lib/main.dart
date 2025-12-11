@@ -105,6 +105,9 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
     try {
       final db = DatabaseService.instance;
 
+      // Complete any interrupted active session from a prior exit.
+      await db.completeActiveSessionWithLastReading();
+
       // Load retention days setting
       final retentionDaysString = await db.getSetting('session_retention_days');
       final retentionDays = retentionDaysString != null
