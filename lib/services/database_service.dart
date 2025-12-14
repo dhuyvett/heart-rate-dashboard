@@ -450,22 +450,55 @@ class DatabaseService {
     return DateTime.fromMillisecondsSinceEpoch(maps.first['timestamp'] as int);
   }
 
-  /// Completes any active session using the last recorded timestamp.
+  /// Completes any active session using recorded readings.
   ///
-  /// If no readings exist, the session is marked ended at start time.
-  /// Statistics remain null when reconstructed outside of the live session.
+  /// If no readings exist, the active session is deleted (mirroring normal
+  /// endSession behavior). Otherwise, statistics are recalculated from
+  /// persisted readings and end time is set to the last reading timestamp.
   Future<void> completeActiveSessionWithLastReading() async {
     final activeSession = await getCurrentSession();
     if (activeSession == null || activeSession.id == null) return;
 
-    final lastReadingTime =
-        await getLastReadingTimestamp(activeSession.id!) ??
-        activeSession.startTime;
-
     final db = await database;
+    final stats = await db.rawQuery(
+      '''
+      SELECT
+        COUNT(*) as reading_count,
+        AVG(bpm) as avg_hr,
+        MIN(bpm) as min_hr,
+        MAX(bpm) as max_hr,
+        MAX(timestamp) as last_timestamp
+      FROM $_tableHeartRateReadings
+      WHERE session_id = ?
+      ''',
+      [activeSession.id],
+    );
+
+    final statRow = stats.isNotEmpty ? stats.first : <String, Object?>{};
+    final readingsCount = (statRow['reading_count'] as num?)?.toInt() ?? 0;
+
+    if (readingsCount == 0) {
+      await deleteSession(activeSession.id!);
+      return;
+    }
+
+    final avgHr = (statRow['avg_hr'] as num?)?.round();
+    final minHr = (statRow['min_hr'] as num?)?.toInt();
+    final maxHr = (statRow['max_hr'] as num?)?.toInt();
+    final lastTimestamp =
+        (statRow['last_timestamp'] as int?) ??
+        activeSession.startTime.millisecondsSinceEpoch;
+
+    if (avgHr == null || minHr == null || maxHr == null) return;
+
     await db.update(
       _tableWorkoutSessions,
-      {'end_time': lastReadingTime.millisecondsSinceEpoch},
+      {
+        'end_time': lastTimestamp,
+        'avg_hr': avgHr,
+        'min_hr': minHr,
+        'max_hr': maxHr,
+      },
       where: 'id = ?',
       whereArgs: [activeSession.id],
     );
