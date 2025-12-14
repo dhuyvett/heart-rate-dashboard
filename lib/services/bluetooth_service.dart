@@ -55,10 +55,12 @@ class BluetoothService {
   factory BluetoothService.test({
     Stream<ConnectionState>? connectionStateStream,
     Future<void> Function(String deviceId)? onConnect,
+    Future<void> Function()? onRestartHeartRate,
   }) {
     return _TestBluetoothService(
       connectionStateStream: connectionStateStream,
       onConnect: onConnect,
+      onRestartHeartRate: onRestartHeartRate,
     );
   }
 
@@ -396,44 +398,7 @@ class BluetoothService {
     }
 
     try {
-      await _heartRateSubscription?.cancel();
-      _heartRateSubscription = null;
-
-      // Get services
-      final services = await _connectedDevice!.discoverServices();
-
-      // Find Heart Rate Service
-      final hrService = services.firstWhere(
-        (service) => service.uuid.str.toLowerCase() == bleHrServiceUuid,
-        orElse: () => throw StateError('Heart Rate Service not found'),
-      );
-
-      // Find HR Measurement characteristic
-      final hrCharacteristic = hrService.characteristics.firstWhere(
-        (char) => char.uuid.str.toLowerCase() == bleHrMeasurementUuid,
-        orElse: () =>
-            throw StateError('Heart Rate Measurement characteristic not found'),
-      );
-
-      // Enable notifications
-      await hrCharacteristic.setNotifyValue(true);
-
-      // Listen to characteristic value changes using lastValueStream
-      _heartRateSubscription = hrCharacteristic.lastValueStream.listen((value) {
-        if (value.isNotEmpty) {
-          try {
-            final bpm = parseHeartRateValue(value);
-            _heartRateController.add(bpm);
-          } catch (e, stackTrace) {
-            // Log parsing error but don't crash - this is acceptable for production
-            _logger.w(
-              'Error parsing heart rate value',
-              error: e,
-              stackTrace: stackTrace,
-            );
-          }
-        }
-      });
+      await _startHeartRateNotifications();
 
       // Yield values from the heart rate stream
       await for (final bpm in _heartRateController.stream) {
@@ -448,6 +413,71 @@ class BluetoothService {
       );
       rethrow;
     }
+  }
+
+  /// Ensures heart rate notifications are active after reconnection.
+  ///
+  /// Re-registers for HR measurement notifications so downstream listeners
+  /// (e.g., heartRateProvider) continue receiving BPM updates.
+  Future<void> restartHeartRateStream() async {
+    if (_isInDemoMode) {
+      // Demo mode stream is continuous; nothing to restart.
+      return;
+    }
+    if (_connectedDevice == null) return;
+
+    try {
+      await _startHeartRateNotifications();
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Error restarting heart rate notifications after reconnection',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  /// Sets up heart rate notifications on the connected device.
+  Future<void> _startHeartRateNotifications() async {
+    await _heartRateSubscription?.cancel();
+    _heartRateSubscription = null;
+
+    // Get services
+    final services = await _connectedDevice!.discoverServices();
+
+    // Find Heart Rate Service
+    final hrService = services.firstWhere(
+      (service) => service.uuid.str.toLowerCase() == bleHrServiceUuid,
+      orElse: () => throw StateError('Heart Rate Service not found'),
+    );
+
+    // Find HR Measurement characteristic
+    final hrCharacteristic = hrService.characteristics.firstWhere(
+      (char) => char.uuid.str.toLowerCase() == bleHrMeasurementUuid,
+      orElse: () =>
+          throw StateError('Heart Rate Measurement characteristic not found'),
+    );
+
+    // Enable notifications
+    await hrCharacteristic.setNotifyValue(true);
+
+    // Listen to characteristic value changes using lastValueStream
+    _heartRateSubscription = hrCharacteristic.lastValueStream.listen((value) {
+      if (value.isNotEmpty) {
+        try {
+          final bpm = parseHeartRateValue(value);
+          _heartRateController.add(bpm);
+        } catch (e, stackTrace) {
+          // Log parsing error but don't crash - this is acceptable for production
+          _logger.w(
+            'Error parsing heart rate value',
+            error: e,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    });
   }
 
   /// Parses a BLE Heart Rate Measurement value according to the BLE specification.
@@ -620,11 +650,13 @@ class _TestBluetoothService extends BluetoothService {
   _TestBluetoothService({
     Stream<ConnectionState>? connectionStateStream,
     this.onConnect,
+    this.onRestartHeartRate,
   }) : _connectionStateStream = connectionStateStream,
        super._internal();
 
   final Stream<ConnectionState>? _connectionStateStream;
   final Future<void> Function(String deviceId)? onConnect;
+  final Future<void> Function()? onRestartHeartRate;
 
   Future<void> _handleTestConnect(String deviceId) async {
     _updateConnectionState(ConnectionState.connecting);
@@ -649,6 +681,13 @@ class _TestBluetoothService extends BluetoothService {
     } catch (e) {
       _updateConnectionState(ConnectionState.disconnected);
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> restartHeartRateStream() async {
+    if (onRestartHeartRate != null) {
+      await onRestartHeartRate!();
     }
   }
 }

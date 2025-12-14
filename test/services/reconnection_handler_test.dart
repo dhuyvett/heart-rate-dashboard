@@ -1,6 +1,8 @@
 // ignore_for_file: library_annotations
 @Timeout(Duration(seconds: 10))
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:heart_rate_dashboard/services/bluetooth_service.dart';
 import 'package:heart_rate_dashboard/services/reconnection_handler.dart';
 import 'package:heart_rate_dashboard/utils/constants.dart';
 
@@ -104,6 +106,29 @@ void main() {
       await subscription.cancel();
 
       expect(states, isA<List<ReconnectionState>>());
+    });
+
+    test('restarts heart rate stream on successful reconnection', () async {
+      var restartCalled = false;
+      final controller = StreamController<ConnectionState>();
+      final fakeService = BluetoothService.test(
+        connectionStateStream: controller.stream,
+        onRestartHeartRate: () async {
+          restartCalled = true;
+        },
+      );
+
+      handler.bluetoothService = fakeService;
+      handler.startMonitoring('TEST_DEVICE');
+
+      // Simulate unexpected disconnect followed by reconnect
+      controller.add(ConnectionState.disconnected);
+      controller.add(ConnectionState.connected);
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(restartCalled, isTrue);
+      await controller.close();
     });
   });
 }

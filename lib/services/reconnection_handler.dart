@@ -342,9 +342,14 @@ class ReconnectionHandler implements ReconnectionController {
   }
 
   /// Handles a successful reconnection.
-  void _handleSuccessfulReconnection() {
+  void _handleSuccessfulReconnection() async {
     _reconnectionTimer?.cancel();
     _reconnectionTimer = null;
+    try {
+      await _bluetoothService.restartHeartRateStream();
+    } catch (_) {
+      // Ignore errors here; state will still reset and UI can surface errors via provider.
+    }
     _updateState(ReconnectionState.idle());
     _wasManualDisconnect = false;
     _isReconnecting = false;
