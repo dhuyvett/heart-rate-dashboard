@@ -36,7 +36,7 @@ class DatabaseService {
 
   // Database configuration
   static const String _databaseName = 'heart_rate_dashboard.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   // Table names
   static const String _tableHeartRateReadings = 'heart_rate_readings';
@@ -162,7 +162,8 @@ class DatabaseService {
         name TEXT NOT NULL,
         avg_hr INTEGER,
         min_hr INTEGER,
-        max_hr INTEGER
+        max_hr INTEGER,
+        distance_meters REAL
       )
     ''');
 
@@ -194,6 +195,12 @@ class DatabaseService {
         WHERE name IS NULL
       ''');
     }
+
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE $_tableWorkoutSessions ADD COLUMN distance_meters REAL',
+      );
+    }
   }
 
   /// Creates a new workout session.
@@ -223,6 +230,7 @@ class DatabaseService {
     required int avgHr,
     required int minHr,
     required int maxHr,
+    double? distanceMeters,
     DateTime? endTime,
   }) async {
     final db = await database;
@@ -233,6 +241,7 @@ class DatabaseService {
         'avg_hr': avgHr,
         'min_hr': minHr,
         'max_hr': maxHr,
+        'distance_meters': distanceMeters,
       },
       where: 'id = ?',
       whereArgs: [sessionId],

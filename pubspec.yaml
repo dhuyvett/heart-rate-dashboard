@@ -84,6 +84,9 @@ dependencies:
   # Device information for key derivation
   device_info_plus: ^12.2.0
 
+  # Location services for speed/distance tracking
+  geolocator: ^14.0.1
+
   # Cryptography utilities
   crypto: ^3.0.7
 

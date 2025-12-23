@@ -65,6 +65,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final visibleStatsString = await _databaseService.getSetting(
         _visibleStatsKey,
       );
+      final useMilesString = await _databaseService.getSetting('use_miles');
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -84,6 +85,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
           : null;
       final visibleStats =
           _parseVisibleStats(visibleStatsString) ?? defaultSessionStatistics;
+      final useMiles = useMilesString == 'true';
 
       return AppSettings(
         age: age ?? defaultAge,
@@ -95,6 +97,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         darkMode: darkMode,
         sessionRetentionDays: sessionRetentionDays ?? 30,
         visibleSessionStats: visibleStats,
+        useMiles: useMiles,
       );
     } catch (e, stackTrace) {
       _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
@@ -230,6 +233,13 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       _visibleStatsKey,
       orderedStats.map((stat) => stat.name).join(','),
     );
+  }
+
+  /// Toggle miles/kilometers for speed/distance.
+  Future<void> updateUseMiles(bool useMiles) async {
+    final current = await future;
+    state = AsyncData(current.copyWith(useMiles: useMiles));
+    await _databaseService.setSetting('use_miles', useMiles.toString());
   }
 
   List<SessionStatistic>? _parseVisibleStats(String? raw) {

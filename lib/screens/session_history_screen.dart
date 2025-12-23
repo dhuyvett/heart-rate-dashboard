@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/workout_session.dart';
 import '../providers/session_history_provider.dart';
+import '../providers/settings_provider.dart';
 import 'session_detail_screen.dart';
 
 /// Session history screen for viewing and managing past workout sessions.
@@ -41,6 +42,12 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
     return '$hours:$minutes:$seconds';
+  }
+
+  String _formatDistance(double meters, bool useMiles) {
+    final value = useMiles ? meters / 1609.34 : meters / 1000;
+    final unit = useMiles ? 'mi' : 'km';
+    return '${value.toStringAsFixed(2)} $unit';
   }
 
   /// Shows confirmation dialog for deleting a single session.
@@ -273,21 +280,31 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   /// Builds the list of sessions.
   Widget _buildSessionList() {
     final sessions = ref.watch(sessionHistoryProvider);
+    final settingsAsync = ref.watch(settingsProvider);
+    final useMiles = settingsAsync.asData?.value.useMiles ?? false;
 
     return ListView.builder(
       itemCount: sessions.length,
       itemBuilder: (context, index) {
         final session = sessions[index];
-        return _buildSessionListItem(session);
+        return _buildSessionListItem(session, useMiles);
       },
     );
   }
 
   /// Builds a single session list item with swipe-to-delete.
-  Widget _buildSessionListItem(WorkoutSession session) {
+  Widget _buildSessionListItem(WorkoutSession session, bool useMiles) {
     final theme = Theme.of(context);
     final duration = session.getDuration();
     final dateTimeStr = _dateFormat.format(session.startTime);
+    final distance = session.distanceMeters != null
+        ? _formatDistance(session.distanceMeters!, useMiles)
+        : null;
+    final subtitleLines = <String>[
+      dateTimeStr,
+      'Duration: ${_formatDuration(duration)}',
+      if (distance != null) 'Distance: $distance',
+    ];
 
     return Dismissible(
       key: Key(session.id.toString()),
@@ -303,10 +320,24 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         children: [
           ListTile(
             title: Text(session.name),
-            subtitle: Text(
-              '$dateTimeStr • Duration: ${_formatDuration(duration)}',
-              style: theme.textTheme.bodySmall,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final line in subtitleLines)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      line,
+                      style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+              ],
             ),
+            isThreeLine: subtitleLines.length >= 3,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

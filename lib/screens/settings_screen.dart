@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/max_hr_calculation_method.dart';
@@ -33,6 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _customMaxHRError;
   String? _retentionDaysError;
   AppSettings? _lastSyncedSettings;
+  bool _hasLocation = true;
 
   @override
   void initState() {
@@ -48,6 +50,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _customMaxHRController.dispose();
     _retentionDaysController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkLocationSupport();
+  }
+
+  Future<void> _checkLocationSupport() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final permission = await Geolocator.checkPermission();
+      if (!mounted) return;
+      setState(() {
+        _hasLocation =
+            serviceEnabled &&
+            (permission == LocationPermission.always ||
+                permission == LocationPermission.whileInUse ||
+                permission == LocationPermission.unableToDetermine);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasLocation = false;
+      });
+    }
   }
 
   /// Updates the age setting.
@@ -228,6 +256,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return 'Minimum Heart Rate';
       case SessionStatistic.maximum:
         return 'Maximum Heart Rate';
+      case SessionStatistic.speed:
+        return 'Speed';
+      case SessionStatistic.distance:
+        return 'Distance';
     }
   }
 
@@ -241,6 +273,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return Icons.arrow_downward;
       case SessionStatistic.maximum:
         return Icons.arrow_upward;
+      case SessionStatistic.speed:
+        return Icons.speed;
+      case SessionStatistic.distance:
+        return Icons.route;
     }
   }
 
@@ -645,20 +681,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 8),
                       ...SessionStatistic.values.map((stat) {
+                        final isGpsStat =
+                            stat == SessionStatistic.speed ||
+                            stat == SessionStatistic.distance;
+                        final enabled = !isGpsStat || _hasLocation;
                         final isSelected = settings.visibleSessionStats
                             .contains(stat);
                         return CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
-                          value: isSelected,
-                          onChanged: (checked) {
-                            if (checked != null) {
-                              _toggleVisibleStat(settings, stat, checked);
-                            }
-                          },
-                          title: Text(_statLabel(stat)),
+                          value: isSelected && enabled,
+                          onChanged: !enabled
+                              ? null
+                              : (checked) {
+                                  if (checked != null) {
+                                    _toggleVisibleStat(settings, stat, checked);
+                                  }
+                                },
+                          title: Text(
+                            _statLabel(stat) +
+                                (!enabled ? ' (GPS not available)' : ''),
+                          ),
                           secondary: Icon(_statIcon(stat)),
                         );
                       }),
+                      const Divider(height: 24),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Use Miles for Speed & Distance'),
+                        subtitle: Text(
+                          _hasLocation
+                              ? 'Switch between miles and kilometers for GPS-based stats.'
+                              : 'GPS not available; miles toggle disabled.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                        value: settings.useMiles,
+                        onChanged: _hasLocation
+                            ? (value) => ref
+                                  .read(settingsProvider.notifier)
+                                  .updateUseMiles(value)
+                            : null,
+                      ),
                     ],
                   ),
                 ),

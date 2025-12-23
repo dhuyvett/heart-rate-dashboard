@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 import '../models/heart_rate_data.dart';
@@ -23,6 +24,8 @@ class SessionNotifier extends Notifier<SessionState> {
 
   // Accumulated values for statistics calculation
   int _sumBpm = 0;
+  double _distanceMeters = 0;
+  double _currentSpeedMps = 0;
 
   // Pause/resume tracking
   Duration _totalPausedDuration = Duration.zero;
@@ -67,10 +70,14 @@ class SessionNotifier extends Notifier<SessionState> {
         startTime: startTime,
         duration: Duration.zero,
         sessionName: sessionName,
+        distanceMeters: 0,
+        speedMps: 0,
       );
 
       // Reset statistics accumulators
       _sumBpm = 0;
+      _distanceMeters = 0;
+      _currentSpeedMps = 0;
 
       // Reset pause tracking
       _totalPausedDuration = Duration.zero;
@@ -190,6 +197,23 @@ class SessionNotifier extends Notifier<SessionState> {
     state = state.copyWith(isPaused: false);
   }
 
+  /// Updates session speed and distance from a GPS sample.
+  void updateGpsData({
+    required double deltaDistanceMeters,
+    required double speedMps,
+  }) {
+    if (!state.isActive) return;
+    if (deltaDistanceMeters.isNaN || speedMps.isNaN) return;
+
+    _distanceMeters += math.max(0, deltaDistanceMeters);
+    _currentSpeedMps = math.max(0, speedMps);
+
+    state = state.copyWith(
+      distanceMeters: _distanceMeters,
+      speedMps: _currentSpeedMps,
+    );
+  }
+
   /// Ends the current session.
   ///
   /// Saves final statistics to the database and resets to inactive state.
@@ -215,12 +239,15 @@ class SessionNotifier extends Notifier<SessionState> {
           avgHr: state.avgHr!,
           minHr: state.minHr!,
           maxHr: state.maxHr!,
+          distanceMeters: state.distanceMeters,
         );
       }
 
       // Reset to inactive state
       state = SessionState.inactive();
       _sumBpm = 0;
+      _distanceMeters = 0;
+      _currentSpeedMps = 0;
 
       // Reset pause tracking
       _totalPausedDuration = Duration.zero;

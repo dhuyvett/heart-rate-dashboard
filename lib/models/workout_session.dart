@@ -39,6 +39,9 @@ class WorkoutSession {
   /// Null for active sessions.
   final int? maxHr;
 
+  /// Total distance traveled during the session in meters.
+  final double? distanceMeters;
+
   /// Creates a workout session instance.
   WorkoutSession({
     this.id,
@@ -49,6 +52,7 @@ class WorkoutSession {
     this.avgHr,
     this.minHr,
     this.maxHr,
+    this.distanceMeters,
   });
 
   /// Calculates the duration of this session.
@@ -78,6 +82,7 @@ class WorkoutSession {
       'avg_hr': avgHr,
       'min_hr': minHr,
       'max_hr': maxHr,
+      'distance_meters': distanceMeters,
     };
   }
 
@@ -99,6 +104,7 @@ class WorkoutSession {
       avgHr: map['avg_hr'] as int?,
       minHr: map['min_hr'] as int?,
       maxHr: map['max_hr'] as int?,
+      distanceMeters: (map['distance_meters'] as num?)?.toDouble(),
     );
   }
 
@@ -114,6 +120,7 @@ class WorkoutSession {
     int? avgHr,
     int? minHr,
     int? maxHr,
+    double? distanceMeters,
   }) {
     return WorkoutSession(
       id: id ?? this.id,
@@ -124,6 +131,7 @@ class WorkoutSession {
       avgHr: avgHr ?? this.avgHr,
       minHr: minHr ?? this.minHr,
       maxHr: maxHr ?? this.maxHr,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
     );
   }
 
@@ -131,7 +139,7 @@ class WorkoutSession {
   String toString() {
     return 'WorkoutSession(id: $id, startTime: $startTime, endTime: $endTime, '
         'deviceName: $deviceName, name: $name, avgHr: $avgHr, '
-        'minHr: $minHr, maxHr: $maxHr)';
+        'minHr: $minHr, maxHr: $maxHr, distanceMeters: $distanceMeters)';
   }
 
   @override
@@ -146,7 +154,8 @@ class WorkoutSession {
         other.name == name &&
         other.avgHr == avgHr &&
         other.minHr == minHr &&
-        other.maxHr == maxHr;
+        other.maxHr == maxHr &&
+        other.distanceMeters == distanceMeters;
   }
 
   @override
@@ -160,6 +169,7 @@ class WorkoutSession {
       avgHr,
       minHr,
       maxHr,
+      distanceMeters,
     );
   }
 

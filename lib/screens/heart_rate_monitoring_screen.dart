@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_data.dart';
@@ -71,8 +74,12 @@ class _HeartRateMonitoringScreenState
   ProviderSubscription<AsyncValue<HeartRateData>>? _heartRateListener;
   ProviderSubscription<AsyncValue<AppSettings>>? _settingsListener;
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
+  StreamSubscription<Position>? _positionSubscription;
+  Timer? _speedDecayTimer;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
+  Position? _lastPosition;
+  DateTime? _lastPositionTime;
 
   /// Threshold for switching between grid and compact statistics display.
   static const double _statsHeightThreshold = 200.0;
@@ -92,6 +99,8 @@ class _HeartRateMonitoringScreenState
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
+    _startGpsTracking();
+    _startSpeedDecayTimer();
   }
 
   @override
@@ -99,6 +108,8 @@ class _HeartRateMonitoringScreenState
     _reconnectionSubscription?.cancel();
     _heartRateListener?.close();
     _settingsListener?.close();
+    _positionSubscription?.cancel();
+    _speedDecayTimer?.cancel();
     _reconnectionHandler.stopMonitoring();
     // Always disable wake lock when leaving the screen
     WakelockPlus.disable();
@@ -361,6 +372,108 @@ class _HeartRateMonitoringScreenState
     );
   }
 
+  Future<void> _startGpsTracking() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+      );
+
+      _positionSubscription?.cancel();
+      _positionSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: locationSettings,
+          ).listen(
+            _handlePosition,
+            onError: (Object error, StackTrace stack) {
+              _logger.w('GPS stream error', error: error, stackTrace: stack);
+            },
+          );
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Failed to start GPS tracking',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  void _handlePosition(Position position) {
+    final sessionState = ref.read(sessionProvider);
+    if (!sessionState.isActive || sessionState.isPaused) {
+      _lastPosition = position;
+      _lastPositionTime = position.timestamp;
+      return;
+    }
+
+    final previous = _lastPosition;
+    final previousTime = _lastPositionTime;
+    final now = position.timestamp;
+
+    double deltaDistance = 0;
+    if (previous != null && previousTime != null) {
+      deltaDistance = Geolocator.distanceBetween(
+        previous.latitude,
+        previous.longitude,
+        position.latitude,
+        position.longitude,
+      );
+    }
+
+    double speed = position.speed.isFinite && position.speed > 0
+        ? position.speed
+        : 0;
+    if (speed == 0 && previousTime != null && now.isAfter(previousTime)) {
+      final seconds = now.difference(previousTime).inMilliseconds / 1000;
+      if (seconds > 0) {
+        speed = deltaDistance / seconds;
+      }
+    }
+
+    // Treat very small movements as stationary to avoid jitter.
+    if (deltaDistance < 0.5) {
+      speed = 0;
+    }
+
+    _lastPosition = position;
+    _lastPositionTime = now;
+
+    ref
+        .read(sessionProvider.notifier)
+        .updateGpsData(deltaDistanceMeters: deltaDistance, speedMps: speed);
+  }
+
+  void _startSpeedDecayTimer() {
+    _speedDecayTimer?.cancel();
+    _speedDecayTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      final lastTime = _lastPositionTime;
+      final sessionState = ref.read(sessionProvider);
+      if (!sessionState.isActive || sessionState.isPaused) return;
+      if (lastTime == null) return;
+
+      final idleSeconds = DateTime.now().difference(lastTime).inSeconds;
+      if (idleSeconds >= 5 && (sessionState.speedMps ?? 0) > 0) {
+        ref
+            .read(sessionProvider.notifier)
+            .updateGpsData(deltaDistanceMeters: 0, speedMps: 0);
+      }
+    });
+  }
+
   List<_StatDisplay> _buildSelectedStats({
     required ThemeData theme,
     required AppSettings settings,
@@ -370,6 +483,12 @@ class _HeartRateMonitoringScreenState
     final avgHr = sessionState.avgHr != null ? '${sessionState.avgHr}' : '--';
     final minHr = sessionState.minHr != null ? '${sessionState.minHr}' : '--';
     final maxHr = sessionState.maxHr != null ? '${sessionState.maxHr}' : '--';
+    final speed = sessionState.speedMps != null
+        ? _formatSpeed(sessionState.speedMps!, settings.useMiles)
+        : '--';
+    final distance = sessionState.distanceMeters != null
+        ? _formatDistance(sessionState.distanceMeters!, settings.useMiles)
+        : '--';
 
     return settings.visibleSessionStats.map((stat) {
       switch (stat) {
@@ -405,6 +524,22 @@ class _HeartRateMonitoringScreenState
             value: maxHr,
             color: Colors.red,
           );
+        case SessionStatistic.speed:
+          return _StatDisplay(
+            icon: Icons.speed,
+            label: 'Speed',
+            sublabel: 'Speed',
+            value: speed,
+            color: Colors.orange,
+          );
+        case SessionStatistic.distance:
+          return _StatDisplay(
+            icon: Icons.route,
+            label: 'Distance',
+            sublabel: 'Distance',
+            value: distance,
+            color: Colors.teal,
+          );
       }
     }).toList();
   }
@@ -420,6 +555,19 @@ class _HeartRateMonitoringScreenState
           ),
         )
         .toList();
+  }
+
+  String _formatSpeed(double speedMps, bool useMiles) {
+    final value = useMiles ? speedMps * 2.23694 : speedMps * 3.6;
+    final unit = useMiles ? 'mph' : 'km/h';
+    return '${value.toStringAsFixed(1)} $unit';
+  }
+
+  String _formatDistance(double meters, bool useMiles) {
+    final value = useMiles ? meters / 1609.34 : meters / 1000;
+    final unit = useMiles ? 'mi' : 'km';
+    final decimals = useMiles ? 2 : 2;
+    return '${value.toStringAsFixed(decimals)} $unit';
   }
 
   Widget _buildEmptyStatsPlaceholder(ThemeData theme) {
@@ -870,23 +1018,35 @@ class _HeartRateMonitoringScreenState
         ),
         const SizedBox(height: 12),
         Expanded(
-          child: GridView.count(
-            crossAxisCount: stats.length <= 2 ? stats.length : 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: stats.length == 1 ? 3.0 : 1.8,
-            children: stats
-                .map(
-                  (stat) => SessionStatsCard(
-                    icon: stat.icon,
-                    label: stat.label,
-                    value: stat.value,
-                    iconColor: stat.color,
-                  ),
-                )
-                .toList(),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final columns = stats.length >= 5
+                  ? 3
+                  : math.max(1, math.min(2, stats.length));
+              const spacing = 8.0;
+              final totalSpacing = spacing * (columns - 1);
+              final itemWidth = ((box.maxWidth - totalSpacing) / columns)
+                  .clamp(0, double.infinity)
+                  .toDouble();
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: stats
+                    .map(
+                      (stat) => SizedBox(
+                        width: itemWidth,
+                        child: SessionStatsCard(
+                          icon: stat.icon,
+                          label: stat.label,
+                          value: stat.value,
+                          iconColor: stat.color,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
           ),
         ),
       ],

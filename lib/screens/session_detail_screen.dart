@@ -399,6 +399,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               builder: (context, statsConstraints) {
                 return _buildStatisticsSection(
                   theme: theme,
+                  settings: settings,
                   availableHeight: statsConstraints.maxHeight,
                 );
               },
@@ -454,6 +455,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               builder: (context, statsConstraints) {
                 return _buildStatisticsSection(
                   theme: theme,
+                  settings: settings,
                   availableHeight: statsConstraints.maxHeight,
                 );
               },
@@ -539,6 +541,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   /// Builds the statistics section with adaptive display.
   Widget _buildStatisticsSection({
     required ThemeData theme,
+    required AppSettings settings,
     required double availableHeight,
   }) {
     final duration = _formatDuration(_currentSession.getDuration());
@@ -550,6 +553,9 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         : 'N/A';
     final maxHr = _currentSession.maxHr != null
         ? '${_currentSession.maxHr}'
+        : 'N/A';
+    final distance = _currentSession.distanceMeters != null
+        ? _formatDistance(_currentSession.distanceMeters!, settings.useMiles)
         : 'N/A';
 
     // Use grid display when space allows
@@ -563,41 +569,47 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Expanded(
-          child: GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.8,
-            children: [
-              SessionStatsCard(
-                icon: Icons.timer,
-                label: 'Duration',
-                value: duration,
-              ),
-              SessionStatsCard(
-                icon: Icons.favorite,
-                label: 'Average',
-                value: avgHr,
-              ),
-              SessionStatsCard(
-                icon: Icons.arrow_downward,
-                label: 'Minimum',
-                value: minHr,
-                iconColor: Colors.blue,
-              ),
-              SessionStatsCard(
-                icon: Icons.arrow_upward,
-                label: 'Maximum',
-                value: maxHr,
-                iconColor: Colors.red,
-              ),
-            ],
-          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            SessionStatsCard(
+              icon: Icons.timer,
+              label: 'Duration',
+              value: duration,
+            ),
+            SessionStatsCard(
+              icon: Icons.favorite,
+              label: 'Average',
+              value: avgHr,
+            ),
+            SessionStatsCard(
+              icon: Icons.arrow_downward,
+              label: 'Minimum',
+              value: minHr,
+              iconColor: Colors.blue,
+            ),
+            SessionStatsCard(
+              icon: Icons.arrow_upward,
+              label: 'Maximum',
+              value: maxHr,
+              iconColor: Colors.red,
+            ),
+            SessionStatsCard(
+              icon: Icons.route,
+              label: 'Distance',
+              value: distance,
+              iconColor: Colors.teal,
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  String _formatDistance(double meters, bool useMiles) {
+    final value = useMiles ? meters / 1609.34 : meters / 1000;
+    final unit = useMiles ? 'mi' : 'km';
+    return '${value.toStringAsFixed(2)} $unit';
   }
 }

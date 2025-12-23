@@ -20,10 +20,7 @@ class CompactStatsRow extends StatelessWidget {
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _buildChildren(theme),
-        ),
+        child: IntrinsicHeight(child: Row(children: _buildChildren(theme))),
       ),
     );
   }
@@ -34,12 +31,14 @@ class CompactStatsRow extends StatelessWidget {
     for (var i = 0; i < stats.length; i++) {
       final stat = stats[i];
       widgets.add(
-        _buildStatItem(
-          theme,
-          icon: stat.icon,
-          label: stat.value,
-          sublabel: stat.sublabel,
-          color: stat.color,
+        Expanded(
+          child: _buildStatItem(
+            theme,
+            icon: stat.icon,
+            label: stat.value,
+            sublabel: stat.sublabel,
+            color: stat.color,
+          ),
         ),
       );
 
@@ -58,39 +57,43 @@ class CompactStatsRow extends StatelessWidget {
     String? sublabel,
     required Color color,
   }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 4),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          if (sublabel != null) ...[
+            const SizedBox(height: 2),
             Text(
-              label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+              sublabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 10,
               ),
             ),
           ],
-        ),
-        if (sublabel != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            sublabel,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 10,
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 
   Widget _buildDivider(ThemeData theme) {
     return Container(
-      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       width: 1,
       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
     );

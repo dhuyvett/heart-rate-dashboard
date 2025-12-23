@@ -45,6 +45,9 @@ class AppSettings {
   /// Defaults to all available stats.
   final List<SessionStatistic> visibleSessionStats;
 
+  /// Whether to display speed/distance in miles instead of kilometers.
+  final bool useMiles;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -58,6 +61,7 @@ class AppSettings {
     this.darkMode = false,
     this.sessionRetentionDays = 30,
     this.visibleSessionStats = defaultSessionStatistics,
+    this.useMiles = false,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -71,6 +75,7 @@ class AppSettings {
     bool? darkMode,
     int? sessionRetentionDays,
     List<SessionStatistic>? visibleSessionStats,
+    bool? useMiles,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -83,6 +88,7 @@ class AppSettings {
       darkMode: darkMode ?? this.darkMode,
       sessionRetentionDays: sessionRetentionDays ?? this.sessionRetentionDays,
       visibleSessionStats: visibleSessionStats ?? this.visibleSessionStats,
+      useMiles: useMiles ?? this.useMiles,
     );
   }
 
@@ -99,7 +105,8 @@ class AppSettings {
         other.keepScreenAwake == keepScreenAwake &&
         other.darkMode == darkMode &&
         other.sessionRetentionDays == sessionRetentionDays &&
-        listEquals(other.visibleSessionStats, visibleSessionStats);
+        listEquals(other.visibleSessionStats, visibleSessionStats) &&
+        other.useMiles == useMiles;
   }
 
   @override
@@ -113,6 +120,7 @@ class AppSettings {
     darkMode,
     sessionRetentionDays,
     Object.hashAll(visibleSessionStats),
+    useMiles,
   );
 
   @override
@@ -123,6 +131,6 @@ class AppSettings {
         'chartWindowSeconds: $chartWindowSeconds, '
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
         'sessionRetentionDays: $sessionRetentionDays, '
-        'visibleSessionStats: $visibleSessionStats)';
+        'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles)';
   }
 }

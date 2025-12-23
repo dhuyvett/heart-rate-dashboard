@@ -27,6 +27,12 @@ class SessionState {
   /// Null if no readings have been recorded yet.
   final int? maxHr;
 
+  /// Current speed in meters per second.
+  final double? speedMps;
+
+  /// Total distance traveled in meters.
+  final double? distanceMeters;
+
   /// Total number of heart rate readings recorded.
   final int readingsCount;
 
@@ -44,6 +50,8 @@ class SessionState {
     this.avgHr,
     this.minHr,
     this.maxHr,
+    this.speedMps,
+    this.distanceMeters,
     this.readingsCount = 0,
     this.isPaused = false,
     this.sessionName,
@@ -65,6 +73,8 @@ class SessionState {
     int? avgHr,
     int? minHr,
     int? maxHr,
+    double? speedMps,
+    double? distanceMeters,
     int? readingsCount,
     bool? isPaused,
     String? sessionName,
@@ -76,6 +86,8 @@ class SessionState {
       avgHr: avgHr ?? this.avgHr,
       minHr: minHr ?? this.minHr,
       maxHr: maxHr ?? this.maxHr,
+      speedMps: speedMps ?? this.speedMps,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
       readingsCount: readingsCount ?? this.readingsCount,
       isPaused: isPaused ?? this.isPaused,
       sessionName: sessionName ?? this.sessionName,
@@ -93,6 +105,8 @@ class SessionState {
         other.avgHr == avgHr &&
         other.minHr == minHr &&
         other.maxHr == maxHr &&
+        other.speedMps == speedMps &&
+        other.distanceMeters == distanceMeters &&
         other.readingsCount == readingsCount &&
         other.isPaused == isPaused &&
         other.sessionName == sessionName;
@@ -107,6 +121,8 @@ class SessionState {
       avgHr,
       minHr,
       maxHr,
+      speedMps,
+      distanceMeters,
       readingsCount,
       isPaused,
       sessionName,
@@ -117,6 +133,7 @@ class SessionState {
   String toString() {
     return 'SessionState(currentSessionId: $currentSessionId, startTime: $startTime, '
         'duration: $duration, avgHr: $avgHr, minHr: $minHr, maxHr: $maxHr, '
+        'speedMps: $speedMps, distanceMeters: $distanceMeters, '
         'readingsCount: $readingsCount, isPaused: $isPaused, '
         'sessionName: $sessionName)';
   }
