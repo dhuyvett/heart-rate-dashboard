@@ -90,6 +90,9 @@ dependencies:
   # Cryptography utilities
   crypto: ^3.0.7
 
+  # External links
+  url_launcher: ^6.2.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

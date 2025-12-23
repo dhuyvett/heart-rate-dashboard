@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// About screen displaying app information and credits.
 class AboutScreen extends StatelessWidget {
@@ -7,6 +8,10 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const licenseUrl =
+        'https://github.com/dhuyvett/heart-rate-dashboard/blob/main/LICENSE';
+    const supportUrl =
+        'https://github.com/dhuyvett/heart-rate-dashboard/issues';
 
     return Scaffold(
       appBar: AppBar(title: const Text('About')),
@@ -80,14 +85,7 @@ class AboutScreen extends StatelessWidget {
                     theme,
                     'Heart rate zone visualization using Hopkins Medicine methodology',
                   ),
-                  _buildFeatureItem(
-                    theme,
-                    'Local-only encrypted data storage with SQLCipher',
-                  ),
-                  _buildFeatureItem(
-                    theme,
-                    'Demo mode for testing without physical hardware',
-                  ),
+                  _buildFeatureItem(theme, 'Local-only encrypted data storage'),
                   _buildFeatureItem(
                     theme,
                     'Cross-platform support (Android, iOS, Web, Desktop)',
@@ -130,6 +128,41 @@ class AboutScreen extends StatelessWidget {
 
           const SizedBox(height: 16),
 
+          // Support
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Support',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'For feature requests or bug reports, please visit:',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => _openLicenseUrl(context, supportUrl),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(supportUrl),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // License
           Card(
             child: Padding(
@@ -144,23 +177,25 @@ class AboutScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text('Built with Flutter', style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      showLicensePage(
-                        context: context,
-                        applicationName: 'Heart Rate Dashboard',
-                        applicationVersion: '1.0.0',
-                        applicationIcon: Icon(
-                          Icons.favorite,
-                          size: 48,
-                          color: theme.colorScheme.primary,
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        'Released under the MIT License.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      TextButton(
+                        onPressed: () => _openLicenseUrl(context, licenseUrl),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text('View Open Source Licenses'),
+                        child: Text(licenseUrl),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -192,5 +227,18 @@ class AboutScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openLicenseUrl(BuildContext context, String licenseUrl) async {
+    final uri = Uri.parse(licenseUrl);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!context.mounted) {
+      return;
+    }
+    if (!launched) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open license link.')),
+      );
+    }
   }
 }
