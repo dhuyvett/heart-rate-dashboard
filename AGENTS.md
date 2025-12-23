@@ -7,6 +7,7 @@
 
 ## Build, Test, and Development Commands
 - Install deps: `flutter pub get`.
+- Whenever pubspec.yaml is modified, run `flutter pub upgrade --major-versions`
 - Analyze + format: `flutter analyze` and `dart format .`.
 - Run app: `flutter run -d <device>` (use `flutter devices` to list; Chrome/desktop targets supported).
 - Tests: `flutter test` (all), `flutter test test/widgets test/screens test/widget_test.dart` (widget), `flutter test test/integration` (integration), coverage via `flutter test --coverage`.

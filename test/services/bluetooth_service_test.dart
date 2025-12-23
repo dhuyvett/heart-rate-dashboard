@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart' show BluetoothDevice;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/services/bluetooth_service.dart';
 
@@ -16,6 +17,7 @@ void main() {
 
     setUp(() {
       service = BluetoothService.instance;
+      service.clearScannedDevicesForTest();
     });
 
     test('singleton returns same instance', () {
@@ -108,5 +110,20 @@ void main() {
         }
       });
     });
+
+    test(
+      'findDeviceById uses cached scanned device when not connected',
+      () async {
+        const deviceId = 'TEST_DEVICE';
+        final device = BluetoothDevice.fromId(deviceId);
+
+        service.cacheScannedDeviceForTest(device);
+
+        final resolved = await service.findDeviceByIdForTest(deviceId);
+
+        expect(resolved, isNotNull);
+        expect(resolved!.remoteId.str, equals(deviceId));
+      },
+    );
   });
 }

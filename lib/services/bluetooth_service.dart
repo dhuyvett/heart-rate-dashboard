@@ -93,6 +93,9 @@ class BluetoothService {
   StreamSubscription<List<int>>? _heartRateSubscription;
   StreamSubscription<int>? _demoModeSubscription;
 
+  // Cache of devices seen during the most recent scan.
+  final Map<String, BluetoothDevice> _scannedDevices = {};
+
   // Private constructor for singleton
   BluetoothService._internal();
 
@@ -126,6 +129,7 @@ class BluetoothService {
 
     // List to accumulate unique devices
     final Map<String, BluetoothDevice> discoveredDevices = {};
+    _scannedDevices.clear();
 
     // Start listening to scan results before starting the scan
     // This is important to catch all results on all platforms
@@ -150,6 +154,7 @@ class BluetoothService {
               result.advertisementData.serviceUuids.isEmpty ||
               result.device.platformName.isNotEmpty) {
             discoveredDevices[deviceId] = result.device;
+            _scannedDevices[deviceId] = result.device;
             _scanResultsController.add(discoveredDevices.values.toList());
           }
         }
@@ -610,6 +615,11 @@ class BluetoothService {
   /// Returns the device or null if not found.
   Future<BluetoothDevice?> _findDeviceById(String deviceId) async {
     try {
+      final scannedDevice = _scannedDevices[deviceId];
+      if (scannedDevice != null) {
+        return scannedDevice;
+      }
+
       // Get connected devices
       final connectedDevices = FlutterBluePlus.connectedDevices;
       for (var device in connectedDevices) {
@@ -631,6 +641,21 @@ class BluetoothService {
       _logger.w('Error finding device', error: e, stackTrace: stackTrace);
       return null;
     }
+  }
+
+  @visibleForTesting
+  void cacheScannedDeviceForTest(BluetoothDevice device) {
+    _scannedDevices[device.remoteId.str] = device;
+  }
+
+  @visibleForTesting
+  void clearScannedDevicesForTest() {
+    _scannedDevices.clear();
+  }
+
+  @visibleForTesting
+  Future<BluetoothDevice?> findDeviceByIdForTest(String deviceId) async {
+    return _findDeviceById(deviceId);
   }
 
   /// Disposes of resources and closes streams.
