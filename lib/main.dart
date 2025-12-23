@@ -7,6 +7,7 @@ import 'widgets/desktop_encryption_warning_dialog.dart';
 import 'providers/settings_provider.dart';
 import 'services/database_service.dart';
 import 'screens/device_selection_screen.dart';
+import 'screens/disclaimer_screen.dart';
 import 'utils/app_logger.dart';
 
 void main() {
@@ -62,14 +63,13 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-/// Resolves the initial route based on permission status.
+/// Resolves the initial route based on first-launch acknowledgement and
+/// permission status.
 ///
 /// Navigation flow:
-/// 1. If permissions not granted -> PermissionExplanationScreen
+/// 1. Show a one-time safety disclaimer on first launch.
 /// 2. If permissions granted -> DeviceSelectionScreen
-///
-/// The PermissionExplanationScreen will auto-navigate to DeviceSelectionScreen
-/// if permissions are already granted.
+/// 3. If permissions denied -> permission request prompt
 class InitialRouteResolver extends StatefulWidget {
   const InitialRouteResolver({super.key});
 
@@ -84,6 +84,7 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
   static final _permLogger = AppLogger.getLogger('PermissionsHandler');
   PermissionCheckState _permissionState = PermissionCheckState.checking;
   bool _warningPrompted = false;
+  bool _shouldShowDisclaimer = false;
 
   @override
   void initState() {
@@ -96,7 +97,18 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
     // First, perform session cleanup based on retention settings
     await _performSessionCleanup();
 
-    // Then check permissions
+    // Then check if the disclaimer needs to be shown
+    final showDisclaimer = await _shouldDisplayDisclaimer();
+    if (showDisclaimer) {
+      if (mounted) {
+        setState(() {
+          _shouldShowDisclaimer = true;
+        });
+      }
+      return;
+    }
+
+    // If no disclaimer is needed, continue to permissions
     await _checkPermissions();
   }
 
@@ -139,6 +151,25 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  Future<bool> _shouldDisplayDisclaimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final acknowledged = prefs.getBool('disclaimer_acknowledged') ?? false;
+    return !acknowledged;
+  }
+
+  Future<void> _handleDisclaimerAcknowledged() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('disclaimer_acknowledged', true);
+
+    if (!mounted) return;
+    setState(() {
+      _shouldShowDisclaimer = false;
+      _permissionState = PermissionCheckState.checking;
+    });
+
+    await _checkPermissions();
   }
 
   /// Checks if required Bluetooth permissions are granted.
@@ -233,6 +264,10 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
 
   @override
   Widget build(BuildContext context) {
+    if (_shouldShowDisclaimer) {
+      return DisclaimerScreen(onAcknowledged: _handleDisclaimerAcknowledged);
+    }
+
     if (_permissionState == PermissionCheckState.checking) {
       // Show loading screen while checking permissions
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
