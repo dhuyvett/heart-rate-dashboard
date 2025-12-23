@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/session_statistic.dart';
 import '../models/sex.dart';
 import '../services/database_service.dart';
 import '../utils/app_logger.dart';
@@ -32,6 +33,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     MaxHRCalculationMethod.foxFormula: 'fox_formula',
   };
 
+  /// Storage key for the visible statistics preference.
+  static const _visibleStatsKey = 'visible_session_stats';
+
   @override
   Future<AppSettings> build() async => _loadSettings();
 
@@ -58,6 +62,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final sessionRetentionDaysString = await _databaseService.getSetting(
         'session_retention_days',
       );
+      final visibleStatsString = await _databaseService.getSetting(
+        _visibleStatsKey,
+      );
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -75,6 +82,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final sessionRetentionDays = sessionRetentionDaysString != null
           ? int.tryParse(sessionRetentionDaysString)
           : null;
+      final visibleStats =
+          _parseVisibleStats(visibleStatsString) ?? defaultSessionStatistics;
 
       return AppSettings(
         age: age ?? defaultAge,
@@ -85,6 +94,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         keepScreenAwake: keepScreenAwake,
         darkMode: darkMode,
         sessionRetentionDays: sessionRetentionDays ?? 30,
+        visibleSessionStats: visibleStats,
       );
     } catch (e, stackTrace) {
       _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
@@ -203,6 +213,52 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       'session_retention_days',
       days.toString(),
     );
+  }
+
+  /// Updates which statistics appear on the monitoring screen.
+  ///
+  /// At least one statistic must be selected to avoid an empty layout.
+  Future<void> updateVisibleSessionStats(List<SessionStatistic> stats) async {
+    if (stats.isEmpty) {
+      throw ArgumentError('At least one statistic must be selected');
+    }
+
+    final orderedStats = _orderStats(stats);
+    final current = await future;
+    state = AsyncData(current.copyWith(visibleSessionStats: orderedStats));
+    await _databaseService.setSetting(
+      _visibleStatsKey,
+      orderedStats.map((stat) => stat.name).join(','),
+    );
+  }
+
+  List<SessionStatistic>? _parseVisibleStats(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+
+    final parsed = <SessionStatistic>[];
+    final names = raw
+        .split(',')
+        .map((s) => s.trim())
+        .where((name) => name.isNotEmpty);
+
+    for (final name in names) {
+      try {
+        parsed.add(
+          SessionStatistic.values.firstWhere((stat) => stat.name == name),
+        );
+      } catch (_) {
+        continue;
+      }
+    }
+
+    if (parsed.isEmpty) return null;
+    return _orderStats(parsed);
+  }
+
+  List<SessionStatistic> _orderStats(List<SessionStatistic> stats) {
+    final set = stats.toSet();
+    // Preserve a consistent order for display and storage
+    return SessionStatistic.values.where(set.contains).toList();
   }
 }
 

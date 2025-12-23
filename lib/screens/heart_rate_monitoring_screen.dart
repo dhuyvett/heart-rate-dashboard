@@ -5,6 +5,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
+import '../models/session_statistic.dart';
+import '../models/session_state.dart';
 import '../providers/bluetooth_provider.dart';
 import '../providers/heart_rate_provider.dart';
 import '../providers/reconnection_handler_provider.dart';
@@ -359,6 +361,94 @@ class _HeartRateMonitoringScreenState
     );
   }
 
+  List<_StatDisplay> _buildSelectedStats({
+    required ThemeData theme,
+    required AppSettings settings,
+    required SessionState sessionState,
+  }) {
+    final duration = _formatDuration(sessionState.duration);
+    final avgHr = sessionState.avgHr != null ? '${sessionState.avgHr}' : '--';
+    final minHr = sessionState.minHr != null ? '${sessionState.minHr}' : '--';
+    final maxHr = sessionState.maxHr != null ? '${sessionState.maxHr}' : '--';
+
+    return settings.visibleSessionStats.map((stat) {
+      switch (stat) {
+        case SessionStatistic.duration:
+          return _StatDisplay(
+            icon: Icons.timer,
+            label: 'Duration',
+            sublabel: 'Duration',
+            value: duration,
+            color: theme.colorScheme.primary,
+          );
+        case SessionStatistic.average:
+          return _StatDisplay(
+            icon: Icons.favorite,
+            label: 'Average',
+            sublabel: 'Avg',
+            value: avgHr,
+            color: theme.colorScheme.primary,
+          );
+        case SessionStatistic.minimum:
+          return _StatDisplay(
+            icon: Icons.arrow_downward,
+            label: 'Minimum',
+            sublabel: 'Min',
+            value: minHr,
+            color: Colors.blue,
+          );
+        case SessionStatistic.maximum:
+          return _StatDisplay(
+            icon: Icons.arrow_upward,
+            label: 'Maximum',
+            sublabel: 'Max',
+            value: maxHr,
+            color: Colors.red,
+          );
+      }
+    }).toList();
+  }
+
+  List<CompactStat> _toCompactStats(List<_StatDisplay> stats) {
+    return stats
+        .map(
+          (stat) => CompactStat(
+            icon: stat.icon,
+            value: stat.value,
+            sublabel: stat.sublabel,
+            color: stat.color,
+          ),
+        )
+        .toList();
+  }
+
+  Widget _buildEmptyStatsPlaceholder(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Session Statistics',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 1,
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Text(
+              'No statistics selected. Update your preferences in Settings.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _listenToSettings() {
     _settingsListener = ref.listenManual<AsyncValue<AppSettings>>(
       settingsProvider,
@@ -543,9 +633,9 @@ class _HeartRateMonitoringScreenState
   /// Builds the portrait (vertical stacking) layout.
   Widget _buildPortraitLayout({
     required ThemeData theme,
-    required dynamic settings,
+    required AppSettings settings,
     required AsyncValue heartRateAsync,
-    required dynamic sessionState,
+    required SessionState sessionState,
     required bool isReconnecting,
     required BoxConstraints constraints,
   }) {
@@ -594,6 +684,7 @@ class _HeartRateMonitoringScreenState
               builder: (context, statsConstraints) {
                 return _buildStatisticsSection(
                   theme: theme,
+                  settings: settings,
                   sessionState: sessionState,
                   availableHeight: statsConstraints.maxHeight,
                 );
@@ -615,9 +706,9 @@ class _HeartRateMonitoringScreenState
   /// Builds the landscape (side-by-side) layout.
   Widget _buildLandscapeLayout({
     required ThemeData theme,
-    required dynamic settings,
+    required AppSettings settings,
     required AsyncValue heartRateAsync,
-    required dynamic sessionState,
+    required SessionState sessionState,
     required bool isReconnecting,
     required BoxConstraints constraints,
   }) {
@@ -680,6 +771,7 @@ class _HeartRateMonitoringScreenState
                     builder: (context, statsConstraints) {
                       return _buildStatisticsSection(
                         theme: theme,
+                        settings: settings,
                         sessionState: sessionState,
                         availableHeight: statsConstraints.maxHeight,
                       );
@@ -704,7 +796,7 @@ class _HeartRateMonitoringScreenState
     required ThemeData theme,
     required AppSettings settings,
     required AsyncValue heartRateAsync,
-    required dynamic sessionState,
+    required SessionState sessionState,
     required bool isReconnecting,
   }) {
     return heartRateAsync.when(
@@ -734,13 +826,19 @@ class _HeartRateMonitoringScreenState
   /// Builds the statistics section with adaptive display.
   Widget _buildStatisticsSection({
     required ThemeData theme,
-    required dynamic sessionState,
+    required AppSettings settings,
+    required SessionState sessionState,
     required double availableHeight,
   }) {
-    final duration = _formatDuration(sessionState.duration);
-    final avgHr = sessionState.avgHr != null ? '${sessionState.avgHr}' : '--';
-    final minHr = sessionState.minHr != null ? '${sessionState.minHr}' : '--';
-    final maxHr = sessionState.maxHr != null ? '${sessionState.maxHr}' : '--';
+    final stats = _buildSelectedStats(
+      theme: theme,
+      settings: settings,
+      sessionState: sessionState,
+    );
+
+    if (stats.isEmpty) {
+      return _buildEmptyStatsPlaceholder(theme);
+    }
 
     // Use compact display when space is constrained
     if (availableHeight < _statsHeightThreshold) {
@@ -755,12 +853,7 @@ class _HeartRateMonitoringScreenState
             ),
           ),
           const SizedBox(height: 8),
-          CompactStatsRow(
-            duration: duration,
-            avgHr: avgHr,
-            minHr: minHr,
-            maxHr: maxHr,
-          ),
+          CompactStatsRow(stats: _toCompactStats(stats)),
         ],
       );
     }
@@ -778,36 +871,22 @@ class _HeartRateMonitoringScreenState
         const SizedBox(height: 12),
         Expanded(
           child: GridView.count(
-            crossAxisCount: 2,
+            crossAxisCount: stats.length <= 2 ? stats.length : 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
-            childAspectRatio: 1.8,
-            children: [
-              SessionStatsCard(
-                icon: Icons.timer,
-                label: 'Duration',
-                value: duration,
-              ),
-              SessionStatsCard(
-                icon: Icons.favorite,
-                label: 'Average',
-                value: avgHr,
-              ),
-              SessionStatsCard(
-                icon: Icons.arrow_downward,
-                label: 'Minimum',
-                value: minHr,
-                iconColor: Colors.blue,
-              ),
-              SessionStatsCard(
-                icon: Icons.arrow_upward,
-                label: 'Maximum',
-                value: maxHr,
-                iconColor: Colors.red,
-              ),
-            ],
+            childAspectRatio: stats.length == 1 ? 3.0 : 1.8,
+            children: stats
+                .map(
+                  (stat) => SessionStatsCard(
+                    icon: stat.icon,
+                    label: stat.label,
+                    value: stat.value,
+                    iconColor: stat.color,
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],
@@ -817,7 +896,7 @@ class _HeartRateMonitoringScreenState
   /// Builds the action buttons row with fixed compact height.
   Widget _buildButtonRow({
     required ThemeData theme,
-    required dynamic sessionState,
+    required SessionState sessionState,
   }) {
     return SizedBox(
       height: _buttonHeight,
@@ -1221,4 +1300,20 @@ class _HeartRateMonitoringScreenState
       ],
     );
   }
+}
+
+class _StatDisplay {
+  final IconData icon;
+  final String label;
+  final String? sublabel;
+  final String value;
+  final Color color;
+
+  const _StatDisplay({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.sublabel,
+  });
 }

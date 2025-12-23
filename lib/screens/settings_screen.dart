@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/session_statistic.dart';
 import '../models/sex.dart';
 import '../providers/settings_provider.dart';
 import '../utils/heart_rate_zone_calculator.dart';
@@ -172,6 +173,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         );
       }
+    }
+  }
+
+  /// Updates which statistics show on the monitoring screen.
+  Future<void> _toggleVisibleStat(
+    AppSettings settings,
+    SessionStatistic stat,
+    bool enabled,
+  ) async {
+    final current = List<SessionStatistic>.from(settings.visibleSessionStats);
+
+    if (enabled) {
+      if (!current.contains(stat)) {
+        current.add(stat);
+      }
+    } else {
+      current.remove(stat);
+      if (current.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Keep at least one statistic visible.'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    try {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateVisibleSessionStats(current);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating statistics: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _statLabel(SessionStatistic stat) {
+    switch (stat) {
+      case SessionStatistic.duration:
+        return 'Duration';
+      case SessionStatistic.average:
+        return 'Average Heart Rate';
+      case SessionStatistic.minimum:
+        return 'Minimum Heart Rate';
+      case SessionStatistic.maximum:
+        return 'Maximum Heart Rate';
+    }
+  }
+
+  IconData _statIcon(SessionStatistic stat) {
+    switch (stat) {
+      case SessionStatistic.duration:
+        return Icons.timer;
+      case SessionStatistic.average:
+        return Icons.favorite;
+      case SessionStatistic.minimum:
+        return Icons.arrow_downward;
+      case SessionStatistic.maximum:
+        return Icons.arrow_upward;
     }
   }
 
@@ -545,6 +614,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           );
                         }).toList(),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Monitoring Statistics Section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Monitoring Statistics',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose which session metrics appear on the monitoring screen.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...SessionStatistic.values.map((stat) {
+                        final isSelected = settings.visibleSessionStats
+                            .contains(stat);
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: isSelected,
+                          onChanged: (checked) {
+                            if (checked != null) {
+                              _toggleVisibleStat(settings, stat, checked);
+                            }
+                          },
+                          title: Text(_statLabel(stat)),
+                          secondary: Icon(_statIcon(stat)),
+                        );
+                      }),
                     ],
                   ),
                 ),

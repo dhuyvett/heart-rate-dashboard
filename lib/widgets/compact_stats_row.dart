@@ -2,39 +2,14 @@ import 'package:flutter/material.dart';
 
 /// A compact, single-row widget that displays session statistics.
 ///
-/// Used when vertical space is constrained. Shows Duration, Average,
-/// Minimum, and Maximum values in a horizontal arrangement.
-///
-/// Example usage:
-/// ```dart
-/// CompactStatsRow(
-///   duration: '00:15:30',
-///   avgHr: '142',
-///   minHr: '98',
-///   maxHr: '175',
-/// )
-/// ```
+/// Used when vertical space is constrained. Accepts a list of stats to show
+/// and keeps them on a single row using a fitted layout.
 class CompactStatsRow extends StatelessWidget {
-  /// The formatted duration string (e.g., "00:15:30").
-  final String duration;
-
-  /// The average heart rate value (e.g., "142" or "--").
-  final String avgHr;
-
-  /// The minimum heart rate value (e.g., "98" or "--").
-  final String minHr;
-
-  /// The maximum heart rate value (e.g., "175" or "--").
-  final String maxHr;
+  /// Statistics to display.
+  final List<CompactStat> stats;
 
   /// Creates a compact statistics row.
-  const CompactStatsRow({
-    required this.duration,
-    required this.avgHr,
-    required this.minHr,
-    required this.maxHr,
-    super.key,
-  });
+  const CompactStatsRow({required this.stats, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -47,52 +22,42 @@ class CompactStatsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildStatItem(
-              context,
-              icon: Icons.timer,
-              label: duration,
-              color: theme.colorScheme.primary,
-            ),
-            _buildDivider(theme),
-            _buildStatItem(
-              context,
-              icon: Icons.favorite,
-              label: avgHr,
-              sublabel: 'Avg',
-              color: theme.colorScheme.primary,
-            ),
-            _buildDivider(theme),
-            _buildStatItem(
-              context,
-              icon: Icons.arrow_downward,
-              label: minHr,
-              sublabel: 'Min',
-              color: Colors.blue,
-            ),
-            _buildDivider(theme),
-            _buildStatItem(
-              context,
-              icon: Icons.arrow_upward,
-              label: maxHr,
-              sublabel: 'Max',
-              color: Colors.red,
-            ),
-          ],
+          children: _buildChildren(theme),
         ),
       ),
     );
   }
 
+  List<Widget> _buildChildren(ThemeData theme) {
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < stats.length; i++) {
+      final stat = stats[i];
+      widgets.add(
+        _buildStatItem(
+          theme,
+          icon: stat.icon,
+          label: stat.value,
+          sublabel: stat.sublabel,
+          color: stat.color,
+        ),
+      );
+
+      if (i < stats.length - 1) {
+        widgets.add(_buildDivider(theme));
+      }
+    }
+
+    return widgets;
+  }
+
   Widget _buildStatItem(
-    BuildContext context, {
+    ThemeData theme, {
     required IconData icon,
     required String label,
     String? sublabel,
     required Color color,
   }) {
-    final theme = Theme.of(context);
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -130,4 +95,19 @@ class CompactStatsRow extends StatelessWidget {
       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
     );
   }
+}
+
+/// Model for a compact statistic entry.
+class CompactStat {
+  final IconData icon;
+  final String value;
+  final String? sublabel;
+  final Color color;
+
+  const CompactStat({
+    required this.icon,
+    required this.value,
+    this.sublabel,
+    required this.color,
+  });
 }

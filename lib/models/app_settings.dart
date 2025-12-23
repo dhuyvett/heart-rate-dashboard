@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 import 'max_hr_calculation_method.dart';
+import 'session_statistic.dart';
 import 'sex.dart';
 
 /// Represents the application settings for the Heart Rate Dashboard.
@@ -39,6 +41,10 @@ class AppSettings {
   /// Default: 30 days.
   final int sessionRetentionDays;
 
+  /// Which statistics should be shown on the monitoring screen.
+  /// Defaults to all available stats.
+  final List<SessionStatistic> visibleSessionStats;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -51,6 +57,7 @@ class AppSettings {
     this.keepScreenAwake = false,
     this.darkMode = false,
     this.sessionRetentionDays = 30,
+    this.visibleSessionStats = defaultSessionStatistics,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -63,6 +70,7 @@ class AppSettings {
     bool? keepScreenAwake,
     bool? darkMode,
     int? sessionRetentionDays,
+    List<SessionStatistic>? visibleSessionStats,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -74,6 +82,7 @@ class AppSettings {
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       darkMode: darkMode ?? this.darkMode,
       sessionRetentionDays: sessionRetentionDays ?? this.sessionRetentionDays,
+      visibleSessionStats: visibleSessionStats ?? this.visibleSessionStats,
     );
   }
 
@@ -89,7 +98,8 @@ class AppSettings {
         other.chartWindowSeconds == chartWindowSeconds &&
         other.keepScreenAwake == keepScreenAwake &&
         other.darkMode == darkMode &&
-        other.sessionRetentionDays == sessionRetentionDays;
+        other.sessionRetentionDays == sessionRetentionDays &&
+        listEquals(other.visibleSessionStats, visibleSessionStats);
   }
 
   @override
@@ -102,6 +112,7 @@ class AppSettings {
     keepScreenAwake,
     darkMode,
     sessionRetentionDays,
+    Object.hashAll(visibleSessionStats),
   );
 
   @override
@@ -111,6 +122,7 @@ class AppSettings {
         'customMaxHR: $customMaxHR, '
         'chartWindowSeconds: $chartWindowSeconds, '
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
-        'sessionRetentionDays: $sessionRetentionDays)';
+        'sessionRetentionDays: $sessionRetentionDays, '
+        'visibleSessionStats: $visibleSessionStats)';
   }
 }
