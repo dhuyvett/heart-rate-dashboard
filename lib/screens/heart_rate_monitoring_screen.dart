@@ -163,14 +163,16 @@ class _HeartRateMonitoringScreenState
   }
 
   /// Ends the current session and navigates to device selection.
-  Future<void> _endSessionAndNavigateToDeviceSelection() async {
+  Future<void> _endSessionAndNavigateToDeviceSelection({
+    bool skipDatabase = false,
+  }) async {
     _reconnectionHandler.stopMonitoring();
-    final lastDeviceId = await DatabaseService.instance.getSetting(
-      'last_connected_device_id',
-    );
+    final lastDeviceId = skipDatabase
+        ? null
+        : await DatabaseService.instance.getSetting('last_connected_device_id');
     widget.onChangeDevice?.call();
     await bt.BluetoothService.instance.disconnect();
-    if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
+    if (!skipDatabase && lastDeviceId != null && lastDeviceId.isNotEmpty) {
       await DatabaseService.instance.setSetting(
         'last_connected_device_id',
         lastDeviceId,
@@ -179,8 +181,9 @@ class _HeartRateMonitoringScreenState
     await ref.read(sessionProvider.notifier).endSession();
 
     if (mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
+        (route) => false,
       );
     }
   }
@@ -212,6 +215,10 @@ class _HeartRateMonitoringScreenState
 
   @visibleForTesting
   Future<void> triggerStartSessionForTest() => _startSession();
+
+  @visibleForTesting
+  Future<void> triggerEndSessionForTest() =>
+      _endSessionAndNavigateToDeviceSelection(skipDatabase: true);
 
   Future<void> _promptRenameSession() async {
     final sessionState = ref.read(sessionProvider);
