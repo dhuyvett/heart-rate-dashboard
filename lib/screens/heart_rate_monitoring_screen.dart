@@ -210,6 +210,9 @@ class _HeartRateMonitoringScreenState
   @visibleForTesting
   Future<void> triggerChangeDevice() => _navigateToDeviceSelection();
 
+  @visibleForTesting
+  Future<void> triggerStartSessionForTest() => _startSession();
+
   Future<void> _promptRenameSession() async {
     final sessionState = ref.read(sessionProvider);
     final controller = TextEditingController(
@@ -274,6 +277,7 @@ class _HeartRateMonitoringScreenState
               sessionName: widget.sessionName,
             );
       } catch (e) {
+        _sessionStarted = false;
         _logger.e('Failed to start session', error: e);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
