@@ -7,12 +7,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_data.dart';
 import 'package:heart_rate_dashboard/models/heart_rate_zone.dart';
+import 'package:heart_rate_dashboard/models/scanned_device.dart';
 import 'package:heart_rate_dashboard/models/session_state.dart';
 import 'package:heart_rate_dashboard/providers/bluetooth_provider.dart';
+import 'package:heart_rate_dashboard/providers/device_scan_provider.dart';
 import 'package:heart_rate_dashboard/providers/heart_rate_provider.dart';
 import 'package:heart_rate_dashboard/providers/reconnection_handler_provider.dart';
 import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 import 'package:heart_rate_dashboard/providers/session_provider.dart';
+import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
 import 'package:heart_rate_dashboard/screens/heart_rate_monitoring_screen.dart';
 import 'package:heart_rate_dashboard/services/bluetooth_service.dart' as bt;
 import 'package:heart_rate_dashboard/services/database_service.dart';
@@ -84,6 +87,42 @@ class _NoopSessionNotifier extends SessionNotifier {
   @override
   Future<void> endSession() async {}
 }
+
+class _NavigationHost extends StatefulWidget {
+  const _NavigationHost({required this.monitoringBuilder});
+
+  final WidgetBuilder monitoringBuilder;
+
+  @override
+  State<_NavigationHost> createState() => _NavigationHostState();
+}
+
+class _NavigationHostState extends State<_NavigationHost> {
+  var _pushed = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_pushed) return;
+    _pushed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: widget.monitoringBuilder));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const DeviceSelectionScreen();
+}
+
+Widget _buildMonitoringScreen(BuildContext context) =>
+    const HeartRateMonitoringScreen(
+      deviceName: 'Polar',
+      sessionName: 'Test Session',
+      enableSessionRestore: false,
+      loadRecentReadings: false,
+    );
 
 class _FlakySessionNotifier extends SessionNotifier {
   _FlakySessionNotifier(this._state);
@@ -321,6 +360,57 @@ void main() {
 
       expect(fakeReconnection.manualDisconnectMarked, isTrue);
       expect(changeDeviceCalled, isTrue);
+    });
+
+    testWidgets('end session returns to device selection without back button', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            heartRateProvider.overrideWith((ref) => const Stream.empty()),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(const AppSettings()),
+            ),
+            sessionProvider.overrideWith(
+              () => _NoopSessionNotifier(SessionState.inactive()),
+            ),
+            bluetoothConnectionProvider.overrideWith(
+              (ref) => Stream.value(
+                BluetoothConnectionInfo(
+                  connectionState: bt.ConnectionState.connected,
+                  deviceName: 'Test Device',
+                ),
+              ),
+            ),
+            deviceScanProvider.overrideWith(
+              (ref) => Stream.value([ScannedDevice.demoMode()]),
+            ),
+          ],
+          child: MaterialApp(
+            home: _NavigationHost(monitoringBuilder: _buildMonitoringScreen),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byType(HeartRateMonitoringScreen), findsOneWidget);
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      expect(navigator.canPop(), isTrue);
+      final state =
+          tester.state(find.byType(HeartRateMonitoringScreen)) as dynamic;
+      unawaited(state.triggerEndSessionForTest());
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(navigator.canPop(), isFalse);
+      expect(find.byIcon(Icons.arrow_back), findsNothing);
+      expect(find.byIcon(Icons.arrow_back_ios), findsNothing);
     });
 
     testWidgets('retries session start after failure', (tester) async {
