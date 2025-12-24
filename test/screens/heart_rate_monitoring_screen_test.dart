@@ -85,6 +85,32 @@ class _NoopSessionNotifier extends SessionNotifier {
   Future<void> endSession() async {}
 }
 
+class _FlakySessionNotifier extends SessionNotifier {
+  _FlakySessionNotifier(this._state);
+
+  final SessionState _state;
+  int startCalls = 0;
+  bool _failNext = true;
+
+  @override
+  SessionState build() => _state;
+
+  @override
+  Future<void> startSession({
+    required String deviceName,
+    required String sessionName,
+  }) async {
+    startCalls += 1;
+    if (_failNext) {
+      _failNext = false;
+      throw StateError('start failed');
+    }
+  }
+
+  @override
+  Future<void> endSession() async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
@@ -295,6 +321,45 @@ void main() {
 
       expect(fakeReconnection.manualDisconnectMarked, isTrue);
       expect(changeDeviceCalled, isTrue);
+    });
+
+    testWidgets('retries session start after failure', (tester) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final flakyNotifier = _FlakySessionNotifier(SessionState.inactive());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            heartRateProvider.overrideWith((ref) => const Stream.empty()),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(const AppSettings()),
+            ),
+            sessionProvider.overrideWith(() => flakyNotifier),
+          ],
+          child: const MaterialApp(
+            home: HeartRateMonitoringScreen(
+              deviceName: 'Polar',
+              sessionName: 'Test Session',
+              enableSessionRestore: false,
+              loadRecentReadings: false,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(flakyNotifier.startCalls, equals(1));
+
+      final state =
+          tester.state(find.byType(HeartRateMonitoringScreen)) as dynamic;
+      await state.triggerStartSessionForTest();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(flakyNotifier.startCalls, equals(2));
     });
   });
 }
