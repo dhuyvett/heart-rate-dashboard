@@ -39,7 +39,7 @@ import 'settings_screen.dart';
 ///
 /// The layout adapts responsively:
 /// - Portrait: Vertical stacking with flexible space distribution
-/// - Landscape: Side-by-side layout with BPM+chart on left, stats+buttons on right
+/// - Landscape: Side-by-side layout with BPM+chart+buttons on left, stats on right
 class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   /// The name of the connected device.
   final String deviceName;
@@ -577,7 +577,7 @@ class _HeartRateMonitoringScreenState
   String _formatDistance(double meters, bool useMiles) {
     final value = useMiles ? meters / 1609.34 : meters / 1000;
     final unit = useMiles ? 'mi' : 'km';
-    final decimals = useMiles ? 2 : 2;
+    final decimals = 1;
     return '${value.toStringAsFixed(decimals)} $unit';
   }
 
@@ -588,7 +588,7 @@ class _HeartRateMonitoringScreenState
       children: [
         Text(
           'Session Statistics',
-          style: theme.textTheme.titleMedium?.copyWith(
+          style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -597,7 +597,7 @@ class _HeartRateMonitoringScreenState
           elevation: 1,
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(10.0),
             child: Text(
               'No statistics selected. Update your preferences in Settings.',
               style: theme.textTheme.bodyMedium,
@@ -629,8 +629,6 @@ class _HeartRateMonitoringScreenState
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
-    final currentSessionName = sessionState.sessionName ?? widget.sessionName;
-
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
 
@@ -639,116 +637,6 @@ class _HeartRateMonitoringScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              currentSessionName,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Text(
-              widget.deviceName,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        automaticallyImplyLeading: false,
-        leading: connectionAsync.when(
-          data: (connectionInfo) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ConnectionStatusIndicator(
-              connectionState: isReconnecting
-                  ? bt.ConnectionState.reconnecting
-                  : connectionInfo.connectionState,
-            ),
-          ),
-          loading: () => const SizedBox.shrink(),
-          error: (error, stack) => const SizedBox.shrink(),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
-            tooltip: 'Menu',
-            onSelected: (value) async {
-              if (value == 'rename_session') {
-                await _promptRenameSession();
-              } else if (value == 'session_history') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SessionHistoryScreen(),
-                  ),
-                );
-              } else if (value == 'settings') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              } else if (value == 'about') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const AboutScreen()),
-                );
-              } else if (value == 'change_device') {
-                await _navigateToDeviceSelection();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'rename_session',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 12),
-                    Text('Rename Session'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'change_device',
-                key: ValueKey('change_device_menu_item'),
-                child: Row(
-                  children: [
-                    Icon(Icons.bluetooth_searching),
-                    SizedBox(width: 12),
-                    Text('Change Device'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'session_history',
-                child: Row(
-                  children: [
-                    Icon(Icons.history),
-                    SizedBox(width: 12),
-                    Text('Session History'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'about',
-                child: Row(
-                  children: [
-                    Icon(Icons.info),
-                    SizedBox(width: 12),
-                    Text('About'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           LayoutBuilder(
@@ -762,7 +650,6 @@ class _HeartRateMonitoringScreenState
                   heartRateAsync: heartRateAsync,
                   sessionState: sessionState,
                   isReconnecting: isReconnecting,
-                  constraints: constraints,
                 );
               } else {
                 return _buildPortraitLayout(
@@ -771,10 +658,111 @@ class _HeartRateMonitoringScreenState
                   heartRateAsync: heartRateAsync,
                   sessionState: sessionState,
                   isReconnecting: isReconnecting,
-                  constraints: constraints,
                 );
               }
             },
+          ),
+
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  connectionAsync.when(
+                    data: (connectionInfo) => ConnectionStatusIndicator(
+                      connectionState: isReconnecting
+                          ? bt.ConnectionState.reconnecting
+                          : connectionInfo.connectionState,
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (error, stack) => const SizedBox.shrink(),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.menu),
+                    tooltip: 'Menu',
+                    onSelected: (value) async {
+                      if (value == 'rename_session') {
+                        await _promptRenameSession();
+                      } else if (value == 'session_history') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SessionHistoryScreen(),
+                          ),
+                        );
+                      } else if (value == 'settings') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsScreen(),
+                          ),
+                        );
+                      } else if (value == 'about') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const AboutScreen(),
+                          ),
+                        );
+                      } else if (value == 'change_device') {
+                        await _navigateToDeviceSelection();
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem<String>(
+                        value: 'rename_session',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit),
+                            SizedBox(width: 12),
+                            Text('Rename Session'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'change_device',
+                        key: ValueKey('change_device_menu_item'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bluetooth_searching),
+                            SizedBox(width: 12),
+                            Text('Change Device'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'session_history',
+                        child: Row(
+                          children: [
+                            Icon(Icons.history),
+                            SizedBox(width: 12),
+                            Text('Session History'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings),
+                            SizedBox(width: 12),
+                            Text('Settings'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'about',
+                        child: Row(
+                          children: [
+                            Icon(Icons.info),
+                            SizedBox(width: 12),
+                            Text('About'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
 
           // Reconnection overlay
@@ -796,14 +784,11 @@ class _HeartRateMonitoringScreenState
     required AsyncValue heartRateAsync,
     required SessionState sessionState,
     required bool isReconnecting,
-    required BoxConstraints constraints,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
       child: Column(
         children: [
-          const SizedBox(height: 16),
-
           // Large BPM Display - highest priority, flex: 3
           Flexible(
             flex: 3,
@@ -817,7 +802,7 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Heart Rate Chart - flex: 2, with minimum height
           Flexible(
@@ -834,7 +819,7 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Session Statistics - flex: 2, adaptive display
           Flexible(
@@ -851,12 +836,12 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Session Control Buttons - fixed height
           _buildButtonRow(theme: theme, sessionState: sessionState),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -869,16 +854,15 @@ class _HeartRateMonitoringScreenState
     required AsyncValue heartRateAsync,
     required SessionState sessionState,
     required bool isReconnecting,
-    required BoxConstraints constraints,
   }) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(12.0, 0.0, 12.0, 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Left column: BPM display + Chart
           Expanded(
-            flex: 3,
+            flex: 1,
             child: Column(
               children: [
                 // BPM Display
@@ -913,15 +897,20 @@ class _HeartRateMonitoringScreenState
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 8),
+
+                // Buttons under the left column
+                _buildButtonRow(theme: theme, sessionState: sessionState),
               ],
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
-          // Right column: Statistics + Buttons
+          // Right column: Statistics
           Expanded(
-            flex: 2,
+            flex: 1,
             child: Column(
               children: [
                 // Statistics section
@@ -937,11 +926,6 @@ class _HeartRateMonitoringScreenState
                     },
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Buttons at bottom
-                _buildButtonRow(theme: theme, sessionState: sessionState),
               ],
             ),
           ),
@@ -1007,7 +991,7 @@ class _HeartRateMonitoringScreenState
         children: [
           Text(
             'Session Statistics',
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1023,7 +1007,7 @@ class _HeartRateMonitoringScreenState
       children: [
         Text(
           'Session Statistics',
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1036,9 +1020,17 @@ class _HeartRateMonitoringScreenState
                   : math.max(1, math.min(2, stats.length));
               const spacing = 8.0;
               final totalSpacing = spacing * (columns - 1);
+              final rows = (stats.length / columns).ceil();
+              final totalRunSpacing = spacing * math.max(0, rows - 1);
               final itemWidth = ((box.maxWidth - totalSpacing) / columns)
                   .clamp(0, double.infinity)
                   .toDouble();
+              final itemHeight = rows == 0
+                  ? 0.0
+                  : ((box.maxHeight - totalRunSpacing) / rows)
+                        .clamp(0, double.infinity)
+                        .toDouble();
+              final scale = (itemHeight / 90.0).clamp(1.0, 1.8).toDouble();
 
               return Wrap(
                 spacing: spacing,
@@ -1047,11 +1039,13 @@ class _HeartRateMonitoringScreenState
                     .map(
                       (stat) => SizedBox(
                         width: itemWidth,
+                        height: itemHeight,
                         child: SessionStatsCard(
                           icon: stat.icon,
                           label: stat.label,
                           value: stat.value,
                           iconColor: stat.color,
+                          scale: scale,
                         ),
                       ),
                     )
@@ -1225,6 +1219,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSurface,
+                    fontFamily: 'SourceSans3',
                   ),
                 ),
               ),
@@ -1291,6 +1286,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSurface,
+                    fontFamily: 'SourceSans3',
                   ),
                 ),
               ),
@@ -1357,6 +1353,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: color,
+                    fontFamily: 'SourceSans3',
                   ),
                   child: Text(hrData.bpm.toString()),
                 ),
@@ -1417,6 +1414,7 @@ class _HeartRateMonitoringScreenState
                   fontSize: maxFontSize,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  fontFamily: 'SourceSans3',
                 ),
               ),
             ),
@@ -1456,6 +1454,7 @@ class _HeartRateMonitoringScreenState
                   fontSize: maxFontSize,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.error.withValues(alpha: 0.5),
+                  fontFamily: 'SourceSans3',
                 ),
               ),
             ),

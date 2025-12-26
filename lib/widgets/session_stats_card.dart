@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// A card widget that displays a single session statistic.
@@ -17,12 +18,16 @@ class SessionStatsCard extends StatelessWidget {
   /// Optional color for the icon. Defaults to theme color.
   final Color? iconColor;
 
+  /// Scales icon and text sizes based on available space.
+  final double scale;
+
   /// Creates a session statistics card.
   const SessionStatsCard({
     required this.icon,
     required this.label,
     required this.value,
     this.iconColor,
+    this.scale = 1.0,
     super.key,
   });
 
@@ -30,34 +35,66 @@ class SessionStatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveIconColor = iconColor ?? theme.colorScheme.primary;
+    final bodyFontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
+    final titleFontSize = theme.textTheme.titleLarge?.fontSize ?? 22;
+    final iconScale = math.min(scale, 1.1);
+    final labelScale = math.min(scale, 1.05);
 
     return Card(
       elevation: 1,
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: effectiveIconColor, size: 24),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+        padding: const EdgeInsets.all(4.0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final valueFontSize = math.min(
+              titleFontSize * scale,
+              constraints.maxHeight * 0.7,
+            );
+
+            return SizedBox.expand(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        color: effectiveIconColor,
+                        size: 28 * iconScale,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: bodyFontSize * labelScale,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: valueFontSize,
+                      fontFamily: 'SourceSans3',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
