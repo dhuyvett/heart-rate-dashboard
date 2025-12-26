@@ -42,6 +42,7 @@ class MyApp extends ConsumerWidget {
           // Use brightness based on dark mode setting
           brightness: brightness,
         ),
+        fontFamily: 'SourceSans3',
         // Apply Material 3 design
         useMaterial3: true,
 
