@@ -52,7 +52,11 @@ class SessionStatsCard extends StatelessWidget {
               constraints.maxHeight * 0.7,
             );
 
-            return SizedBox.expand(
+            return SizedBox(
+              width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+              height: constraints.hasBoundedHeight
+                  ? constraints.maxHeight
+                  : null,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -81,14 +85,22 @@ class SessionStatsCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: valueFontSize,
-                      fontFamily: 'SourceSans3',
+                  SizedBox(
+                    width: constraints.hasBoundedWidth
+                        ? constraints.maxWidth
+                        : null,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: valueFontSize,
+                          fontFamily: 'SourceSans3',
+                        ),
+                      ),
                     ),
                   ),
                 ],
