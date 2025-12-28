@@ -558,52 +558,59 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         ? _formatDistance(_currentSession.distanceMeters!, settings.useMiles)
         : 'N/A';
 
-    // Use grid display when space allows
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Session Statistics',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+    final viewportHeight = availableHeight.isFinite ? availableHeight : null;
+
+    // Use grid display when space allows; scroll if content exceeds bounds.
+    return SizedBox(
+      height: viewportHeight,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SessionStatsCard(
-              icon: Icons.timer,
-              label: 'Duration',
-              value: duration,
+            Text(
+              'Session Statistics',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            SessionStatsCard(
-              icon: Icons.favorite,
-              label: 'Average',
-              value: avgHr,
-            ),
-            SessionStatsCard(
-              icon: Icons.arrow_downward,
-              label: 'Minimum',
-              value: minHr,
-              iconColor: Colors.blue,
-            ),
-            SessionStatsCard(
-              icon: Icons.arrow_upward,
-              label: 'Maximum',
-              value: maxHr,
-              iconColor: Colors.red,
-            ),
-            SessionStatsCard(
-              icon: Icons.route,
-              label: 'Distance',
-              value: distance,
-              iconColor: Colors.teal,
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SessionStatsCard(
+                  icon: Icons.timer,
+                  label: 'Duration',
+                  value: duration,
+                ),
+                SessionStatsCard(
+                  icon: Icons.favorite,
+                  label: 'Average',
+                  value: avgHr,
+                ),
+                SessionStatsCard(
+                  icon: Icons.arrow_downward,
+                  label: 'Minimum',
+                  value: minHr,
+                  iconColor: Colors.blue,
+                ),
+                SessionStatsCard(
+                  icon: Icons.arrow_upward,
+                  label: 'Maximum',
+                  value: maxHr,
+                  iconColor: Colors.red,
+                ),
+                SessionStatsCard(
+                  icon: Icons.route,
+                  label: 'Distance',
+                  value: distance,
+                  iconColor: Colors.teal,
+                ),
+              ],
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
