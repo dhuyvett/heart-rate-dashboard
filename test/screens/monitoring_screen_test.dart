@@ -85,7 +85,11 @@ void main() {
       WidgetTester tester,
     ) async {
       // Mock heart rate data
-      final hrData = const HeartRateData(bpm: 145, zone: HeartRateZone.zone3);
+      final hrData = HeartRateData(
+        bpm: 145,
+        zone: HeartRateZone.zone3,
+        receivedAt: DateTime(2024, 1, 1),
+      );
 
       // Mock session state
       final sessionState = SessionState(
@@ -141,7 +145,11 @@ void main() {
           overrides: [
             heartRateProvider.overrideWith(
               (ref) => Stream.value(
-                const HeartRateData(bpm: 145, zone: HeartRateZone.zone3),
+                HeartRateData(
+                  bpm: 145,
+                  zone: HeartRateZone.zone3,
+                  receivedAt: DateTime(2024, 1, 1),
+                ),
               ).asyncMap((d) => d),
             ),
             sessionProvider.overrideWith(

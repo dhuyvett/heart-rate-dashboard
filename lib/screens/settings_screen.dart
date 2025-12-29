@@ -777,6 +777,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
               const SizedBox(height: 16),
 
+              // Demo Mode Section
+              Card(
+                child: SwitchListTile(
+                  title: Text(
+                    'Show Demo Device',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Include a simulated heart rate device in the device list',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: settings.showDemoDevice,
+                  onChanged: (value) async {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .updateShowDemoDevice(value);
+                  },
+                  secondary: const Icon(Icons.psychology),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Keep Screen Awake Section
               Card(
                 child: SwitchListTile(

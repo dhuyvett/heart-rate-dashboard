@@ -92,6 +92,8 @@ class BluetoothService {
   StreamSubscription<BluetoothConnectionState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _heartRateSubscription;
   StreamSubscription<int>? _demoModeSubscription;
+  Timer? _scanFallbackTimer;
+  bool _allowAllDevices = false;
 
   // Cache of devices seen during the most recent scan.
   final Map<String, BluetoothDevice> _scannedDevices = {};
@@ -118,18 +120,24 @@ class BluetoothService {
 
   /// Starts scanning for BLE devices advertising Heart Rate Service (0x180D).
   ///
-  /// Returns a stream of discovered devices. Filters devices locally to handle
-  /// platform differences (especially on Linux where service filtering is unreliable).
+  /// Returns a stream of discovered devices.
   ///
   /// Throws [StateError] if Bluetooth adapter is not powered on.
   /// Throws [StateError] if location permission is not granted (Android).
-  Stream<List<BluetoothDevice>> scanForDevices() {
+  Stream<List<BluetoothDevice>> scanForDevices() async* {
     // Stop any existing scan first
-    stopScan();
+    await stopScan();
 
     // List to accumulate unique devices
     final Map<String, BluetoothDevice> discoveredDevices = {};
     _scannedDevices.clear();
+    _allowAllDevices = false;
+    _scanFallbackTimer?.cancel();
+    _scanFallbackTimer = Timer(const Duration(seconds: 5), () {
+      if (discoveredDevices.isEmpty) {
+        _allowAllDevices = true;
+      }
+    });
 
     // Start listening to scan results before starting the scan
     // This is important to catch all results on all platforms
@@ -143,20 +151,29 @@ class BluetoothService {
             continue;
           }
 
-          // Check if device advertises Heart Rate Service
-          final hasHrService = result.advertisementData.serviceUuids.any(
-            (uuid) => uuid.str.toLowerCase() == bleHrServiceUuid,
+          final advertisement = result.advertisementData;
+          final deviceName = advertisement.advName.isNotEmpty
+              ? advertisement.advName
+              : result.device.platformName;
+          final hasHrService = advertisement.serviceUuids.any(
+            (uuid) => _matchesUuid(uuid.str, bleHrServiceUuid),
           );
-
-          // Include device if it has HR service or if we can't verify (may need service discovery)
-          // This is more lenient to work around platform differences
-          if (hasHrService ||
-              result.advertisementData.serviceUuids.isEmpty ||
-              result.device.platformName.isNotEmpty) {
-            discoveredDevices[deviceId] = result.device;
-            _scannedDevices[deviceId] = result.device;
-            _scanResultsController.add(discoveredDevices.values.toList());
+          final hasNoServiceData = advertisement.serviceUuids.isEmpty;
+          final isLikelyHrDevice = _isLikelyHrDevice(deviceName);
+          final hasName = deviceName.trim().isNotEmpty;
+          if (!hasName && !hasHrService) {
+            continue;
           }
+          if (!hasHrService &&
+              !hasNoServiceData &&
+              !isLikelyHrDevice &&
+              !_allowAllDevices) {
+            continue;
+          }
+
+          discoveredDevices[deviceId] = result.device;
+          _scannedDevices[deviceId] = result.device;
+          _scanResultsController.add(discoveredDevices.values.toList());
         }
       },
       onError: (e, stackTrace) {
@@ -172,12 +189,14 @@ class BluetoothService {
     // Start the scan in the background
     _startScanWithFallback();
 
-    return _scanResultsController.stream;
+    yield* _scanResultsController.stream;
   }
 
   /// Stops the current BLE scan.
   Future<void> stopScan() async {
     try {
+      _scanFallbackTimer?.cancel();
+      _scanFallbackTimer = null;
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       await FlutterBluePlus.stopScan();
@@ -189,12 +208,11 @@ class BluetoothService {
 
   /// Attempts to start scan without service filtering.
   ///
-  /// This approach is more reliable on Linux. Service filtering happens
-  /// in the scan results listener in scanForDevices().
+  /// This approach is more reliable on Linux.
   Future<void> _startScanWithFallback() async {
     try {
       // Start scanning without service filter - more reliable on Linux
-      // and other platforms. The filtering happens in the listener.
+      // and other platforms.
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 30));
     } catch (e, stackTrace) {
       // Log error but don't crash - demo mode will still be available
@@ -265,19 +283,30 @@ class BluetoothService {
           : 'Unknown Device';
       _isInDemoMode = false;
 
-      // Discover services
-      final services = await device.discoverServices();
+      // Discover services (retry once for devices that are slow to expose GATT)
+      var services = await device.discoverServices();
+      final hasHrService = services.any(
+        (service) => _matchesUuid(service.uuid.str, bleHrServiceUuid),
+      );
+      if (!hasHrService) {
+        _logger.w('Heart Rate Service not found; retrying discoverServices');
+        _logDiscoveredServices(services);
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        services = await device.discoverServices();
+      }
 
       // Verify Heart Rate Service is present
-      final hrService = services.firstWhere(
-        (service) => service.uuid.str.toLowerCase() == bleHrServiceUuid,
-        orElse: () =>
-            throw StateError('Heart Rate Service not found on device'),
+      final hrServiceRef = services.firstWhere(
+        (service) => _matchesUuid(service.uuid.str, bleHrServiceUuid),
+        orElse: () {
+          _logDiscoveredServices(services);
+          throw StateError('Heart Rate Service not found on device');
+        },
       );
 
       // Verify we have the HR Measurement characteristic
-      hrService.characteristics.firstWhere(
-        (char) => char.uuid.str.toLowerCase() == bleHrMeasurementUuid,
+      hrServiceRef.characteristics.firstWhere(
+        (char) => _matchesUuid(char.uuid.str, bleHrMeasurementUuid),
         orElse: () =>
             throw StateError('Heart Rate Measurement characteristic not found'),
       );
@@ -453,13 +482,13 @@ class BluetoothService {
 
     // Find Heart Rate Service
     final hrService = services.firstWhere(
-      (service) => service.uuid.str.toLowerCase() == bleHrServiceUuid,
+      (service) => _matchesUuid(service.uuid.str, bleHrServiceUuid),
       orElse: () => throw StateError('Heart Rate Service not found'),
     );
 
     // Find HR Measurement characteristic
     final hrCharacteristic = hrService.characteristics.firstWhere(
-      (char) => char.uuid.str.toLowerCase() == bleHrMeasurementUuid,
+      (char) => _matchesUuid(char.uuid.str, bleHrMeasurementUuid),
       orElse: () =>
           throw StateError('Heart Rate Measurement characteristic not found'),
     );
@@ -641,6 +670,50 @@ class BluetoothService {
       _logger.w('Error finding device', error: e, stackTrace: stackTrace);
       return null;
     }
+  }
+
+  void _logDiscoveredServices(List services) {
+    final serviceSummaries = services.map((service) {
+      final characteristics = service.characteristics
+          .map((char) => _shortUuid(char.uuid.str))
+          .toList();
+      return '${_shortUuid(service.uuid.str)} '
+          'chars=$characteristics';
+    }).toList();
+    _logger.d('Discovered services: $serviceSummaries');
+  }
+
+  String _shortUuid(String uuid) {
+    final hex = uuid.toLowerCase().replaceAll('-', '');
+    if (hex.length >= 8) {
+      return hex.substring(4, 8);
+    }
+    return hex;
+  }
+
+  bool _matchesUuid(String actual, String expected) {
+    final actualShort = _shortUuid(actual);
+    final expectedShort = _shortUuid(expected);
+    return actualShort == expectedShort ||
+        actual.toLowerCase() == expected.toLowerCase();
+  }
+
+  bool _isLikelyHrDevice(String name) {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    const keywords = [
+      'coospo',
+      'polar',
+      'wahoo',
+      'garmin',
+      'tickr',
+      'h9z',
+      'h10',
+      'h9',
+      'hrm',
+      'heart',
+    ];
+    return keywords.any(normalized.contains);
   }
 
   @visibleForTesting
