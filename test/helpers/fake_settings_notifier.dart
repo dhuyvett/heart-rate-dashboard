@@ -19,6 +19,7 @@ class FakeSettingsNotifier extends SettingsNotifier {
   MaxHRCalculationMethod? lastMethod;
   int? lastCustomMaxHr;
   int? lastRetentionDays;
+  bool? lastShowDemoDevice;
 
   @override
   Future<AppSettings> build() async => _initial;
@@ -85,5 +86,13 @@ class FakeSettingsNotifier extends SettingsNotifier {
       (state.asData?.value ?? _initial).copyWith(sessionRetentionDays: days),
     );
     lastRetentionDays = days;
+  }
+
+  @override
+  Future<void> updateShowDemoDevice(bool enabled) async {
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(showDemoDevice: enabled),
+    );
+    lastShowDemoDevice = enabled;
   }
 }

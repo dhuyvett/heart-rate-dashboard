@@ -48,6 +48,9 @@ class AppSettings {
   /// Whether to display speed/distance in miles instead of kilometers.
   final bool useMiles;
 
+  /// Whether to show the demo mode device in the device list.
+  final bool showDemoDevice;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -62,6 +65,7 @@ class AppSettings {
     this.sessionRetentionDays = 30,
     this.visibleSessionStats = defaultSessionStatistics,
     this.useMiles = false,
+    this.showDemoDevice = false,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -76,6 +80,7 @@ class AppSettings {
     int? sessionRetentionDays,
     List<SessionStatistic>? visibleSessionStats,
     bool? useMiles,
+    bool? showDemoDevice,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -89,6 +94,7 @@ class AppSettings {
       sessionRetentionDays: sessionRetentionDays ?? this.sessionRetentionDays,
       visibleSessionStats: visibleSessionStats ?? this.visibleSessionStats,
       useMiles: useMiles ?? this.useMiles,
+      showDemoDevice: showDemoDevice ?? this.showDemoDevice,
     );
   }
 
@@ -106,7 +112,8 @@ class AppSettings {
         other.darkMode == darkMode &&
         other.sessionRetentionDays == sessionRetentionDays &&
         listEquals(other.visibleSessionStats, visibleSessionStats) &&
-        other.useMiles == useMiles;
+        other.useMiles == useMiles &&
+        other.showDemoDevice == showDemoDevice;
   }
 
   @override
@@ -121,6 +128,7 @@ class AppSettings {
     sessionRetentionDays,
     Object.hashAll(visibleSessionStats),
     useMiles,
+    showDemoDevice,
   );
 
   @override
@@ -131,6 +139,7 @@ class AppSettings {
         'chartWindowSeconds: $chartWindowSeconds, '
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
         'sessionRetentionDays: $sessionRetentionDays, '
-        'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles)';
+        'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles, '
+        'showDemoDevice: $showDemoDevice)';
   }
 }

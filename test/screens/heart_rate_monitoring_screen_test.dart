@@ -213,7 +213,11 @@ void main() {
           overrides: [
             heartRateProvider.overrideWith(
               (ref) => Stream.value(
-                const HeartRateData(bpm: 150, zone: HeartRateZone.zone4),
+                HeartRateData(
+                  bpm: 150,
+                  zone: HeartRateZone.zone4,
+                  receivedAt: DateTime(2024, 1, 1),
+                ),
               ),
             ),
             settingsProvider.overrideWith(
@@ -304,7 +308,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      controller.add(const HeartRateData(bpm: 120, zone: HeartRateZone.zone2));
+      controller.add(
+        HeartRateData(
+          bpm: 120,
+          zone: HeartRateZone.zone2,
+          receivedAt: DateTime(2024, 1, 1),
+        ),
+      );
       await tester.pump();
 
       expect(callbackCount, equals(1));

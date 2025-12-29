@@ -371,12 +371,14 @@ class _HeartRateMonitoringScreenState
       heartRateProvider,
       (previous, next) {
         final sessionState = ref.read(sessionProvider);
-        if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
-          widget.onHeartRateUpdate?.call();
-          _lastKnownBpm = next.value.bpm;
-          _reconnectionHandler.setLastKnownBpm(next.value.bpm);
-          if (widget.loadRecentReadings) {
-            _loadRecentReadings();
+        if (next is AsyncData<HeartRateData>) {
+          if (!sessionState.isPaused) {
+            widget.onHeartRateUpdate?.call();
+            _lastKnownBpm = next.value.bpm;
+            _reconnectionHandler.setLastKnownBpm(next.value.bpm);
+            if (widget.loadRecentReadings) {
+              _loadRecentReadings();
+            }
           }
         }
       },

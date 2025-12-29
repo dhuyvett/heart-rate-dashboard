@@ -513,6 +513,7 @@ void main() {
 
       expect(settings.age, equals(defaultAge));
       expect(settings.chartWindowSeconds, equals(defaultChartWindowSeconds));
+      expect(settings.showDemoDevice, isFalse);
     });
 
     test('creates settings with custom values', () {
@@ -525,10 +526,11 @@ void main() {
     test('copyWith updates specified fields', () {
       const settings = AppSettings(age: 30);
 
-      final updated = settings.copyWith(age: 45);
+      final updated = settings.copyWith(age: 45, showDemoDevice: true);
 
       expect(updated.age, equals(45));
       expect(updated.chartWindowSeconds, equals(defaultChartWindowSeconds));
+      expect(updated.showDemoDevice, isTrue);
     });
 
     test('copyWith preserves unchanged fields', () {
@@ -544,9 +546,15 @@ void main() {
       const settings1 = AppSettings(age: 30, chartWindowSeconds: 45);
       const settings2 = AppSettings(age: 30, chartWindowSeconds: 45);
       const settings3 = AppSettings(age: 40, chartWindowSeconds: 45);
+      const settings4 = AppSettings(
+        age: 30,
+        chartWindowSeconds: 45,
+        showDemoDevice: true,
+      );
 
       expect(settings1 == settings2, isTrue);
       expect(settings1 == settings3, isFalse);
+      expect(settings1 == settings4, isFalse);
       expect(settings1.hashCode, equals(settings2.hashCode));
     });
 
@@ -558,37 +566,70 @@ void main() {
       expect(str, contains('AppSettings'));
       expect(str, contains('age: 35'));
       expect(str, contains('chartWindowSeconds: 60'));
+      expect(str, contains('showDemoDevice: false'));
     });
   });
 
   group('HeartRateData', () {
     test('creates data with required fields', () {
-      const data = HeartRateData(bpm: 120, zone: HeartRateZone.zone2);
+      final data = HeartRateData(
+        bpm: 120,
+        zone: HeartRateZone.zone2,
+        receivedAt: DateTime(2024, 1, 1),
+      );
 
       expect(data.bpm, equals(120));
       expect(data.zone, equals(HeartRateZone.zone2));
     });
 
     test('equality works correctly', () {
-      const data1 = HeartRateData(bpm: 140, zone: HeartRateZone.zone3);
-      const data2 = HeartRateData(bpm: 140, zone: HeartRateZone.zone3);
-      const data3 = HeartRateData(bpm: 140, zone: HeartRateZone.zone4);
-      const data4 = HeartRateData(bpm: 150, zone: HeartRateZone.zone3);
+      final baseTime = DateTime(2024, 1, 1);
+      final data1 = HeartRateData(
+        bpm: 140,
+        zone: HeartRateZone.zone3,
+        receivedAt: baseTime,
+      );
+      final data2 = HeartRateData(
+        bpm: 140,
+        zone: HeartRateZone.zone3,
+        receivedAt: baseTime,
+      );
+      final data3 = HeartRateData(
+        bpm: 140,
+        zone: HeartRateZone.zone4,
+        receivedAt: baseTime,
+      );
+      final data4 = HeartRateData(
+        bpm: 150,
+        zone: HeartRateZone.zone3,
+        receivedAt: baseTime,
+      );
+      final data5 = HeartRateData(
+        bpm: 140,
+        zone: HeartRateZone.zone3,
+        receivedAt: DateTime(2024, 1, 2),
+      );
 
       expect(data1 == data2, isTrue);
       expect(data1 == data3, isFalse);
       expect(data1 == data4, isFalse);
+      expect(data1 == data5, isFalse);
       expect(data1.hashCode, equals(data2.hashCode));
     });
 
     test('toString returns expected format', () {
-      const data = HeartRateData(bpm: 160, zone: HeartRateZone.zone4);
+      final data = HeartRateData(
+        bpm: 160,
+        zone: HeartRateZone.zone4,
+        receivedAt: DateTime(2024, 1, 1),
+      );
 
       final str = data.toString();
 
       expect(str, contains('HeartRateData'));
       expect(str, contains('bpm: 160'));
       expect(str, contains('zone: HeartRateZone.zone4'));
+      expect(str, contains('receivedAt: 2024-01-01'));
     });
   });
 

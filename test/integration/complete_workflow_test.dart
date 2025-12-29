@@ -181,7 +181,11 @@ void main() {
             overrides: [
               heartRateProvider.overrideWith(
                 (ref) => Stream.value(
-                  const HeartRateData(bpm: 125, zone: HeartRateZone.zone2),
+                  HeartRateData(
+                    bpm: 125,
+                    zone: HeartRateZone.zone2,
+                    receivedAt: DateTime(2024, 1, 1),
+                  ),
                 ).asyncMap((d) => d),
               ),
               sessionProvider.overrideWith(
@@ -224,7 +228,11 @@ void main() {
           overrides: [
             heartRateProvider.overrideWith(
               (ref) => Stream.value(
-                const HeartRateData(bpm: 150, zone: HeartRateZone.zone3),
+                HeartRateData(
+                  bpm: 150,
+                  zone: HeartRateZone.zone3,
+                  receivedAt: DateTime(2024, 1, 1),
+                ),
               ).asyncMap((d) => d),
             ),
             sessionProvider.overrideWith(

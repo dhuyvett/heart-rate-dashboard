@@ -62,6 +62,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final sessionRetentionDaysString = await _databaseService.getSetting(
         'session_retention_days',
       );
+      final showDemoDeviceString = await _databaseService.getSetting(
+        'show_demo_device',
+      );
       final visibleStatsString = await _databaseService.getSetting(
         _visibleStatsKey,
       );
@@ -86,6 +89,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final visibleStats =
           _parseVisibleStats(visibleStatsString) ?? defaultSessionStatistics;
       final useMiles = useMilesString == 'true';
+      final showDemoDevice = showDemoDeviceString == 'true';
 
       return AppSettings(
         age: age ?? defaultAge,
@@ -98,6 +102,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         sessionRetentionDays: sessionRetentionDays ?? 30,
         visibleSessionStats: visibleStats,
         useMiles: useMiles,
+        showDemoDevice: showDemoDevice,
       );
     } catch (e, stackTrace) {
       _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
@@ -240,6 +245,13 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final current = await future;
     state = AsyncData(current.copyWith(useMiles: useMiles));
     await _databaseService.setSetting('use_miles', useMiles.toString());
+  }
+
+  /// Toggle showing the demo mode device in the device list.
+  Future<void> updateShowDemoDevice(bool enabled) async {
+    final current = await future;
+    state = AsyncData(current.copyWith(showDemoDevice: enabled));
+    await _databaseService.setSetting('show_demo_device', enabled.toString());
   }
 
   List<SessionStatistic>? _parseVisibleStats(String? raw) {
