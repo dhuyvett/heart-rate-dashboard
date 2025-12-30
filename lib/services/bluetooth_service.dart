@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:meta/meta.dart';
 import '../utils/constants.dart';
 import '../utils/app_logger.dart';
 import 'database_service.dart';
@@ -86,14 +86,18 @@ class BluetoothService {
       StreamController<int>.broadcast();
   final StreamController<ConnectionState> _connectionStateController =
       StreamController<ConnectionState>.broadcast();
+  final StreamController<int?> _batteryLevelController =
+      StreamController<int?>.broadcast();
 
   // Subscriptions for cleanup
   StreamSubscription<List<ScanResult>>? _scanSubscription;
   StreamSubscription<BluetoothConnectionState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _heartRateSubscription;
+  StreamSubscription<List<int>>? _batteryLevelSubscription;
   StreamSubscription<int>? _demoModeSubscription;
   Timer? _scanFallbackTimer;
   bool _allowAllDevices = false;
+  int? _batteryLevel;
 
   // Cache of devices seen during the most recent scan.
   final Map<String, BluetoothDevice> _scannedDevices = {};
@@ -112,6 +116,9 @@ class BluetoothService {
 
   /// Gets the connected device name (works for both real devices and demo mode).
   String? get connectedDeviceName => _connectedDeviceName;
+
+  /// Gets the most recent battery level (0-100), if available.
+  int? get batteryLevel => _batteryLevel;
 
   /// Checks if the given device ID is for demo mode.
   static bool isDemoModeDevice(String deviceId) {
@@ -251,6 +258,7 @@ class BluetoothService {
     try {
       // Update state to connecting
       _updateConnectionState(ConnectionState.connecting);
+      _updateBatteryLevel(null);
 
       // Stop any existing scan
       await stopScan();
@@ -311,6 +319,9 @@ class BluetoothService {
             throw StateError('Heart Rate Measurement characteristic not found'),
       );
 
+      // Start monitoring battery level if the device supports it.
+      await _startBatteryMonitoring(services: services);
+
       // Monitor device connection state
       _deviceStateSubscription = device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.connected) {
@@ -345,6 +356,9 @@ class BluetoothService {
           _deviceStateSubscription = null;
           await _heartRateSubscription?.cancel();
           _heartRateSubscription = null;
+          await _batteryLevelSubscription?.cancel();
+          _batteryLevelSubscription = null;
+          _updateBatteryLevel(null);
         }
       }
       _updateConnectionState(ConnectionState.disconnected);
@@ -379,6 +393,7 @@ class BluetoothService {
       _isInDemoMode = true;
       _connectedDevice = null;
       _connectedDeviceName = demoModeDeviceName;
+      _updateBatteryLevel(100);
 
       // Save demo mode as last connected device
       try {
@@ -462,6 +477,7 @@ class BluetoothService {
 
     try {
       await _startHeartRateNotifications();
+      await _startBatteryMonitoring();
     } catch (e, stackTrace) {
       _logger.w(
         'Error restarting heart rate notifications after reconnection',
@@ -512,6 +528,59 @@ class BluetoothService {
         }
       }
     });
+  }
+
+  Future<void> _startBatteryMonitoring({List? services}) async {
+    await _batteryLevelSubscription?.cancel();
+    _batteryLevelSubscription = null;
+
+    if (_isInDemoMode) {
+      _updateBatteryLevel(100);
+      return;
+    }
+
+    if (_connectedDevice == null) {
+      _updateBatteryLevel(null);
+      return;
+    }
+
+    try {
+      final serviceList =
+          services ?? await _connectedDevice!.discoverServices();
+      final batteryService = serviceList.firstWhere(
+        (service) => _matchesUuid(service.uuid.str, bleBatteryServiceUuid),
+        orElse: () => throw StateError('Battery Service not found'),
+      );
+
+      final batteryCharacteristic = batteryService.characteristics.firstWhere(
+        (char) => _matchesUuid(char.uuid.str, bleBatteryLevelUuid),
+        orElse: () =>
+            throw StateError('Battery Level characteristic not found'),
+      );
+
+      if (batteryCharacteristic.properties.read) {
+        final value = await batteryCharacteristic.read();
+        _updateBatteryLevel(_parseBatteryLevel(value));
+      } else {
+        _updateBatteryLevel(null);
+      }
+
+      if (batteryCharacteristic.properties.notify ||
+          batteryCharacteristic.properties.indicate) {
+        await batteryCharacteristic.setNotifyValue(true);
+        _batteryLevelSubscription = batteryCharacteristic.lastValueStream
+            .listen((value) {
+              _updateBatteryLevel(_parseBatteryLevel(value));
+            });
+      }
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Battery level not available',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      _updateBatteryLevel(null);
+    }
   }
 
   /// Parses a BLE Heart Rate Measurement value according to the BLE specification.
@@ -568,6 +637,7 @@ class BluetoothService {
       DemoModeService.instance.stopDemoMode();
       _isInDemoMode = false;
       _connectedDeviceName = null;
+      _updateBatteryLevel(null);
 
       // Clear saved device (manual disconnect)
       await DatabaseService.instance.setSetting('last_connected_device_id', '');
@@ -582,6 +652,8 @@ class BluetoothService {
       // Stop heart rate notifications
       await _heartRateSubscription?.cancel();
       _heartRateSubscription = null;
+      await _batteryLevelSubscription?.cancel();
+      _batteryLevelSubscription = null;
 
       // Stop monitoring device state
       await _deviceStateSubscription?.cancel();
@@ -595,12 +667,14 @@ class BluetoothService {
 
       _connectedDevice = null;
       _connectedDeviceName = null;
+      _updateBatteryLevel(null);
       _updateConnectionState(ConnectionState.disconnected);
     } catch (e, stackTrace) {
       // Log error for debugging - this is acceptable for production
       _logger.e('Error during disconnect', error: e, stackTrace: stackTrace);
       _connectedDevice = null;
       _connectedDeviceName = null;
+      _updateBatteryLevel(null);
       _updateConnectionState(ConnectionState.disconnected);
     }
   }
@@ -614,6 +688,12 @@ class BluetoothService {
           _connectionStateController.stream;
     }
     return _connectionStateController.stream;
+  }
+
+  /// Monitors the battery level updates.
+  Stream<int?> monitorBatteryLevel() async* {
+    yield _batteryLevel;
+    yield* _batteryLevelController.stream;
   }
 
   /// Updates the connection state and notifies listeners.
@@ -633,9 +713,12 @@ class BluetoothService {
   void _handleDisconnection() {
     _heartRateSubscription?.cancel();
     _heartRateSubscription = null;
+    _batteryLevelSubscription?.cancel();
+    _batteryLevelSubscription = null;
     _deviceStateSubscription?.cancel();
     _deviceStateSubscription = null;
     _connectedDevice = null;
+    _updateBatteryLevel(null);
     _updateConnectionState(ConnectionState.disconnected);
   }
 
@@ -698,6 +781,20 @@ class BluetoothService {
         actual.toLowerCase() == expected.toLowerCase();
   }
 
+  int? _parseBatteryLevel(List<int> value) {
+    if (value.isEmpty) return null;
+    final raw = value.first;
+    if (raw == 0xFF) return null;
+    if (raw < 0) return 0;
+    if (raw > 100) return 100;
+    return raw;
+  }
+
+  void _updateBatteryLevel(int? level) {
+    _batteryLevel = level;
+    _batteryLevelController.add(level);
+  }
+
   bool _isLikelyHrDevice(String name) {
     final normalized = name.trim().toLowerCase();
     if (normalized.isEmpty) return false;
@@ -740,6 +837,7 @@ class BluetoothService {
     await _scanResultsController.close();
     await _heartRateController.close();
     await _connectionStateController.close();
+    await _batteryLevelController.close();
   }
 }
 

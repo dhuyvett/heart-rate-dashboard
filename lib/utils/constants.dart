@@ -13,6 +13,12 @@ const String bleHrServiceUuid = '0000180d-0000-1000-8000-00805f9b34fb';
 /// This characteristic provides the actual heart rate readings in beats per minute.
 const String bleHrMeasurementUuid = '00002a37-0000-1000-8000-00805f9b34fb';
 
+/// Bluetooth Low Energy service UUID for Battery Service (standard UUID).
+const String bleBatteryServiceUuid = '0000180f-0000-1000-8000-00805f9b34fb';
+
+/// Bluetooth Low Energy characteristic UUID for Battery Level.
+const String bleBatteryLevelUuid = '00002a19-0000-1000-8000-00805f9b34fb';
+
 /// Default user age for heart rate zone calculations.
 /// Used when no age has been configured in settings.
 const int defaultAge = 30;

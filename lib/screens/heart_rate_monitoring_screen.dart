@@ -22,6 +22,7 @@ import '../utils/app_logger.dart';
 import '../utils/heart_rate_zone_calculator.dart';
 import '../widgets/compact_stats_row.dart';
 import '../widgets/connection_status_indicator.dart';
+import '../widgets/battery_level_icon.dart';
 import '../widgets/error_dialog.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/loading_overlay.dart';
@@ -631,6 +632,7 @@ class _HeartRateMonitoringScreenState
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
+    final batteryLevelAsync = ref.watch(batteryLevelProvider);
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
 
@@ -709,6 +711,40 @@ class _HeartRateMonitoringScreenState
                       }
                     },
                     itemBuilder: (BuildContext context) => [
+                      PopupMenuItem<String>(
+                        enabled: false,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              batteryLevelAsync.when(
+                                data: (level) =>
+                                    BatteryLevelIcon(level: level, size: 22),
+                                loading: () => const BatteryLevelIcon(
+                                  level: null,
+                                  size: 22,
+                                ),
+                                error: (error, stack) => const BatteryLevelIcon(
+                                  level: null,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              connectionAsync.when(
+                                data: (connectionInfo) => Text(
+                                  connectionInfo.deviceName ?? 'HR Monitor',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                                loading: () => const Text('Connecting...'),
+                                error: (error, stack) =>
+                                    const Text('HR Monitor'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
                       const PopupMenuItem<String>(
                         value: 'rename_session',
                         child: Row(
