@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 import 'max_hr_calculation_method.dart';
+import 'monitoring_chart_type.dart';
 import 'session_statistic.dart';
 import 'sex.dart';
 
@@ -51,6 +52,9 @@ class AppSettings {
   /// Whether to show the demo mode device in the device list.
   final bool showDemoDevice;
 
+  /// Chart type to show on the monitoring screen.
+  final MonitoringChartType monitoringChartType;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -66,6 +70,7 @@ class AppSettings {
     this.visibleSessionStats = defaultSessionStatistics,
     this.useMiles = false,
     this.showDemoDevice = false,
+    this.monitoringChartType = MonitoringChartType.heartRate,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -81,6 +86,7 @@ class AppSettings {
     List<SessionStatistic>? visibleSessionStats,
     bool? useMiles,
     bool? showDemoDevice,
+    MonitoringChartType? monitoringChartType,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -95,6 +101,7 @@ class AppSettings {
       visibleSessionStats: visibleSessionStats ?? this.visibleSessionStats,
       useMiles: useMiles ?? this.useMiles,
       showDemoDevice: showDemoDevice ?? this.showDemoDevice,
+      monitoringChartType: monitoringChartType ?? this.monitoringChartType,
     );
   }
 
@@ -113,7 +120,8 @@ class AppSettings {
         other.sessionRetentionDays == sessionRetentionDays &&
         listEquals(other.visibleSessionStats, visibleSessionStats) &&
         other.useMiles == useMiles &&
-        other.showDemoDevice == showDemoDevice;
+        other.showDemoDevice == showDemoDevice &&
+        other.monitoringChartType == monitoringChartType;
   }
 
   @override
@@ -129,6 +137,7 @@ class AppSettings {
     Object.hashAll(visibleSessionStats),
     useMiles,
     showDemoDevice,
+    monitoringChartType,
   );
 
   @override
@@ -140,6 +149,7 @@ class AppSettings {
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
         'sessionRetentionDays: $sessionRetentionDays, '
         'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles, '
-        'showDemoDevice: $showDemoDevice)';
+        'showDemoDevice: $showDemoDevice, '
+        'monitoringChartType: $monitoringChartType)';
   }
 }

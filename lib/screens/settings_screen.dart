@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/monitoring_chart_type.dart';
 import '../models/session_statistic.dart';
 import '../models/sex.dart';
 import '../providers/settings_provider.dart';
@@ -649,6 +650,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             },
                           );
                         }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Monitoring Chart Section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Monitoring Chart',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose which chart appears on the monitoring screen.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SegmentedButton<MonitoringChartType>(
+                        segments: MonitoringChartType.values.map((chartType) {
+                          return ButtonSegment<MonitoringChartType>(
+                            value: chartType,
+                            label: Text(chartType.label),
+                          );
+                        }).toList(),
+                        selected: {settings.monitoringChartType},
+                        onSelectionChanged: (selection) {
+                          ref
+                              .read(settingsProvider.notifier)
+                              .updateMonitoringChartType(selection.first);
+                        },
                       ),
                     ],
                   ),

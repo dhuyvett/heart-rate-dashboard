@@ -141,6 +141,9 @@ class HeartRateChart extends StatelessWidget {
                 reservedSize: 40,
                 interval: 20,
                 getTitlesWidget: (value, meta) {
+                  if (value >= yMax - 0.5) {
+                    return const SizedBox.shrink();
+                  }
                   return Text(
                     value.toInt().toString(),
                     style: theme.textTheme.bodySmall,

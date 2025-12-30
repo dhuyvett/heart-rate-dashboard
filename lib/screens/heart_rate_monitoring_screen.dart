@@ -8,6 +8,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
+import '../models/heart_rate_zone.dart';
+import '../models/monitoring_chart_type.dart';
 import '../models/session_statistic.dart';
 import '../models/session_state.dart';
 import '../providers/bluetooth_provider.dart';
@@ -27,6 +29,7 @@ import '../widgets/error_dialog.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/session_stats_card.dart';
+import '../widgets/zone_time_bar_chart.dart';
 import 'about_screen.dart';
 import 'device_selection_screen.dart';
 import 'session_history_screen.dart';
@@ -77,10 +80,16 @@ class _HeartRateMonitoringScreenState
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
   StreamSubscription<Position>? _positionSubscription;
   Timer? _speedDecayTimer;
+  ProviderSubscription<SessionState>? _sessionListener;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
   Position? _lastPosition;
   DateTime? _lastPositionTime;
+  Map<HeartRateZone, Duration> _zoneDurations = _emptyZoneDurations();
+  DateTime? _lastZoneTimestamp;
+  int? _lastZoneBpm;
+  bool _zoneTrackingPaused = false;
+  bool _awaitingResumeReading = false;
 
   /// Threshold for switching between grid and compact statistics display.
   static const double _statsHeightThreshold = 200.0;
@@ -97,6 +106,7 @@ class _HeartRateMonitoringScreenState
     _reconnectionHandler = ref.read(reconnectionHandlerProvider);
     _listenToHeartRate();
     _listenToSettings();
+    _listenToSessionState();
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
@@ -109,6 +119,7 @@ class _HeartRateMonitoringScreenState
     _reconnectionSubscription?.cancel();
     _heartRateListener?.close();
     _settingsListener?.close();
+    _sessionListener?.close();
     _positionSubscription?.cancel();
     _speedDecayTimer?.cancel();
     _reconnectionHandler.stopMonitoring();
@@ -318,6 +329,10 @@ class _HeartRateMonitoringScreenState
       if (widget.loadRecentReadings) {
         _loadRecentReadings();
       }
+      final settings = ref.read(settingsProvider).asData?.value;
+      if (settings?.monitoringChartType == MonitoringChartType.zoneTime) {
+        await _loadZoneReadings();
+      }
     }
   }
 
@@ -354,6 +369,83 @@ class _HeartRateMonitoringScreenState
     }
   }
 
+  Future<void> _loadZoneReadings() async {
+    final sessionState = ref.read(sessionProvider);
+    final sessionId = sessionState.currentSessionId;
+    if (sessionId == null) return;
+
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings == null) return;
+
+    try {
+      final readings = await DatabaseService.instance.getReadingsBySession(
+        sessionId,
+      );
+
+      if (!mounted) return;
+      final durations = _emptyZoneDurations();
+      if (readings.isEmpty) {
+        setState(() {
+          _zoneDurations = durations;
+          _lastZoneTimestamp = null;
+          _lastZoneBpm = null;
+          _zoneTrackingPaused = sessionState.isPaused;
+          _awaitingResumeReading = false;
+        });
+        return;
+      }
+
+      readings.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      final sessionStart = sessionState.startTime ?? readings.first.timestamp;
+      final firstReading = readings.first;
+      if (sessionStart.isBefore(firstReading.timestamp)) {
+        final initialGap = firstReading.timestamp.difference(sessionStart);
+        _addZoneDuration(durations, firstReading.bpm, initialGap, settings);
+      }
+
+      for (var i = 0; i < readings.length - 1; i++) {
+        final current = readings[i];
+        final next = readings[i + 1];
+        final delta = next.timestamp.difference(current.timestamp);
+        if (delta.isNegative || delta.inMilliseconds == 0) {
+          continue;
+        }
+        _addZoneDuration(durations, current.bpm, delta, settings);
+      }
+
+      var lastTimestamp = readings.last.timestamp;
+      var lastBpm = readings.last.bpm;
+      var awaitingResume = false;
+      var trackingPaused = sessionState.isPaused;
+
+      if (sessionState.isPaused && _pausedAt != null) {
+        final pausedAt = _pausedAt!;
+        if (pausedAt.isAfter(lastTimestamp)) {
+          final delta = pausedAt.difference(lastTimestamp);
+          _addZoneDuration(durations, lastBpm, delta, settings);
+          lastTimestamp = pausedAt;
+          lastBpm = -1;
+          awaitingResume = true;
+        }
+      }
+
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = lastTimestamp;
+        _lastZoneBpm = lastBpm < 0 ? null : lastBpm;
+        _zoneTrackingPaused = trackingPaused;
+        _awaitingResumeReading = awaitingResume;
+      });
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Error loading zone readings',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Formats duration as HH:MM:SS.
   String _formatDuration(Duration duration) {
     final hours = duration.inHours.toString().padLeft(2, '0');
@@ -381,6 +473,7 @@ class _HeartRateMonitoringScreenState
               _loadRecentReadings();
             }
           }
+          _handleZoneReading(next.value, sessionState);
         }
       },
     );
@@ -620,8 +713,124 @@ class _HeartRateMonitoringScreenState
         if (prevValue?.keepScreenAwake != nextValue?.keepScreenAwake) {
           _updateWakeLock();
         }
+        final nextChart = nextValue?.monitoringChartType;
+        final prevChart = prevValue?.monitoringChartType;
+        if (nextChart == MonitoringChartType.zoneTime &&
+            prevChart != MonitoringChartType.zoneTime) {
+          _loadZoneReadings();
+        }
       },
     );
+  }
+
+  void _listenToSessionState() {
+    _sessionListener = ref.listenManual<SessionState>(sessionProvider, (
+      previous,
+      next,
+    ) {
+      final wasPaused = previous?.isPaused ?? false;
+      final isPaused = next.isPaused;
+      if (!wasPaused && isPaused) {
+        _handleSessionPaused();
+      } else if (wasPaused && !isPaused) {
+        _handleSessionResumed();
+      }
+    });
+  }
+
+  void _handleSessionPaused() {
+    _zoneTrackingPaused = true;
+    final pausedAt = DateTime.now();
+    if (_lastZoneTimestamp != null && _lastZoneBpm != null) {
+      final delta = pausedAt.difference(_lastZoneTimestamp!);
+      if (delta.inMilliseconds > 0) {
+        final settings = ref.read(settingsProvider).asData?.value;
+        if (settings != null) {
+          final durations = Map<HeartRateZone, Duration>.from(_zoneDurations);
+          _addZoneDuration(durations, _lastZoneBpm!, delta, settings);
+          setState(() {
+            _zoneDurations = durations;
+            _lastZoneTimestamp = pausedAt;
+            _lastZoneBpm = null;
+          });
+          return;
+        }
+      }
+    }
+    _lastZoneTimestamp = pausedAt;
+    _lastZoneBpm = null;
+  }
+
+  void _handleSessionResumed() {
+    _zoneTrackingPaused = false;
+    _awaitingResumeReading = true;
+    _lastZoneTimestamp = DateTime.now();
+    _lastZoneBpm = null;
+  }
+
+  void _handleZoneReading(HeartRateData data, SessionState sessionState) {
+    if (_zoneTrackingPaused) return;
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings == null) return;
+
+    final durations = Map<HeartRateZone, Duration>.from(_zoneDurations);
+    final receivedAt = data.receivedAt;
+
+    if (_lastZoneTimestamp == null) {
+      final sessionStart = sessionState.startTime;
+      if (sessionStart != null && receivedAt.isAfter(sessionStart)) {
+        final delta = receivedAt.difference(sessionStart);
+        _addZoneDuration(durations, data.bpm, delta, settings);
+      }
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = receivedAt;
+        _lastZoneBpm = data.bpm;
+        _awaitingResumeReading = false;
+      });
+      return;
+    }
+
+    if (_awaitingResumeReading || _lastZoneBpm == null) {
+      final delta = receivedAt.difference(_lastZoneTimestamp!);
+      if (delta.inMilliseconds > 0) {
+        _addZoneDuration(durations, data.bpm, delta, settings);
+      }
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = receivedAt;
+        _lastZoneBpm = data.bpm;
+        _awaitingResumeReading = false;
+      });
+      return;
+    }
+
+    final delta = receivedAt.difference(_lastZoneTimestamp!);
+    if (delta.inMilliseconds > 0) {
+      _addZoneDuration(durations, _lastZoneBpm!, delta, settings);
+    }
+    setState(() {
+      _zoneDurations = durations;
+      _lastZoneTimestamp = receivedAt;
+      _lastZoneBpm = data.bpm;
+    });
+  }
+
+  static Map<HeartRateZone, Duration> _emptyZoneDurations() {
+    return {for (final zone in HeartRateZone.values) zone: Duration.zero};
+  }
+
+  void _addZoneDuration(
+    Map<HeartRateZone, Duration> durations,
+    int bpm,
+    Duration delta,
+    AppSettings settings,
+  ) {
+    if (delta.isNegative || delta.inMilliseconds == 0) {
+      return;
+    }
+    final zone = HeartRateZoneCalculator.getZoneForBpm(bpm, settings);
+    durations[zone] = durations[zone]! + delta;
   }
 
   @override
@@ -842,12 +1051,12 @@ class _HeartRateMonitoringScreenState
 
           const SizedBox(height: 12),
 
-          // Heart Rate Chart - flex: 2, with minimum height
+          // Chart - flex: 2, with minimum height
           Flexible(
             flex: 2,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: _minChartHeight),
-              child: _buildChart(
+              child: _buildMonitoringChart(
                 theme: theme,
                 settings: settings,
                 heartRateAsync: heartRateAsync,
@@ -926,7 +1135,7 @@ class _HeartRateMonitoringScreenState
                     constraints: const BoxConstraints(
                       minHeight: _minChartHeight,
                     ),
-                    child: _buildChart(
+                    child: _buildMonitoringChart(
                       theme: theme,
                       settings: settings,
                       heartRateAsync: heartRateAsync,
@@ -972,8 +1181,29 @@ class _HeartRateMonitoringScreenState
     );
   }
 
+  /// Builds the selected monitoring chart widget.
+  Widget _buildMonitoringChart({
+    required ThemeData theme,
+    required AppSettings settings,
+    required AsyncValue heartRateAsync,
+    required SessionState sessionState,
+    required bool isReconnecting,
+  }) {
+    if (settings.monitoringChartType == MonitoringChartType.zoneTime) {
+      return _buildZoneTimeChart(theme: theme);
+    }
+
+    return _buildHeartRateChart(
+      theme: theme,
+      settings: settings,
+      heartRateAsync: heartRateAsync,
+      sessionState: sessionState,
+      isReconnecting: isReconnecting,
+    );
+  }
+
   /// Builds the heart rate chart widget.
-  Widget _buildChart({
+  Widget _buildHeartRateChart({
     required ThemeData theme,
     required AppSettings settings,
     required AsyncValue heartRateAsync,
@@ -1009,6 +1239,24 @@ class _HeartRateMonitoringScreenState
         ),
       ),
     );
+  }
+
+  Widget _buildZoneTimeChart({required ThemeData theme}) {
+    final hasData = _zoneDurations.values.any(
+      (duration) => duration.inMilliseconds > 0,
+    );
+    if (!hasData) {
+      return Center(
+        child: Text(
+          'No zone data available',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      );
+    }
+
+    return ZoneTimeBarChart(zoneDurations: _zoneDurations);
   }
 
   /// Builds the statistics section with adaptive display.
