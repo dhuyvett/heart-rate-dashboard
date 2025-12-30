@@ -20,6 +20,14 @@ class HeartRateChart extends StatelessWidget {
   /// Typically matches the current heart rate zone color.
   final Color lineColor;
 
+  /// Optional resolver for per-reading zone colors.
+  /// When provided, the chart will render segments per zone color.
+  final Color Function(HeartRateReading reading)? zoneColorResolver;
+
+  /// Optional opacity multiplier for zone colors (0.0 - 1.0).
+  /// Useful for dimming the chart during pause/reconnect states.
+  final double zoneColorOpacity;
+
   /// Optional reference time for the chart window.
   /// If provided, the chart will use this time instead of DateTime.now()
   /// for calculating the visible window. Useful for pausing the chart.
@@ -35,6 +43,8 @@ class HeartRateChart extends StatelessWidget {
     required this.readings,
     required this.windowSeconds,
     required this.lineColor,
+    this.zoneColorResolver,
+    this.zoneColorOpacity = 1.0,
     this.referenceTime,
     this.isLiveMode = true,
     super.key,
@@ -175,20 +185,27 @@ class HeartRateChart extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
             ),
           ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: lineColor,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: lineColor.withValues(alpha: 0.1),
-              ),
-            ),
-          ],
+          lineBarsData: zoneColorResolver == null
+              ? [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: lineColor,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: lineColor.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ]
+              : _createZoneLineBars(
+                  visibleReadings,
+                  windowStart,
+                  zoneColorResolver!,
+                  zoneColorOpacity,
+                ),
         ),
       ),
     );
@@ -214,4 +231,72 @@ class HeartRateChart extends StatelessWidget {
       return FlSpot(xSeconds.toDouble(), reading.bpm.toDouble());
     }).toList();
   }
+
+  List<LineChartBarData> _createZoneLineBars(
+    List<HeartRateReading> readings,
+    DateTime windowStart,
+    Color Function(HeartRateReading reading) zoneColorResolver,
+    double zoneColorOpacity,
+  ) {
+    if (readings.isEmpty) {
+      return const [];
+    }
+
+    final opacity = zoneColorOpacity.clamp(0.0, 1.0);
+    final coloredSpots = readings.map((reading) {
+      final xSeconds = reading.timestamp.difference(windowStart).inSeconds;
+      final baseColor = zoneColorResolver(reading);
+      return _ColoredSpot(
+        FlSpot(xSeconds.toDouble(), reading.bpm.toDouble()),
+        baseColor.withValues(alpha: opacity),
+      );
+    }).toList();
+
+    final List<LineChartBarData> bars = [];
+    var currentColor = coloredSpots.first.color;
+    var currentColorValue = coloredSpots.first.color.toARGB32();
+    var currentSpots = <FlSpot>[coloredSpots.first.spot];
+
+    for (var i = 1; i < coloredSpots.length; i++) {
+      final entry = coloredSpots[i];
+      final entryColorValue = entry.color.toARGB32();
+      if (entryColorValue != currentColorValue) {
+        bars.add(_buildBarData(currentSpots, currentColor, opacity));
+        currentSpots = [currentSpots.last, entry.spot];
+        currentColor = entry.color;
+        currentColorValue = entryColorValue;
+      } else {
+        currentSpots.add(entry.spot);
+      }
+    }
+
+    bars.add(_buildBarData(currentSpots, currentColor, opacity));
+    return bars;
+  }
+
+  LineChartBarData _buildBarData(
+    List<FlSpot> spots,
+    Color color,
+    double opacity,
+  ) {
+    return LineChartBarData(
+      spots: spots,
+      isCurved: true,
+      color: color,
+      barWidth: 3,
+      isStrokeCapRound: true,
+      dotData: const FlDotData(show: false),
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.1 * opacity),
+      ),
+    );
+  }
+}
+
+class _ColoredSpot {
+  final FlSpot spot;
+  final Color color;
+
+  const _ColoredSpot(this.spot, this.color);
 }

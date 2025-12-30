@@ -983,12 +983,19 @@ class _HeartRateMonitoringScreenState
     return heartRateAsync.when(
       data: (hrData) {
         final color = HeartRateZoneCalculator.getColorForZone(hrData.zone);
+        final zoneOpacity = isReconnecting || sessionState.isPaused ? 0.5 : 1.0;
         return HeartRateChart(
           readings: _recentReadings,
           windowSeconds: settings.chartWindowSeconds,
-          lineColor: isReconnecting || sessionState.isPaused
-              ? color.withValues(alpha: 0.5)
-              : color,
+          lineColor: color.withValues(alpha: zoneOpacity),
+          zoneColorResolver: (reading) {
+            final zone = HeartRateZoneCalculator.getZoneForBpm(
+              reading.bpm,
+              settings,
+            );
+            return HeartRateZoneCalculator.getColorForZone(zone);
+          },
+          zoneColorOpacity: zoneOpacity,
           referenceTime: sessionState.isPaused ? _pausedAt : null,
         );
       },

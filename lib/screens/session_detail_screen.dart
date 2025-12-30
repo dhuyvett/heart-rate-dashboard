@@ -533,6 +533,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       readings: _readings,
       windowSeconds: windowSeconds > 0 ? windowSeconds : 60,
       lineColor: color,
+      zoneColorResolver: (reading) {
+        final readingZone = HeartRateZoneCalculator.getZoneForBpm(
+          reading.bpm,
+          settings,
+        );
+        return HeartRateZoneCalculator.getColorForZone(readingZone);
+      },
       referenceTime: _currentSession.endTime,
       isLiveMode: false,
     );
