@@ -1190,7 +1190,7 @@ class _HeartRateMonitoringScreenState
     required bool isReconnecting,
   }) {
     if (settings.monitoringChartType == MonitoringChartType.zoneTime) {
-      return _buildZoneTimeChart(theme: theme);
+      return _buildZoneTimeChart(theme: theme, settings: settings);
     }
 
     return _buildHeartRateChart(
@@ -1241,7 +1241,10 @@ class _HeartRateMonitoringScreenState
     );
   }
 
-  Widget _buildZoneTimeChart({required ThemeData theme}) {
+  Widget _buildZoneTimeChart({
+    required ThemeData theme,
+    required AppSettings settings,
+  }) {
     final hasData = _zoneDurations.values.any(
       (duration) => duration.inMilliseconds > 0,
     );
@@ -1256,7 +1259,10 @@ class _HeartRateMonitoringScreenState
       );
     }
 
-    return ZoneTimeBarChart(zoneDurations: _zoneDurations);
+    return ZoneTimeBarChart(
+      zoneDurations: _zoneDurations,
+      zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
+    );
   }
 
   /// Builds the statistics section with adaptive display.

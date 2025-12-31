@@ -570,7 +570,10 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       );
     }
 
-    return ZoneTimeBarChart(zoneDurations: _calculateZoneDurations(settings));
+    return ZoneTimeBarChart(
+      zoneDurations: _calculateZoneDurations(settings),
+      zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
+    );
   }
 
   Map<HeartRateZone, Duration> _calculateZoneDurations(AppSettings settings) {

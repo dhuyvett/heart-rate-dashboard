@@ -6,8 +6,13 @@ import '../utils/heart_rate_zone_calculator.dart';
 /// Bar chart showing time spent in each heart rate zone.
 class ZoneTimeBarChart extends StatelessWidget {
   final Map<HeartRateZone, Duration> zoneDurations;
+  final Map<HeartRateZone, (int, int)> zoneRanges;
 
-  const ZoneTimeBarChart({required this.zoneDurations, super.key});
+  const ZoneTimeBarChart({
+    required this.zoneDurations,
+    required this.zoneRanges,
+    super.key,
+  });
 
   static const List<HeartRateZone> _orderedZones = [
     HeartRateZone.resting,
@@ -45,13 +50,6 @@ class ZoneTimeBarChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Time in Zones',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
         Expanded(
           child: BarChart(
             BarChartData(
@@ -99,7 +97,7 @@ class ZoneTimeBarChart extends StatelessWidget {
                       final zone = _orderedZones[index];
                       return Text(
                         '${_zoneLabel(zone)}\n'
-                        '${HeartRateZoneCalculator.getZonePercentageRange(zone)}',
+                        '${_zoneBpmRangeLabel(zone, zoneRanges)}',
                         style: theme.textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       );
@@ -176,5 +174,17 @@ class ZoneTimeBarChart extends StatelessWidget {
       case HeartRateZone.zone5:
         return 'Max';
     }
+  }
+
+  static String _zoneBpmRangeLabel(
+    HeartRateZone zone,
+    Map<HeartRateZone, (int, int)> zoneRanges,
+  ) {
+    final range = zoneRanges[zone];
+    if (range == null) {
+      return '-- bpm';
+    }
+    final (minBpm, maxBpm) = range;
+    return '$minBpm-$maxBpm';
   }
 }
