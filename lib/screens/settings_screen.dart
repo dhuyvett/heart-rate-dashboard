@@ -324,6 +324,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         final maxHr = HeartRateZoneCalculator.calculateMaxHeartRate(settings);
         final zoneRanges = HeartRateZoneCalculator.getZoneRanges(settings);
+        final isZoneTimeChart =
+            settings.monitoringChartType == MonitoringChartType.zoneTime;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Settings')),
@@ -612,52 +614,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              // Chart Time Window Section
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Chart Time Window',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'How many seconds of heart rate history to display on the chart',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        children: [15, 30, 45, 60].map((seconds) {
-                          final isSelected =
-                              settings.chartWindowSeconds == seconds;
-                          return ChoiceChip(
-                            label: Text('${seconds}s'),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              if (selected) {
-                                _updateChartWindow(seconds);
-                              }
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
               // Monitoring Chart Section
               Card(
                 child: Padding(
@@ -694,6 +650,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .read(settingsProvider.notifier)
                               .updateMonitoringChartType(selection.first);
                         },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Chart Time Window Section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chart Time Window',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isZoneTimeChart
+                            ? 'Disabled when the selected chart is zone time.'
+                            : 'How many seconds of heart rate history to '
+                                  'display on the Heart Rate chart',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AbsorbPointer(
+                        absorbing: isZoneTimeChart,
+                        child: Opacity(
+                          opacity: isZoneTimeChart ? 0.5 : 1,
+                          child: Wrap(
+                            spacing: 8,
+                            children: [15, 30, 45, 60].map((seconds) {
+                              final isSelected =
+                                  settings.chartWindowSeconds == seconds;
+                              return ChoiceChip(
+                                label: Text('${seconds}s'),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    _updateChartWindow(seconds);
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -756,7 +767,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: Text(
                           _hasLocation
                               ? 'Switch between miles and kilometers for GPS-based stats.'
-                              : 'GPS not available; miles toggle disabled.',
+                              : 'GPS not available.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.6,
