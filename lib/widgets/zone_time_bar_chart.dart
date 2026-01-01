@@ -56,7 +56,32 @@ class ZoneTimeBarChart extends StatelessWidget {
               maxY: maxY,
               minY: 0,
               alignment: BarChartAlignment.spaceAround,
-              barTouchData: BarTouchData(enabled: false),
+              barTouchData: BarTouchData(
+                enabled: true,
+                handleBuiltInTouches: false,
+                touchTooltipData: BarTouchTooltipData(
+                  tooltipPadding: EdgeInsets.zero,
+                  tooltipMargin: 4,
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  getTooltipColor: (_) => Colors.transparent,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    if (rod.toY <= 0) {
+                      return null;
+                    }
+                    final zone = _orderedZones[groupIndex];
+                    final duration = zoneDurations[zone] ?? Duration.zero;
+                    final textStyle = theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    );
+                    return BarTooltipItem(
+                      _formatDuration(duration),
+                      textStyle ?? const TextStyle(fontSize: 12),
+                    );
+                  },
+                ),
+              ),
               gridData: FlGridData(
                 show: true,
                 horizontalInterval: interval,
@@ -123,6 +148,7 @@ class ZoneTimeBarChart extends StatelessWidget {
                 final minutes = _toMinutes(zoneDurations[zone]);
                 return BarChartGroupData(
                   x: index,
+                  showingTooltipIndicators: minutes > 0 ? [0] : const [],
                   barRods: [
                     BarChartRodData(
                       toY: minutes,
@@ -186,5 +212,19 @@ class ZoneTimeBarChart extends StatelessWidget {
     }
     final (minBpm, maxBpm) = range;
     return '$minBpm-$maxBpm';
+  }
+
+  static String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    final value = hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:'
+              '${minutes.toString().padLeft(2, '0')}:'
+              '${seconds.toString().padLeft(2, '0')}'
+        : '${minutes.toString().padLeft(2, '0')}:'
+              '${seconds.toString().padLeft(2, '0')}';
+    return value.startsWith('0') ? value.substring(1) : value;
   }
 }
