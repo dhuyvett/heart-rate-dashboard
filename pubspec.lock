@@ -274,10 +274,10 @@ packages:
     dependency: transitive
     description:
       name: flutter_blue_plus_winrt
-      sha256: "5cfa5960ac8723771cbc59586588b100f38494390154b8a3268c95db37e21617"
+      sha256: "0c87ca5bdf1a110d42847edeca8fbb11a9701738dc8526aefbb2a115bea29aef"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.7"
+    version: "0.0.10"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -290,10 +290,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_riverpod
-      sha256: "9e2d6907f12cc7d23a846847615941bddee8709bf2bfd274acdf5e80bcf22fde"
+      sha256: "38ec6c303e2c83ee84512f5fc2a82ae311531021938e63d7137eccc107bf3c02"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.3"
+    version: "3.1.0"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -748,10 +748,10 @@ packages:
     dependency: transitive
     description:
       name: riverpod
-      sha256: c406de02bff19d920b832bddfb8283548bfa05ce41c59afba57ce643e116aa59
+      sha256: "16ff608d21e8ea64364f2b7c049c94a02ab81668f78845862b6e88b71dd4935a"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.3"
+    version: "3.1.0"
   rxdart:
     dependency: transitive
     description:
@@ -905,10 +905,10 @@ packages:
     dependency: transitive
     description:
       name: sqlite3
-      sha256: "0374add4094d34fcf9d22068b6ddb4056782353ad4a5449bc5b71c5f2175f0ec"
+      sha256: "1d2d2afee96acccabf315e169a4d28019fa21d5217ee014840058a7fbc2008c6"
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.1"
+    version: "3.1.2"
   stack_trace:
     dependency: transitive
     description:
@@ -989,6 +989,70 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  url_launcher:
+    dependency: "direct main"
+    description:
+      name: url_launcher
+      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.2"
+  url_launcher_android:
+    dependency: transitive
+    description:
+      name: url_launcher_android
+      sha256: "767344bf3063897b5cf0db830e94f904528e6dd50a6dfaf839f0abf509009611"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.28"
+  url_launcher_ios:
+    dependency: transitive
+    description:
+      name: url_launcher_ios
+      sha256: cfde38aa257dae62ffe79c87fab20165dfdf6988c1d31b58ebf59b9106062aad
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.6"
+  url_launcher_linux:
+    dependency: transitive
+    description:
+      name: url_launcher_linux
+      sha256: d5e14138b3bc193a0f63c10a53c94b91d399df0512b1f29b94a043db7482384a
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
+  url_launcher_macos:
+    dependency: transitive
+    description:
+      name: url_launcher_macos
+      sha256: "368adf46f71ad3c21b8f06614adb38346f193f3a59ba8fe9a2fd74133070ba18"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.5"
+  url_launcher_platform_interface:
+    dependency: transitive
+    description:
+      name: url_launcher_platform_interface
+      sha256: "552f8a1e663569be95a8190206a38187b531910283c3e982193e4f2733f01029"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.2"
+  url_launcher_web:
+    dependency: transitive
+    description:
+      name: url_launcher_web
+      sha256: "4bd2b7b4dc4d4d0b94e5babfffbca8eac1a126c7f3d6ecbc1a11013faa3abba2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.1"
+  url_launcher_windows:
+    dependency: transitive
+    description:
+      name: url_launcher_windows
+      sha256: "712c70ab1b99744ff066053cbe3e80c73332b38d46e5e945c98689b2e66fc15f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.5"
   uuid:
     dependency: transitive
     description:

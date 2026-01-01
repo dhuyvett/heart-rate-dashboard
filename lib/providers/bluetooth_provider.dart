@@ -76,3 +76,11 @@ final bluetoothConnectionProvider = StreamProvider<BluetoothConnectionInfo>((
     );
   }
 });
+
+/// Provider for the connected device battery level (0-100).
+///
+/// Emits null when the battery service is unavailable.
+final batteryLevelProvider = StreamProvider<int?>((ref) async* {
+  final bluetoothService = BluetoothService.instance;
+  yield* bluetoothService.monitorBatteryLevel();
+});

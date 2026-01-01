@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../models/max_hr_calculation_method.dart';
+import '../models/monitoring_chart_type.dart';
 import '../models/session_statistic.dart';
 import '../models/sex.dart';
 import '../services/database_service.dart';
@@ -35,6 +36,17 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 
   /// Storage key for the visible statistics preference.
   static const _visibleStatsKey = 'visible_session_stats';
+  static const _monitoringChartKey = 'monitoring_chart_type';
+
+  static const _monitoringChartFromString = {
+    'heart_rate': MonitoringChartType.heartRate,
+    'zone_time': MonitoringChartType.zoneTime,
+  };
+
+  static const _monitoringChartToString = {
+    MonitoringChartType.heartRate: 'heart_rate',
+    MonitoringChartType.zoneTime: 'zone_time',
+  };
 
   @override
   Future<AppSettings> build() async => _loadSettings();
@@ -62,10 +74,16 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final sessionRetentionDaysString = await _databaseService.getSetting(
         'session_retention_days',
       );
+      final showDemoDeviceString = await _databaseService.getSetting(
+        'show_demo_device',
+      );
       final visibleStatsString = await _databaseService.getSetting(
         _visibleStatsKey,
       );
       final useMilesString = await _databaseService.getSetting('use_miles');
+      final monitoringChartString = await _databaseService.getSetting(
+        _monitoringChartKey,
+      );
 
       final age = ageString != null ? int.tryParse(ageString) : null;
       final chartWindowSeconds = chartWindowString != null
@@ -86,6 +104,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final visibleStats =
           _parseVisibleStats(visibleStatsString) ?? defaultSessionStatistics;
       final useMiles = useMilesString == 'true';
+      final showDemoDevice = showDemoDeviceString == 'true';
+      final monitoringChartType =
+          _monitoringChartFromString[monitoringChartString] ??
+          MonitoringChartType.heartRate;
 
       return AppSettings(
         age: age ?? defaultAge,
@@ -98,6 +120,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         sessionRetentionDays: sessionRetentionDays ?? 30,
         visibleSessionStats: visibleStats,
         useMiles: useMiles,
+        showDemoDevice: showDemoDevice,
+        monitoringChartType: monitoringChartType,
       );
     } catch (e, stackTrace) {
       _logger.e('Error loading settings', error: e, stackTrace: stackTrace);
@@ -240,6 +264,23 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final current = await future;
     state = AsyncData(current.copyWith(useMiles: useMiles));
     await _databaseService.setSetting('use_miles', useMiles.toString());
+  }
+
+  /// Toggle showing the demo mode device in the device list.
+  Future<void> updateShowDemoDevice(bool enabled) async {
+    final current = await future;
+    state = AsyncData(current.copyWith(showDemoDevice: enabled));
+    await _databaseService.setSetting('show_demo_device', enabled.toString());
+  }
+
+  /// Updates which chart appears on the monitoring screen.
+  Future<void> updateMonitoringChartType(MonitoringChartType chartType) async {
+    final current = await future;
+    state = AsyncData(current.copyWith(monitoringChartType: chartType));
+    await _databaseService.setSetting(
+      _monitoringChartKey,
+      _monitoringChartToString[chartType] ?? 'heart_rate',
+    );
   }
 
   List<SessionStatistic>? _parseVisibleStats(String? raw) {

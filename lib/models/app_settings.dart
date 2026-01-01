@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 import 'max_hr_calculation_method.dart';
+import 'monitoring_chart_type.dart';
 import 'session_statistic.dart';
 import 'sex.dart';
 
@@ -48,6 +49,12 @@ class AppSettings {
   /// Whether to display speed/distance in miles instead of kilometers.
   final bool useMiles;
 
+  /// Whether to show the demo mode device in the device list.
+  final bool showDemoDevice;
+
+  /// Chart type to show on the monitoring screen.
+  final MonitoringChartType monitoringChartType;
+
   /// Creates an app settings instance.
   ///
   /// Defaults to [defaultAge] and [defaultChartWindowSeconds] if not specified.
@@ -62,6 +69,8 @@ class AppSettings {
     this.sessionRetentionDays = 30,
     this.visibleSessionStats = defaultSessionStatistics,
     this.useMiles = false,
+    this.showDemoDevice = false,
+    this.monitoringChartType = MonitoringChartType.heartRate,
   });
 
   /// Creates a copy of this settings with updated fields.
@@ -76,6 +85,8 @@ class AppSettings {
     int? sessionRetentionDays,
     List<SessionStatistic>? visibleSessionStats,
     bool? useMiles,
+    bool? showDemoDevice,
+    MonitoringChartType? monitoringChartType,
   }) {
     return AppSettings(
       age: age ?? this.age,
@@ -89,6 +100,8 @@ class AppSettings {
       sessionRetentionDays: sessionRetentionDays ?? this.sessionRetentionDays,
       visibleSessionStats: visibleSessionStats ?? this.visibleSessionStats,
       useMiles: useMiles ?? this.useMiles,
+      showDemoDevice: showDemoDevice ?? this.showDemoDevice,
+      monitoringChartType: monitoringChartType ?? this.monitoringChartType,
     );
   }
 
@@ -106,7 +119,9 @@ class AppSettings {
         other.darkMode == darkMode &&
         other.sessionRetentionDays == sessionRetentionDays &&
         listEquals(other.visibleSessionStats, visibleSessionStats) &&
-        other.useMiles == useMiles;
+        other.useMiles == useMiles &&
+        other.showDemoDevice == showDemoDevice &&
+        other.monitoringChartType == monitoringChartType;
   }
 
   @override
@@ -121,6 +136,8 @@ class AppSettings {
     sessionRetentionDays,
     Object.hashAll(visibleSessionStats),
     useMiles,
+    showDemoDevice,
+    monitoringChartType,
   );
 
   @override
@@ -131,6 +148,8 @@ class AppSettings {
         'chartWindowSeconds: $chartWindowSeconds, '
         'keepScreenAwake: $keepScreenAwake, darkMode: $darkMode, '
         'sessionRetentionDays: $sessionRetentionDays, '
-        'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles)';
+        'visibleSessionStats: $visibleSessionStats, useMiles: $useMiles, '
+        'showDemoDevice: $showDemoDevice, '
+        'monitoringChartType: $monitoringChartType)';
   }
 }

@@ -8,6 +8,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/app_settings.dart';
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
+import '../models/heart_rate_zone.dart';
+import '../models/monitoring_chart_type.dart';
 import '../models/session_statistic.dart';
 import '../models/session_state.dart';
 import '../providers/bluetooth_provider.dart';
@@ -22,10 +24,12 @@ import '../utils/app_logger.dart';
 import '../utils/heart_rate_zone_calculator.dart';
 import '../widgets/compact_stats_row.dart';
 import '../widgets/connection_status_indicator.dart';
+import '../widgets/battery_level_icon.dart';
 import '../widgets/error_dialog.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/session_stats_card.dart';
+import '../widgets/zone_time_bar_chart.dart';
 import 'about_screen.dart';
 import 'device_selection_screen.dart';
 import 'session_history_screen.dart';
@@ -39,7 +43,7 @@ import 'settings_screen.dart';
 ///
 /// The layout adapts responsively:
 /// - Portrait: Vertical stacking with flexible space distribution
-/// - Landscape: Side-by-side layout with BPM+chart on left, stats+buttons on right
+/// - Landscape: Side-by-side layout with BPM+chart+buttons on left, stats on right
 class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   /// The name of the connected device.
   final String deviceName;
@@ -76,10 +80,16 @@ class _HeartRateMonitoringScreenState
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
   StreamSubscription<Position>? _positionSubscription;
   Timer? _speedDecayTimer;
+  ProviderSubscription<SessionState>? _sessionListener;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
   Position? _lastPosition;
   DateTime? _lastPositionTime;
+  Map<HeartRateZone, Duration> _zoneDurations = _emptyZoneDurations();
+  DateTime? _lastZoneTimestamp;
+  int? _lastZoneBpm;
+  bool _zoneTrackingPaused = false;
+  bool _awaitingResumeReading = false;
 
   /// Threshold for switching between grid and compact statistics display.
   static const double _statsHeightThreshold = 200.0;
@@ -96,6 +106,7 @@ class _HeartRateMonitoringScreenState
     _reconnectionHandler = ref.read(reconnectionHandlerProvider);
     _listenToHeartRate();
     _listenToSettings();
+    _listenToSessionState();
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
@@ -108,6 +119,7 @@ class _HeartRateMonitoringScreenState
     _reconnectionSubscription?.cancel();
     _heartRateListener?.close();
     _settingsListener?.close();
+    _sessionListener?.close();
     _positionSubscription?.cancel();
     _speedDecayTimer?.cancel();
     _reconnectionHandler.stopMonitoring();
@@ -163,14 +175,16 @@ class _HeartRateMonitoringScreenState
   }
 
   /// Ends the current session and navigates to device selection.
-  Future<void> _endSessionAndNavigateToDeviceSelection() async {
+  Future<void> _endSessionAndNavigateToDeviceSelection({
+    bool skipDatabase = false,
+  }) async {
     _reconnectionHandler.stopMonitoring();
-    final lastDeviceId = await DatabaseService.instance.getSetting(
-      'last_connected_device_id',
-    );
+    final lastDeviceId = skipDatabase
+        ? null
+        : await DatabaseService.instance.getSetting('last_connected_device_id');
     widget.onChangeDevice?.call();
     await bt.BluetoothService.instance.disconnect();
-    if (lastDeviceId != null && lastDeviceId.isNotEmpty) {
+    if (!skipDatabase && lastDeviceId != null && lastDeviceId.isNotEmpty) {
       await DatabaseService.instance.setSetting(
         'last_connected_device_id',
         lastDeviceId,
@@ -179,8 +193,9 @@ class _HeartRateMonitoringScreenState
     await ref.read(sessionProvider.notifier).endSession();
 
     if (mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const DeviceSelectionScreen()),
+        (route) => false,
       );
     }
   }
@@ -209,6 +224,13 @@ class _HeartRateMonitoringScreenState
 
   @visibleForTesting
   Future<void> triggerChangeDevice() => _navigateToDeviceSelection();
+
+  @visibleForTesting
+  Future<void> triggerStartSessionForTest() => _startSession();
+
+  @visibleForTesting
+  Future<void> triggerEndSessionForTest() =>
+      _endSessionAndNavigateToDeviceSelection(skipDatabase: true);
 
   Future<void> _promptRenameSession() async {
     final sessionState = ref.read(sessionProvider);
@@ -274,6 +296,7 @@ class _HeartRateMonitoringScreenState
               sessionName: widget.sessionName,
             );
       } catch (e) {
+        _sessionStarted = false;
         _logger.e('Failed to start session', error: e);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +328,10 @@ class _HeartRateMonitoringScreenState
 
       if (widget.loadRecentReadings) {
         _loadRecentReadings();
+      }
+      final settings = ref.read(settingsProvider).asData?.value;
+      if (settings?.monitoringChartType == MonitoringChartType.zoneTime) {
+        await _loadZoneReadings();
       }
     }
   }
@@ -342,6 +369,83 @@ class _HeartRateMonitoringScreenState
     }
   }
 
+  Future<void> _loadZoneReadings() async {
+    final sessionState = ref.read(sessionProvider);
+    final sessionId = sessionState.currentSessionId;
+    if (sessionId == null) return;
+
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings == null) return;
+
+    try {
+      final readings = await DatabaseService.instance.getReadingsBySession(
+        sessionId,
+      );
+
+      if (!mounted) return;
+      final durations = _emptyZoneDurations();
+      if (readings.isEmpty) {
+        setState(() {
+          _zoneDurations = durations;
+          _lastZoneTimestamp = null;
+          _lastZoneBpm = null;
+          _zoneTrackingPaused = sessionState.isPaused;
+          _awaitingResumeReading = false;
+        });
+        return;
+      }
+
+      readings.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      final sessionStart = sessionState.startTime ?? readings.first.timestamp;
+      final firstReading = readings.first;
+      if (sessionStart.isBefore(firstReading.timestamp)) {
+        final initialGap = firstReading.timestamp.difference(sessionStart);
+        _addZoneDuration(durations, firstReading.bpm, initialGap, settings);
+      }
+
+      for (var i = 0; i < readings.length - 1; i++) {
+        final current = readings[i];
+        final next = readings[i + 1];
+        final delta = next.timestamp.difference(current.timestamp);
+        if (delta.isNegative || delta.inMilliseconds == 0) {
+          continue;
+        }
+        _addZoneDuration(durations, current.bpm, delta, settings);
+      }
+
+      var lastTimestamp = readings.last.timestamp;
+      var lastBpm = readings.last.bpm;
+      var awaitingResume = false;
+      var trackingPaused = sessionState.isPaused;
+
+      if (sessionState.isPaused && _pausedAt != null) {
+        final pausedAt = _pausedAt!;
+        if (pausedAt.isAfter(lastTimestamp)) {
+          final delta = pausedAt.difference(lastTimestamp);
+          _addZoneDuration(durations, lastBpm, delta, settings);
+          lastTimestamp = pausedAt;
+          lastBpm = -1;
+          awaitingResume = true;
+        }
+      }
+
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = lastTimestamp;
+        _lastZoneBpm = lastBpm < 0 ? null : lastBpm;
+        _zoneTrackingPaused = trackingPaused;
+        _awaitingResumeReading = awaitingResume;
+      });
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Error loading zone readings',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Formats duration as HH:MM:SS.
   String _formatDuration(Duration duration) {
     final hours = duration.inHours.toString().padLeft(2, '0');
@@ -360,13 +464,16 @@ class _HeartRateMonitoringScreenState
       heartRateProvider,
       (previous, next) {
         final sessionState = ref.read(sessionProvider);
-        if (next is AsyncData<HeartRateData> && !sessionState.isPaused) {
-          widget.onHeartRateUpdate?.call();
-          _lastKnownBpm = next.value.bpm;
-          _reconnectionHandler.setLastKnownBpm(next.value.bpm);
-          if (widget.loadRecentReadings) {
-            _loadRecentReadings();
+        if (next is AsyncData<HeartRateData>) {
+          if (!sessionState.isPaused) {
+            widget.onHeartRateUpdate?.call();
+            _lastKnownBpm = next.value.bpm;
+            _reconnectionHandler.setLastKnownBpm(next.value.bpm);
+            if (widget.loadRecentReadings) {
+              _loadRecentReadings();
+            }
           }
+          _handleZoneReading(next.value, sessionState);
         }
       },
     );
@@ -566,7 +673,7 @@ class _HeartRateMonitoringScreenState
   String _formatDistance(double meters, bool useMiles) {
     final value = useMiles ? meters / 1609.34 : meters / 1000;
     final unit = useMiles ? 'mi' : 'km';
-    final decimals = useMiles ? 2 : 2;
+    final decimals = 1;
     return '${value.toStringAsFixed(decimals)} $unit';
   }
 
@@ -577,7 +684,7 @@ class _HeartRateMonitoringScreenState
       children: [
         Text(
           'Session Statistics',
-          style: theme.textTheme.titleMedium?.copyWith(
+          style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -586,7 +693,7 @@ class _HeartRateMonitoringScreenState
           elevation: 1,
           margin: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(10.0),
             child: Text(
               'No statistics selected. Update your preferences in Settings.',
               style: theme.textTheme.bodyMedium,
@@ -606,8 +713,124 @@ class _HeartRateMonitoringScreenState
         if (prevValue?.keepScreenAwake != nextValue?.keepScreenAwake) {
           _updateWakeLock();
         }
+        final nextChart = nextValue?.monitoringChartType;
+        final prevChart = prevValue?.monitoringChartType;
+        if (nextChart == MonitoringChartType.zoneTime &&
+            prevChart != MonitoringChartType.zoneTime) {
+          _loadZoneReadings();
+        }
       },
     );
+  }
+
+  void _listenToSessionState() {
+    _sessionListener = ref.listenManual<SessionState>(sessionProvider, (
+      previous,
+      next,
+    ) {
+      final wasPaused = previous?.isPaused ?? false;
+      final isPaused = next.isPaused;
+      if (!wasPaused && isPaused) {
+        _handleSessionPaused();
+      } else if (wasPaused && !isPaused) {
+        _handleSessionResumed();
+      }
+    });
+  }
+
+  void _handleSessionPaused() {
+    _zoneTrackingPaused = true;
+    final pausedAt = DateTime.now();
+    if (_lastZoneTimestamp != null && _lastZoneBpm != null) {
+      final delta = pausedAt.difference(_lastZoneTimestamp!);
+      if (delta.inMilliseconds > 0) {
+        final settings = ref.read(settingsProvider).asData?.value;
+        if (settings != null) {
+          final durations = Map<HeartRateZone, Duration>.from(_zoneDurations);
+          _addZoneDuration(durations, _lastZoneBpm!, delta, settings);
+          setState(() {
+            _zoneDurations = durations;
+            _lastZoneTimestamp = pausedAt;
+            _lastZoneBpm = null;
+          });
+          return;
+        }
+      }
+    }
+    _lastZoneTimestamp = pausedAt;
+    _lastZoneBpm = null;
+  }
+
+  void _handleSessionResumed() {
+    _zoneTrackingPaused = false;
+    _awaitingResumeReading = true;
+    _lastZoneTimestamp = DateTime.now();
+    _lastZoneBpm = null;
+  }
+
+  void _handleZoneReading(HeartRateData data, SessionState sessionState) {
+    if (_zoneTrackingPaused) return;
+    final settings = ref.read(settingsProvider).asData?.value;
+    if (settings == null) return;
+
+    final durations = Map<HeartRateZone, Duration>.from(_zoneDurations);
+    final receivedAt = data.receivedAt;
+
+    if (_lastZoneTimestamp == null) {
+      final sessionStart = sessionState.startTime;
+      if (sessionStart != null && receivedAt.isAfter(sessionStart)) {
+        final delta = receivedAt.difference(sessionStart);
+        _addZoneDuration(durations, data.bpm, delta, settings);
+      }
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = receivedAt;
+        _lastZoneBpm = data.bpm;
+        _awaitingResumeReading = false;
+      });
+      return;
+    }
+
+    if (_awaitingResumeReading || _lastZoneBpm == null) {
+      final delta = receivedAt.difference(_lastZoneTimestamp!);
+      if (delta.inMilliseconds > 0) {
+        _addZoneDuration(durations, data.bpm, delta, settings);
+      }
+      setState(() {
+        _zoneDurations = durations;
+        _lastZoneTimestamp = receivedAt;
+        _lastZoneBpm = data.bpm;
+        _awaitingResumeReading = false;
+      });
+      return;
+    }
+
+    final delta = receivedAt.difference(_lastZoneTimestamp!);
+    if (delta.inMilliseconds > 0) {
+      _addZoneDuration(durations, _lastZoneBpm!, delta, settings);
+    }
+    setState(() {
+      _zoneDurations = durations;
+      _lastZoneTimestamp = receivedAt;
+      _lastZoneBpm = data.bpm;
+    });
+  }
+
+  static Map<HeartRateZone, Duration> _emptyZoneDurations() {
+    return {for (final zone in HeartRateZone.values) zone: Duration.zero};
+  }
+
+  void _addZoneDuration(
+    Map<HeartRateZone, Duration> durations,
+    int bpm,
+    Duration delta,
+    AppSettings settings,
+  ) {
+    if (delta.isNegative || delta.inMilliseconds == 0) {
+      return;
+    }
+    final zone = HeartRateZoneCalculator.getZoneForBpm(bpm, settings);
+    durations[zone] = durations[zone]! + delta;
   }
 
   @override
@@ -618,8 +841,7 @@ class _HeartRateMonitoringScreenState
     final heartRateAsync = ref.watch(heartRateProvider);
     final sessionState = ref.watch(sessionProvider);
     final connectionAsync = ref.watch(bluetoothConnectionProvider);
-    final currentSessionName = sessionState.sessionName ?? widget.sessionName;
-
+    final batteryLevelAsync = ref.watch(batteryLevelProvider);
     // Check if we're reconnecting
     final isReconnecting = _reconnectionState.isReconnecting;
 
@@ -628,116 +850,6 @@ class _HeartRateMonitoringScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              currentSessionName,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Text(
-              widget.deviceName,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        automaticallyImplyLeading: false,
-        leading: connectionAsync.when(
-          data: (connectionInfo) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ConnectionStatusIndicator(
-              connectionState: isReconnecting
-                  ? bt.ConnectionState.reconnecting
-                  : connectionInfo.connectionState,
-            ),
-          ),
-          loading: () => const SizedBox.shrink(),
-          error: (error, stack) => const SizedBox.shrink(),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
-            tooltip: 'Menu',
-            onSelected: (value) async {
-              if (value == 'rename_session') {
-                await _promptRenameSession();
-              } else if (value == 'session_history') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SessionHistoryScreen(),
-                  ),
-                );
-              } else if (value == 'settings') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              } else if (value == 'about') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const AboutScreen()),
-                );
-              } else if (value == 'change_device') {
-                await _navigateToDeviceSelection();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'rename_session',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 12),
-                    Text('Rename Session'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'change_device',
-                key: ValueKey('change_device_menu_item'),
-                child: Row(
-                  children: [
-                    Icon(Icons.bluetooth_searching),
-                    SizedBox(width: 12),
-                    Text('Change Device'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'session_history',
-                child: Row(
-                  children: [
-                    Icon(Icons.history),
-                    SizedBox(width: 12),
-                    Text('Session History'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'about',
-                child: Row(
-                  children: [
-                    Icon(Icons.info),
-                    SizedBox(width: 12),
-                    Text('About'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           LayoutBuilder(
@@ -751,7 +863,6 @@ class _HeartRateMonitoringScreenState
                   heartRateAsync: heartRateAsync,
                   sessionState: sessionState,
                   isReconnecting: isReconnecting,
-                  constraints: constraints,
                 );
               } else {
                 return _buildPortraitLayout(
@@ -760,10 +871,145 @@ class _HeartRateMonitoringScreenState
                   heartRateAsync: heartRateAsync,
                   sessionState: sessionState,
                   isReconnecting: isReconnecting,
-                  constraints: constraints,
                 );
               }
             },
+          ),
+
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  connectionAsync.when(
+                    data: (connectionInfo) => ConnectionStatusIndicator(
+                      connectionState: isReconnecting
+                          ? bt.ConnectionState.reconnecting
+                          : connectionInfo.connectionState,
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (error, stack) => const SizedBox.shrink(),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.menu),
+                    tooltip: 'Menu',
+                    onSelected: (value) async {
+                      if (value == 'rename_session') {
+                        await _promptRenameSession();
+                      } else if (value == 'session_history') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SessionHistoryScreen(),
+                          ),
+                        );
+                      } else if (value == 'settings') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsScreen(),
+                          ),
+                        );
+                      } else if (value == 'about') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const AboutScreen(),
+                          ),
+                        );
+                      } else if (value == 'change_device') {
+                        await _navigateToDeviceSelection();
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      PopupMenuItem<String>(
+                        enabled: false,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              batteryLevelAsync.when(
+                                data: (level) =>
+                                    BatteryLevelIcon(level: level, size: 22),
+                                loading: () => const BatteryLevelIcon(
+                                  level: null,
+                                  size: 22,
+                                ),
+                                error: (error, stack) => const BatteryLevelIcon(
+                                  level: null,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              connectionAsync.when(
+                                data: (connectionInfo) => Text(
+                                  connectionInfo.deviceName ?? 'HR Monitor',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                                loading: () => const Text('Connecting...'),
+                                error: (error, stack) =>
+                                    const Text('HR Monitor'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem<String>(
+                        value: 'rename_session',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit),
+                            SizedBox(width: 12),
+                            Text('Rename Session'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'change_device',
+                        key: ValueKey('change_device_menu_item'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bluetooth_searching),
+                            SizedBox(width: 12),
+                            Text('Change Device'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'session_history',
+                        child: Row(
+                          children: [
+                            Icon(Icons.history),
+                            SizedBox(width: 12),
+                            Text('Session History'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings),
+                            SizedBox(width: 12),
+                            Text('Settings'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'about',
+                        child: Row(
+                          children: [
+                            Icon(Icons.info),
+                            SizedBox(width: 12),
+                            Text('About'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
 
           // Reconnection overlay
@@ -785,14 +1031,11 @@ class _HeartRateMonitoringScreenState
     required AsyncValue heartRateAsync,
     required SessionState sessionState,
     required bool isReconnecting,
-    required BoxConstraints constraints,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
       child: Column(
         children: [
-          const SizedBox(height: 16),
-
           // Large BPM Display - highest priority, flex: 3
           Flexible(
             flex: 3,
@@ -806,14 +1049,14 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Heart Rate Chart - flex: 2, with minimum height
+          // Chart - flex: 2, with minimum height
           Flexible(
             flex: 2,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: _minChartHeight),
-              child: _buildChart(
+              child: _buildMonitoringChart(
                 theme: theme,
                 settings: settings,
                 heartRateAsync: heartRateAsync,
@@ -823,7 +1066,7 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Session Statistics - flex: 2, adaptive display
           Flexible(
@@ -840,12 +1083,12 @@ class _HeartRateMonitoringScreenState
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Session Control Buttons - fixed height
           _buildButtonRow(theme: theme, sessionState: sessionState),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -858,16 +1101,15 @@ class _HeartRateMonitoringScreenState
     required AsyncValue heartRateAsync,
     required SessionState sessionState,
     required bool isReconnecting,
-    required BoxConstraints constraints,
   }) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(12.0, 0.0, 12.0, 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Left column: BPM display + Chart
           Expanded(
-            flex: 3,
+            flex: 1,
             child: Column(
               children: [
                 // BPM Display
@@ -893,7 +1135,7 @@ class _HeartRateMonitoringScreenState
                     constraints: const BoxConstraints(
                       minHeight: _minChartHeight,
                     ),
-                    child: _buildChart(
+                    child: _buildMonitoringChart(
                       theme: theme,
                       settings: settings,
                       heartRateAsync: heartRateAsync,
@@ -902,15 +1144,20 @@ class _HeartRateMonitoringScreenState
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 8),
+
+                // Buttons under the left column
+                _buildButtonRow(theme: theme, sessionState: sessionState),
               ],
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
-          // Right column: Statistics + Buttons
+          // Right column: Statistics
           Expanded(
-            flex: 2,
+            flex: 1,
             child: Column(
               children: [
                 // Statistics section
@@ -926,11 +1173,6 @@ class _HeartRateMonitoringScreenState
                     },
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Buttons at bottom
-                _buildButtonRow(theme: theme, sessionState: sessionState),
               ],
             ),
           ),
@@ -939,8 +1181,29 @@ class _HeartRateMonitoringScreenState
     );
   }
 
+  /// Builds the selected monitoring chart widget.
+  Widget _buildMonitoringChart({
+    required ThemeData theme,
+    required AppSettings settings,
+    required AsyncValue heartRateAsync,
+    required SessionState sessionState,
+    required bool isReconnecting,
+  }) {
+    if (settings.monitoringChartType == MonitoringChartType.zoneTime) {
+      return _buildZoneTimeChart(theme: theme, settings: settings);
+    }
+
+    return _buildHeartRateChart(
+      theme: theme,
+      settings: settings,
+      heartRateAsync: heartRateAsync,
+      sessionState: sessionState,
+      isReconnecting: isReconnecting,
+    );
+  }
+
   /// Builds the heart rate chart widget.
-  Widget _buildChart({
+  Widget _buildHeartRateChart({
     required ThemeData theme,
     required AppSettings settings,
     required AsyncValue heartRateAsync,
@@ -950,12 +1213,19 @@ class _HeartRateMonitoringScreenState
     return heartRateAsync.when(
       data: (hrData) {
         final color = HeartRateZoneCalculator.getColorForZone(hrData.zone);
+        final zoneOpacity = isReconnecting || sessionState.isPaused ? 0.5 : 1.0;
         return HeartRateChart(
           readings: _recentReadings,
           windowSeconds: settings.chartWindowSeconds,
-          lineColor: isReconnecting || sessionState.isPaused
-              ? color.withValues(alpha: 0.5)
-              : color,
+          lineColor: color.withValues(alpha: zoneOpacity),
+          zoneColorResolver: (reading) {
+            final zone = HeartRateZoneCalculator.getZoneForBpm(
+              reading.bpm,
+              settings,
+            );
+            return HeartRateZoneCalculator.getColorForZone(zone);
+          },
+          zoneColorOpacity: zoneOpacity,
           referenceTime: sessionState.isPaused ? _pausedAt : null,
         );
       },
@@ -968,6 +1238,30 @@ class _HeartRateMonitoringScreenState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildZoneTimeChart({
+    required ThemeData theme,
+    required AppSettings settings,
+  }) {
+    final hasData = _zoneDurations.values.any(
+      (duration) => duration.inMilliseconds > 0,
+    );
+    if (!hasData) {
+      return Center(
+        child: Text(
+          'No zone data available',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      );
+    }
+
+    return ZoneTimeBarChart(
+      zoneDurations: _zoneDurations,
+      zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
     );
   }
 
@@ -996,7 +1290,7 @@ class _HeartRateMonitoringScreenState
         children: [
           Text(
             'Session Statistics',
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1012,7 +1306,7 @@ class _HeartRateMonitoringScreenState
       children: [
         Text(
           'Session Statistics',
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1025,9 +1319,17 @@ class _HeartRateMonitoringScreenState
                   : math.max(1, math.min(2, stats.length));
               const spacing = 8.0;
               final totalSpacing = spacing * (columns - 1);
+              final rows = (stats.length / columns).ceil();
+              final totalRunSpacing = spacing * math.max(0, rows - 1);
               final itemWidth = ((box.maxWidth - totalSpacing) / columns)
                   .clamp(0, double.infinity)
                   .toDouble();
+              final itemHeight = rows == 0
+                  ? 0.0
+                  : ((box.maxHeight - totalRunSpacing) / rows)
+                        .clamp(0, double.infinity)
+                        .toDouble();
+              final scale = (itemHeight / 90.0).clamp(1.0, 1.8).toDouble();
 
               return Wrap(
                 spacing: spacing,
@@ -1036,11 +1338,13 @@ class _HeartRateMonitoringScreenState
                     .map(
                       (stat) => SizedBox(
                         width: itemWidth,
+                        height: itemHeight,
                         child: SessionStatsCard(
                           icon: stat.icon,
                           label: stat.label,
                           value: stat.value,
                           iconColor: stat.color,
+                          scale: scale,
                         ),
                       ),
                     )
@@ -1214,6 +1518,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSurface,
+                    fontFamily: 'SourceSans3',
                   ),
                 ),
               ),
@@ -1280,6 +1585,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSurface,
+                    fontFamily: 'SourceSans3',
                   ),
                 ),
               ),
@@ -1346,6 +1652,7 @@ class _HeartRateMonitoringScreenState
                     fontSize: maxFontSize,
                     fontWeight: FontWeight.bold,
                     color: color,
+                    fontFamily: 'SourceSans3',
                   ),
                   child: Text(hrData.bpm.toString()),
                 ),
@@ -1406,6 +1713,7 @@ class _HeartRateMonitoringScreenState
                   fontSize: maxFontSize,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  fontFamily: 'SourceSans3',
                 ),
               ),
             ),
@@ -1445,6 +1753,7 @@ class _HeartRateMonitoringScreenState
                   fontSize: maxFontSize,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.error.withValues(alpha: 0.5),
+                  fontFamily: 'SourceSans3',
                 ),
               ),
             ),

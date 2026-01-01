@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scanned_device.dart';
 import '../services/bluetooth_service.dart';
 import '../utils/app_logger.dart';
+import 'settings_provider.dart';
 
 /// Provider for Bluetooth device scanning.
 ///
@@ -11,12 +12,24 @@ import '../utils/app_logger.dart';
 final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
   final logger = AppLogger.getLogger('DeviceScanProvider');
   final bluetoothService = BluetoothService.instance;
+  final settingsAsync = ref.watch(settingsProvider);
+  final settings = settingsAsync.asData?.value;
+  if (settings == null) {
+    if (settingsAsync.hasError) {
+      throw settingsAsync.error!;
+    }
+    yield const [];
+    return;
+  }
 
-  // Always include demo mode device as first item
+  final showDemoDevice = settings.showDemoDevice;
   final demoDevice = ScannedDevice.demoMode();
-
-  // Emit demo device immediately so UI doesn't show loading spinner
-  yield [demoDevice];
+  if (showDemoDevice) {
+    // Emit demo device immediately so UI doesn't show loading spinner
+    yield [demoDevice];
+  } else {
+    yield const [];
+  }
 
   try {
     // Start scanning for real devices
@@ -33,8 +46,12 @@ final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
         );
       }).toList();
 
-      // Prepend demo device to the list
-      yield [demoDevice, ...scannedDevices];
+      if (showDemoDevice) {
+        // Prepend demo device to the list
+        yield [demoDevice, ...scannedDevices];
+      } else {
+        yield scannedDevices;
+      }
     }
   } on StateError catch (e, stackTrace) {
     // If Bluetooth is unavailable or off, log the error

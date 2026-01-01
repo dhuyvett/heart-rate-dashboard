@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:heart_rate_dashboard/models/scanned_device.dart';
 import 'package:heart_rate_dashboard/providers/device_scan_provider.dart';
 import 'package:heart_rate_dashboard/screens/device_selection_screen.dart';
+import 'package:heart_rate_dashboard/screens/session_setup_screen.dart';
+import 'package:heart_rate_dashboard/services/bluetooth_service.dart' as bt;
 import 'package:heart_rate_dashboard/utils/error_messages.dart';
+import 'package:heart_rate_dashboard/widgets/loading_overlay.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -118,5 +121,45 @@ void main() {
 
       expect(scanStarts, 2);
     });
+
+    testWidgets(
+      'clears connecting overlay after backing out of session setup',
+      (WidgetTester tester) async {
+        final previousService = bt.BluetoothService.instance;
+        addTearDown(() {
+          bt.BluetoothService.debugInstance = previousService;
+        });
+        bt.BluetoothService.debugInstance = bt.BluetoothService.test(
+          onConnect: (_) async {},
+        );
+
+        final devices = [ScannedDevice.demoMode()];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              deviceScanProvider.overrideWith((ref) => Stream.value(devices)),
+            ],
+            child: const MaterialApp(home: DeviceSelectionScreen()),
+          ),
+        );
+
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(find.text('Demo Mode'));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.byType(LoadingOverlay), findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(SessionSetupScreen), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(DeviceSelectionScreen), findsOneWidget);
+        expect(find.byType(LoadingOverlay), findsNothing);
+        expect(find.text('Connecting...'), findsNothing);
+      },
+    );
   });
 }

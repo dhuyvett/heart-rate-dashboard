@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import 'package:intl/intl.dart';
 import '../models/heart_rate_reading.dart';
+import '../models/heart_rate_zone.dart';
 import '../models/workout_session.dart';
 import '../providers/session_history_provider.dart';
 import '../providers/settings_provider.dart';
@@ -10,6 +11,7 @@ import '../services/database_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/session_stats_card.dart';
+import '../widgets/zone_time_bar_chart.dart';
 
 /// Session detail screen for viewing a specific workout session.
 ///
@@ -41,8 +43,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   bool _hasPreviousSession = false;
   bool _hasNextSession = false;
 
-  /// Minimum height for the chart widget.
-  static const double _minChartHeight = 100.0;
+  /// Fixed heights for chart widgets.
+  static const double _chartHeight = 220.0;
+  static const double _zoneChartHeight = 160.0;
+  static const double _statsCardMinWidth = 160.0;
+  static const double _statsCardHeight = 96.0;
 
   /// Date formatter for displaying session date/time.
   final DateFormat _dateFormat = DateFormat('MMM dd, yyyy h:mm a');
@@ -260,11 +265,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     return '$hours:$minutes:$seconds';
   }
 
-  /// Determines if the layout should be landscape based on aspect ratio.
-  bool _isLandscape(BoxConstraints constraints) {
-    return constraints.maxWidth > constraints.maxHeight;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -340,129 +340,48 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                     ),
                   ),
                 )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isLandscape = _isLandscape(constraints);
-
-                    if (isLandscape) {
-                      return _buildLandscapeLayout(
-                        theme: theme,
-                        settings: settings,
-                        constraints: constraints,
-                      );
-                    } else {
-                      return _buildPortraitLayout(
-                        theme: theme,
-                        settings: settings,
-                        constraints: constraints,
-                      );
-                    }
-                  },
-                ),
+              : _buildScrollableLayout(theme: theme, settings: settings),
         );
       },
     );
   }
 
-  /// Builds the portrait (vertical stacking) layout.
-  Widget _buildPortraitLayout({
+  /// Builds a single scrollable layout for all screen sizes.
+  Widget _buildScrollableLayout({
     required ThemeData theme,
     required AppSettings settings,
-    required BoxConstraints constraints,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-
-          // Session info header
-          _buildSessionHeader(theme),
-
-          const SizedBox(height: 16),
-
-          // Heart Rate Chart - flex: 3
-          Flexible(
-            flex: 3,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: _minChartHeight),
-              child: _buildChart(theme: theme, settings: settings),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Session Statistics - flex: 2
-          Flexible(
-            flex: 2,
-            child: LayoutBuilder(
-              builder: (context, statsConstraints) {
-                return _buildStatisticsSection(
-                  theme: theme,
-                  settings: settings,
-                  availableHeight: statsConstraints.maxHeight,
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the landscape (side-by-side) layout.
-  Widget _buildLandscapeLayout({
-    required ThemeData theme,
-    required AppSettings settings,
-    required BoxConstraints constraints,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Left column: Session info + Chart
-          Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                // Session info header
-                _buildSessionHeader(theme),
-
-                const SizedBox(height: 16),
-
-                // Chart
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: _minChartHeight,
-                    ),
-                    child: _buildChart(theme: theme, settings: settings),
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSessionHeader(theme),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: _chartHeight,
+                child: _buildChart(theme: theme, settings: settings),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: _zoneChartHeight,
+                child: _buildZoneTimeChart(theme: theme, settings: settings),
+              ),
+              const SizedBox(height: 16),
+              _buildStatisticsSection(
+                theme: theme,
+                settings: settings,
+                availableWidth: (constraints.maxWidth - 32).clamp(
+                  0,
+                  double.infinity,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          const SizedBox(width: 16),
-
-          // Right column: Statistics
-          Expanded(
-            flex: 2,
-            child: LayoutBuilder(
-              builder: (context, statsConstraints) {
-                return _buildStatisticsSection(
-                  theme: theme,
-                  settings: settings,
-                  availableHeight: statsConstraints.maxHeight,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -533,6 +452,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       readings: _readings,
       windowSeconds: windowSeconds > 0 ? windowSeconds : 60,
       lineColor: color,
+      zoneColorResolver: (reading) {
+        final readingZone = HeartRateZoneCalculator.getZoneForBpm(
+          reading.bpm,
+          settings,
+        );
+        return HeartRateZoneCalculator.getColorForZone(readingZone);
+      },
       referenceTime: _currentSession.endTime,
       isLiveMode: false,
     );
@@ -542,7 +468,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   Widget _buildStatisticsSection({
     required ThemeData theme,
     required AppSettings settings,
-    required double availableHeight,
+    required double availableWidth,
   }) {
     final duration = _formatDuration(_currentSession.getDuration());
     final avgHr = _currentSession.avgHr != null
@@ -558,7 +484,9 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         ? _formatDistance(_currentSession.distanceMeters!, settings.useMiles)
         : 'N/A';
 
-    // Use grid display when space allows
+    final availableGridWidth = availableWidth.isFinite ? availableWidth : 0.0;
+    final columns = _calculateStatsColumns(availableGridWidth);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -569,9 +497,15 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            mainAxisExtent: _statsCardHeight,
+          ),
           children: [
             SessionStatsCard(
               icon: Icons.timer,
@@ -611,5 +545,84 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     final value = useMiles ? meters / 1609.34 : meters / 1000;
     final unit = useMiles ? 'mi' : 'km';
     return '${value.toStringAsFixed(2)} $unit';
+  }
+
+  int _calculateStatsColumns(double availableWidth) {
+    if (availableWidth <= 0) {
+      return 1;
+    }
+    final columns = (availableWidth / (_statsCardMinWidth + 8)).floor();
+    return columns.clamp(1, 4);
+  }
+
+  Widget _buildZoneTimeChart({
+    required ThemeData theme,
+    required AppSettings settings,
+  }) {
+    if (_readings.isEmpty) {
+      return Center(
+        child: Text(
+          'No zone data available',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      );
+    }
+
+    return ZoneTimeBarChart(
+      zoneDurations: _calculateZoneDurations(settings),
+      zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
+    );
+  }
+
+  Map<HeartRateZone, Duration> _calculateZoneDurations(AppSettings settings) {
+    final durations = {
+      for (final zone in HeartRateZone.values) zone: Duration.zero,
+    };
+
+    if (_readings.isEmpty) {
+      return durations;
+    }
+
+    final sortedReadings = [..._readings]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    final sessionStart = _currentSession.startTime;
+    if (sessionStart.isBefore(sortedReadings.first.timestamp)) {
+      final initialGap = sortedReadings.first.timestamp.difference(
+        sessionStart,
+      );
+      if (!initialGap.isNegative && initialGap.inMilliseconds > 0) {
+        final zone = HeartRateZoneCalculator.getZoneForBpm(
+          sortedReadings.first.bpm,
+          settings,
+        );
+        durations[zone] = durations[zone]! + initialGap;
+      }
+    }
+
+    for (var i = 0; i < sortedReadings.length - 1; i++) {
+      final current = sortedReadings[i];
+      final next = sortedReadings[i + 1];
+      final delta = next.timestamp.difference(current.timestamp);
+      if (delta.isNegative || delta.inMilliseconds == 0) {
+        continue;
+      }
+      final zone = HeartRateZoneCalculator.getZoneForBpm(current.bpm, settings);
+      durations[zone] = durations[zone]! + delta;
+    }
+
+    final sessionEnd = _currentSession.endTime ?? sortedReadings.last.timestamp;
+    final tailGap = sessionEnd.difference(sortedReadings.last.timestamp);
+    if (!tailGap.isNegative && tailGap.inMilliseconds > 0) {
+      final zone = HeartRateZoneCalculator.getZoneForBpm(
+        sortedReadings.last.bpm,
+        settings,
+      );
+      durations[zone] = durations[zone]! + tailGap;
+    }
+
+    return durations;
   }
 }

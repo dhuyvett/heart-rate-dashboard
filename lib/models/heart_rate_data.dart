@@ -11,21 +11,31 @@ class HeartRateData {
   /// The calculated heart rate zone for this BPM value.
   final HeartRateZone zone;
 
+  /// Timestamp when the reading was received.
+  final DateTime receivedAt;
+
   /// Creates a heart rate data instance.
-  const HeartRateData({required this.bpm, required this.zone});
+  const HeartRateData({
+    required this.bpm,
+    required this.zone,
+    required this.receivedAt,
+  });
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is HeartRateData && other.bpm == bpm && other.zone == zone;
+    return other is HeartRateData &&
+        other.bpm == bpm &&
+        other.zone == zone &&
+        other.receivedAt == receivedAt;
   }
 
   @override
-  int get hashCode => Object.hash(bpm, zone);
+  int get hashCode => Object.hash(bpm, zone, receivedAt);
 
   @override
   String toString() {
-    return 'HeartRateData(bpm: $bpm, zone: $zone)';
+    return 'HeartRateData(bpm: $bpm, zone: $zone, receivedAt: $receivedAt)';
   }
 }

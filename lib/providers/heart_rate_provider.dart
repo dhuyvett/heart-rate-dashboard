@@ -34,6 +34,6 @@ final heartRateProvider = StreamProvider.autoDispose<HeartRateData>((
     final zone = HeartRateZoneCalculator.getZoneForBpm(bpm, settings);
 
     // Emit heart rate data with zone
-    yield HeartRateData(bpm: bpm, zone: zone);
+    yield HeartRateData(bpm: bpm, zone: zone, receivedAt: DateTime.now());
   }
 });

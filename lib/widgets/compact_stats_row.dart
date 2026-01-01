@@ -19,7 +19,7 @@ class CompactStatsRow extends StatelessWidget {
       elevation: 1,
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
         child: IntrinsicHeight(child: Row(children: _buildChildren(theme))),
       ),
     );
@@ -66,11 +66,11 @@ class CompactStatsRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 16),
+              Icon(icon, color: color, size: 18),
               const SizedBox(width: 4),
               Text(
                 label,
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -82,7 +82,7 @@ class CompactStatsRow extends StatelessWidget {
               sublabel,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                fontSize: 10,
+                fontSize: 11,
               ),
             ),
           ],
@@ -93,7 +93,7 @@ class CompactStatsRow extends StatelessWidget {
 
   Widget _buildDivider(ThemeData theme) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 6),
       width: 1,
       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
     );

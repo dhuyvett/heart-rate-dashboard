@@ -243,7 +243,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
 
       // Navigate to monitoring screen on successful connection
       if (mounted) {
-        Navigator.of(context).push(
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => SessionSetupScreen(deviceName: device.name),
           ),
@@ -259,6 +259,13 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
             e,
             deviceName: device.name,
           );
+          _isConnecting = false;
+          _connectingDeviceName = null;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
           _isConnecting = false;
           _connectingDeviceName = null;
         });
