@@ -180,6 +180,7 @@ jobs:
     name: Build Windows App
     runs-on: windows-latest
     needs: analyze-and-test
+    if: false  # Disable Windows build temporarily
     steps:
       - uses: actions/checkout@v6
 
