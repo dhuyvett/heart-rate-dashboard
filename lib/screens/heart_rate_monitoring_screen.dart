@@ -179,17 +179,8 @@ class _HeartRateMonitoringScreenState
     bool skipDatabase = false,
   }) async {
     _reconnectionHandler.stopMonitoring();
-    final lastDeviceId = skipDatabase
-        ? null
-        : await DatabaseService.instance.getSetting('last_connected_device_id');
     widget.onChangeDevice?.call();
     await bt.BluetoothService.instance.disconnect();
-    if (!skipDatabase && lastDeviceId != null && lastDeviceId.isNotEmpty) {
-      await DatabaseService.instance.setSetting(
-        'last_connected_device_id',
-        lastDeviceId,
-      );
-    }
     await ref.read(sessionProvider.notifier).endSession();
 
     if (mounted) {
