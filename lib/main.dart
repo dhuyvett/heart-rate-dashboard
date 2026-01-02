@@ -226,11 +226,9 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
   Future<void> _requestPermissions() async {
     try {
       if (Platform.isAndroid) {
-        await [
-          Permission.bluetoothScan,
-          Permission.bluetoothConnect,
-          Permission.locationWhenInUse,
-        ].request();
+        await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+        // Location is optional on Android 12+ but still needed for GPS features.
+        await Permission.locationWhenInUse.request();
       } else if (Platform.isIOS) {
         await Permission.bluetooth.request();
       }
@@ -330,6 +328,12 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
               const Text(
                 'Bluetooth permission is required to connect to heart rate monitors.',
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Location access is optional and only used for GPS speed and distance.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
               ElevatedButton(
