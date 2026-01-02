@@ -80,11 +80,13 @@ class _HeartRateMonitoringScreenState
   StreamSubscription<ReconnectionState>? _reconnectionSubscription;
   StreamSubscription<Position>? _positionSubscription;
   Timer? _speedDecayTimer;
+  Timer? _recentReadingsTimer;
   ProviderSubscription<SessionState>? _sessionListener;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
   Position? _lastPosition;
   DateTime? _lastPositionTime;
+  DateTime? _lastRecentReadingsLoad;
   Map<HeartRateZone, Duration> _zoneDurations = _emptyZoneDurations();
   DateTime? _lastZoneTimestamp;
   int? _lastZoneBpm;
@@ -99,6 +101,9 @@ class _HeartRateMonitoringScreenState
 
   /// Fixed height for action buttons.
   static const double _buttonHeight = 44.0;
+
+  /// Throttle interval for refreshing recent readings from the database.
+  static const Duration _recentReadingsRefreshInterval = Duration(seconds: 5);
 
   @override
   void initState() {
@@ -122,6 +127,7 @@ class _HeartRateMonitoringScreenState
     _sessionListener?.close();
     _positionSubscription?.cancel();
     _speedDecayTimer?.cancel();
+    _recentReadingsTimer?.cancel();
     _reconnectionHandler.stopMonitoring();
     // Always disable wake lock when leaving the screen
     WakelockPlus.disable();
@@ -337,6 +343,7 @@ class _HeartRateMonitoringScreenState
     final windowStart = DateTime.now().subtract(
       Duration(seconds: settings.chartWindowSeconds),
     );
+    _lastRecentReadingsLoad = DateTime.now();
 
     try {
       final readings = await DatabaseService.instance
@@ -358,6 +365,23 @@ class _HeartRateMonitoringScreenState
         stackTrace: stackTrace,
       );
     }
+  }
+
+  void _scheduleRecentReadingsLoad() {
+    final now = DateTime.now();
+    final lastLoad = _lastRecentReadingsLoad;
+    if (lastLoad == null ||
+        now.difference(lastLoad) >= _recentReadingsRefreshInterval) {
+      _loadRecentReadings();
+      return;
+    }
+
+    if (_recentReadingsTimer?.isActive ?? false) {
+      return;
+    }
+
+    final remaining = _recentReadingsRefreshInterval - now.difference(lastLoad);
+    _recentReadingsTimer = Timer(remaining, _loadRecentReadings);
   }
 
   Future<void> _loadZoneReadings() async {
@@ -461,7 +485,7 @@ class _HeartRateMonitoringScreenState
             _lastKnownBpm = next.value.bpm;
             _reconnectionHandler.setLastKnownBpm(next.value.bpm);
             if (widget.loadRecentReadings) {
-              _loadRecentReadings();
+              _scheduleRecentReadingsLoad();
             }
           }
           _handleZoneReading(next.value, sessionState);
