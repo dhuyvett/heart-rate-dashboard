@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'device_selection_screen.dart';
@@ -7,7 +8,7 @@ import 'device_selection_screen.dart';
 ///
 /// Displays before the first permission request to help users understand
 /// why the app needs Bluetooth access. Handles platform-specific permission
-/// requirements (Android requires location permission for BLE scanning).
+/// requirements (Android 11 and below requires location for BLE scanning).
 ///
 /// Auto-navigates to device selection if permissions are already granted.
 class PermissionExplanationScreen extends StatefulWidget {
@@ -40,15 +41,25 @@ class _PermissionExplanationScreenState
     }
   }
 
+  Future<bool> _requiresAndroidLocationPermission() async {
+    if (!Platform.isAndroid) return false;
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    return androidInfo.version.sdkInt < 31;
+  }
+
   /// Checks if all required permissions are granted.
   Future<bool> _hasRequiredPermissions() async {
     if (Platform.isAndroid) {
-      // Android requires Bluetooth and location permissions
+      // Android requires Bluetooth permissions; location is only required
+      // for BLE scanning on Android 11 and below.
       final bluetoothScan = await Permission.bluetoothScan.isGranted;
       final bluetoothConnect = await Permission.bluetoothConnect.isGranted;
+      final requiresLocation = await _requiresAndroidLocationPermission();
       final location = await Permission.locationWhenInUse.isGranted;
 
-      return bluetoothScan && bluetoothConnect && location;
+      return bluetoothScan &&
+          bluetoothConnect &&
+          (!requiresLocation || location);
     } else if (Platform.isIOS) {
       // iOS only requires Bluetooth permission
       return await Permission.bluetooth.isGranted;
@@ -68,24 +79,35 @@ class _PermissionExplanationScreenState
     try {
       Map<Permission, PermissionStatus> statuses;
 
+      bool allGranted;
+
       if (Platform.isAndroid) {
+        final requiresLocation = await _requiresAndroidLocationPermission();
         // Request Android permissions
         statuses = await [
           Permission.bluetoothScan,
           Permission.bluetoothConnect,
           Permission.locationWhenInUse,
         ].request();
+        final bluetoothScanGranted =
+            statuses[Permission.bluetoothScan]?.isGranted ?? false;
+        final bluetoothConnectGranted =
+            statuses[Permission.bluetoothConnect]?.isGranted ?? false;
+        final locationGranted =
+            statuses[Permission.locationWhenInUse]?.isGranted ?? false;
+        allGranted =
+            bluetoothScanGranted &&
+            bluetoothConnectGranted &&
+            (!requiresLocation || locationGranted);
       } else if (Platform.isIOS) {
         // Request iOS permission
         statuses = await [Permission.bluetooth].request();
+        allGranted = statuses.values.every((status) => status.isGranted);
       } else {
         // Desktop platforms - no permission request needed
         _navigateToDeviceSelection();
         return;
       }
-
-      // Check if all permissions were granted
-      final allGranted = statuses.values.every((status) => status.isGranted);
 
       if (allGranted) {
         _navigateToDeviceSelection();
@@ -164,7 +186,9 @@ class _PermissionExplanationScreenState
                       Expanded(
                         child: Text(
                           'Location permission is required by Android for '
-                          'Bluetooth scanning. Your location is not tracked.',
+                          'Bluetooth scanning on Android 11 and below and '
+                          'enables speed/distance stats. Your location is '
+                          'not tracked.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
