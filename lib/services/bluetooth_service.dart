@@ -95,8 +95,6 @@ class BluetoothService {
   StreamSubscription<List<int>>? _heartRateSubscription;
   StreamSubscription<List<int>>? _batteryLevelSubscription;
   StreamSubscription<int>? _demoModeSubscription;
-  Timer? _scanFallbackTimer;
-  bool _allowAllDevices = false;
   int? _batteryLevel;
 
   // Cache of devices seen during the most recent scan.
@@ -138,13 +136,7 @@ class BluetoothService {
     // List to accumulate unique devices
     final Map<String, BluetoothDevice> discoveredDevices = {};
     _scannedDevices.clear();
-    _allowAllDevices = false;
-    _scanFallbackTimer?.cancel();
-    _scanFallbackTimer = Timer(const Duration(seconds: 5), () {
-      if (discoveredDevices.isEmpty) {
-        _allowAllDevices = true;
-      }
-    });
+    // Only show devices that advertise the Heart Rate Service.
 
     // Start listening to scan results before starting the scan
     // This is important to catch all results on all platforms
@@ -159,22 +151,10 @@ class BluetoothService {
           }
 
           final advertisement = result.advertisementData;
-          final deviceName = advertisement.advName.isNotEmpty
-              ? advertisement.advName
-              : result.device.platformName;
           final hasHrService = advertisement.serviceUuids.any(
             (uuid) => _matchesUuid(uuid.str, bleHrServiceUuid),
           );
-          final hasNoServiceData = advertisement.serviceUuids.isEmpty;
-          final isLikelyHrDevice = _isLikelyHrDevice(deviceName);
-          final hasName = deviceName.trim().isNotEmpty;
-          if (!hasName && !hasHrService) {
-            continue;
-          }
-          if (!hasHrService &&
-              !hasNoServiceData &&
-              !isLikelyHrDevice &&
-              !_allowAllDevices) {
+          if (!hasHrService) {
             continue;
           }
 
@@ -202,8 +182,6 @@ class BluetoothService {
   /// Stops the current BLE scan.
   Future<void> stopScan() async {
     try {
-      _scanFallbackTimer?.cancel();
-      _scanFallbackTimer = null;
       await _scanSubscription?.cancel();
       _scanSubscription = null;
       await FlutterBluePlus.stopScan();
@@ -793,24 +771,6 @@ class BluetoothService {
   void _updateBatteryLevel(int? level) {
     _batteryLevel = level;
     _batteryLevelController.add(level);
-  }
-
-  bool _isLikelyHrDevice(String name) {
-    final normalized = name.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    const keywords = [
-      'coospo',
-      'polar',
-      'wahoo',
-      'garmin',
-      'tickr',
-      'h9z',
-      'h10',
-      'h9',
-      'hrm',
-      'heart',
-    ];
-    return keywords.any(normalized.contains);
   }
 
   @visibleForTesting
