@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -173,6 +174,12 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
     await _checkPermissions();
   }
 
+  Future<bool> _requiresAndroidLocationPermission() async {
+    if (!Platform.isAndroid) return false;
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    return androidInfo.version.sdkInt < 31;
+  }
+
   /// Checks if required Bluetooth permissions are granted.
   Future<void> _checkPermissions() async {
     try {
@@ -180,9 +187,13 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
         // Check Android permissions
         final bluetoothScan = await Permission.bluetoothScan.isGranted;
         final bluetoothConnect = await Permission.bluetoothConnect.isGranted;
+        final requiresLocation = await _requiresAndroidLocationPermission();
         final location = await Permission.locationWhenInUse.isGranted;
 
-        final hasPermissions = bluetoothScan && bluetoothConnect && location;
+        final hasPermissions =
+            bluetoothScan &&
+            bluetoothConnect &&
+            (!requiresLocation || location);
         _permissionState = hasPermissions
             ? PermissionCheckState.granted
             : PermissionCheckState.denied;
