@@ -52,6 +52,7 @@ class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
   final VoidCallback? onChangeDevice;
   final bool enableSessionRestore;
   final bool loadRecentReadings;
+  final bool trackSpeedDistance;
 
   const HeartRateMonitoringScreen({
     required this.deviceName,
@@ -60,6 +61,7 @@ class HeartRateMonitoringScreen extends ConsumerStatefulWidget {
     this.onChangeDevice,
     this.enableSessionRestore = true,
     this.loadRecentReadings = true,
+    this.trackSpeedDistance = false,
     super.key,
   });
 
@@ -115,8 +117,10 @@ class _HeartRateMonitoringScreenState
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
-    _startGpsTracking();
-    _startSpeedDecayTimer();
+    if (widget.trackSpeedDistance) {
+      _startGpsTracking();
+      _startSpeedDecayTimer();
+    }
   }
 
   @override
@@ -534,6 +538,13 @@ class _HeartRateMonitoringScreenState
     }
   }
 
+  void _stopGpsTracking() {
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _lastPosition = null;
+    _lastPositionTime = null;
+  }
+
   void _handlePosition(Position position) {
     final sessionState = ref.read(sessionProvider);
     if (!sessionState.isActive || sessionState.isPaused) {
@@ -594,6 +605,11 @@ class _HeartRateMonitoringScreenState
             .updateGpsData(deltaDistanceMeters: 0, speedMps: 0);
       }
     });
+  }
+
+  void _stopSpeedDecayTimer() {
+    _speedDecayTimer?.cancel();
+    _speedDecayTimer = null;
   }
 
   List<_StatDisplay> _buildSelectedStats({
@@ -754,6 +770,10 @@ class _HeartRateMonitoringScreenState
   }
 
   void _handleSessionPaused() {
+    if (widget.trackSpeedDistance) {
+      _stopGpsTracking();
+      _stopSpeedDecayTimer();
+    }
     _zoneTrackingPaused = true;
     final pausedAt = DateTime.now();
     if (_lastZoneTimestamp != null && _lastZoneBpm != null) {
@@ -781,6 +801,10 @@ class _HeartRateMonitoringScreenState
     _awaitingResumeReading = true;
     _lastZoneTimestamp = DateTime.now();
     _lastZoneBpm = null;
+    if (widget.trackSpeedDistance) {
+      _startGpsTracking();
+      _startSpeedDecayTimer();
+    }
   }
 
   void _handleZoneReading(HeartRateData data, SessionState sessionState) {
