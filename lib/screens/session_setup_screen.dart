@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'heart_rate_monitoring_screen.dart';
 
@@ -19,6 +21,9 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   late final TextEditingController _nameController;
   late final FocusNode _nameFocusNode;
   bool _starting = false;
+  bool _trackSpeedDistance = false;
+  bool _gpsAvailable = false;
+  bool _checkingGpsAvailability = true;
 
   @override
   void initState() {
@@ -33,6 +38,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
         );
       }
     });
+    _loadGpsAvailability();
   }
 
   @override
@@ -45,6 +51,39 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   String _buildDefaultName() {
     final formatter = DateFormat('yyyy-MM-dd HH:mm');
     return 'Session - ${formatter.format(DateTime.now())}';
+  }
+
+  Future<void> _loadGpsAvailability() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      setState(() {
+        _gpsAvailable = false;
+        _checkingGpsAvailability = false;
+      });
+      return;
+    }
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _gpsAvailable = false;
+          _checkingGpsAvailability = false;
+        });
+        return;
+      }
+
+      final permission = await Geolocator.checkPermission();
+      final available = permission != LocationPermission.deniedForever;
+      setState(() {
+        _gpsAvailable = available;
+        _checkingGpsAvailability = false;
+      });
+    } catch (_) {
+      setState(() {
+        _gpsAvailable = false;
+        _checkingGpsAvailability = false;
+      });
+    }
   }
 
   Future<void> _startSession() async {
@@ -62,6 +101,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
         builder: (context) => HeartRateMonitoringScreen(
           deviceName: widget.deviceName,
           sessionName: trimmedName,
+          trackSpeedDistance: _trackSpeedDistance && _gpsAvailable,
         ),
       ),
     );
@@ -92,6 +132,24 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                 );
               },
               decoration: const InputDecoration(labelText: 'Session name'),
+            ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              value: _trackSpeedDistance,
+              onChanged: _gpsAvailable
+                  ? (value) {
+                      setState(() {
+                        _trackSpeedDistance = value ?? false;
+                      });
+                    }
+                  : null,
+              title: const Text('Track speed and distance'),
+              subtitle: _checkingGpsAvailability
+                  ? const Text('Checking GPS availability...')
+                  : _gpsAvailable
+                  ? const Text('Uses GPS to estimate speed and distance.')
+                  : const Text('GPS unavailable on this device.'),
+              controlAffinity: ListTileControlAffinity.leading,
             ),
             const Spacer(),
             Row(
