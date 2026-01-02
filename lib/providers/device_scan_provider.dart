@@ -12,6 +12,9 @@ import 'settings_provider.dart';
 final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
   final logger = AppLogger.getLogger('DeviceScanProvider');
   final bluetoothService = BluetoothService.instance;
+  ref.onDispose(() {
+    bluetoothService.stopScan();
+  });
   final settingsAsync = ref.watch(settingsProvider);
   final settings = settingsAsync.asData?.value;
   if (settings == null) {
