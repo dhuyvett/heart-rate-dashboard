@@ -47,7 +47,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   String _formatDistance(double meters, bool useMiles) {
     final value = useMiles ? meters / 1609.34 : meters / 1000;
     final unit = useMiles ? 'mi' : 'km';
-    return '${value.toStringAsFixed(2)} $unit';
+    return '${value.toStringAsFixed(1)} $unit';
   }
 
   /// Shows confirmation dialog for deleting a single session.
