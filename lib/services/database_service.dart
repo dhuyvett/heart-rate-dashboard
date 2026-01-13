@@ -443,6 +443,42 @@ class DatabaseService {
     return maps.map((map) => WorkoutSession.fromMap(map)).toList();
   }
 
+  /// Deletes sessions older than the specified cutoff date.
+  ///
+  /// Returns the number of sessions deleted.
+  Future<int> deleteSessionsOlderThan(DateTime cutoffDate) async {
+    final db = await database;
+    final cutoffTimestamp = cutoffDate.millisecondsSinceEpoch;
+    return await db.transaction((txn) async {
+      final rows = await txn.query(
+        _tableWorkoutSessions,
+        columns: ['id'],
+        where: 'end_time IS NOT NULL AND end_time < ?',
+        whereArgs: [cutoffTimestamp],
+      );
+
+      if (rows.isEmpty) return 0;
+
+      final ids = rows.map((row) => row['id']).whereType<int>().toList();
+      if (ids.isEmpty) return 0;
+
+      final placeholders = List.filled(ids.length, '?').join(',');
+      await txn.delete(
+        _tableHeartRateReadings,
+        where: 'session_id IN ($placeholders)',
+        whereArgs: ids,
+      );
+
+      final deletedSessions = await txn.delete(
+        _tableWorkoutSessions,
+        where: 'id IN ($placeholders)',
+        whereArgs: ids,
+      );
+
+      return deletedSessions;
+    });
+  }
+
   /// Retrieves the last reading timestamp for a session, if any.
   Future<DateTime?> getLastReadingTimestamp(int sessionId) async {
     final db = await database;

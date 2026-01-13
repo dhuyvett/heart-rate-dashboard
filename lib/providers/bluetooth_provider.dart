@@ -65,14 +65,14 @@ final bluetoothConnectionProvider = StreamProvider<BluetoothConnectionInfo>((
   // Initial state
   yield BluetoothConnectionInfo(
     connectionState: bluetoothService.connectionState,
-    deviceName: bluetoothService.connectedDevice?.platformName,
+    deviceName: bluetoothService.connectedDeviceName,
   );
 
   // Stream connection state changes
   await for (final state in bluetoothService.monitorConnectionState()) {
     yield BluetoothConnectionInfo(
       connectionState: state,
-      deviceName: bluetoothService.connectedDevice?.platformName,
+      deviceName: bluetoothService.connectedDeviceName,
     );
   }
 });
