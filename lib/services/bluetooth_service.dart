@@ -80,8 +80,8 @@ class BluetoothService {
   static Duration connectionTimeout = const Duration(seconds: 15);
 
   // Stream controllers for managing data flows
-  final StreamController<List<BluetoothDevice>> _scanResultsController =
-      StreamController<List<BluetoothDevice>>.broadcast();
+  final StreamController<List<ScanResult>> _scanResultsController =
+      StreamController<List<ScanResult>>.broadcast();
   final StreamController<int> _heartRateController =
       StreamController<int>.broadcast();
   final StreamController<ConnectionState> _connectionStateController =
@@ -125,16 +125,16 @@ class BluetoothService {
 
   /// Starts scanning for BLE devices advertising Heart Rate Service (0x180D).
   ///
-  /// Returns a stream of discovered devices.
+  /// Returns a stream of discovered scan results including RSSI.
   ///
   /// Throws [StateError] if Bluetooth adapter is not powered on.
   /// Throws [StateError] if location permission is not granted (Android).
-  Stream<List<BluetoothDevice>> scanForDevices() async* {
+  Stream<List<ScanResult>> scanForDevices() async* {
     // Stop any existing scan first
     await stopScan();
 
     // List to accumulate unique devices
-    final Map<String, BluetoothDevice> discoveredDevices = {};
+    final Map<String, ScanResult> discoveredDevices = {};
     _scannedDevices.clear();
     // Only show devices that advertise the Heart Rate Service.
 
@@ -158,7 +158,7 @@ class BluetoothService {
             continue;
           }
 
-          discoveredDevices[deviceId] = result.device;
+          discoveredDevices[deviceId] = result;
           _scannedDevices[deviceId] = result.device;
           _scanResultsController.add(discoveredDevices.values.toList());
         }

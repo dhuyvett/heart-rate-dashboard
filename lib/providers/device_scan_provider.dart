@@ -36,15 +36,16 @@ final deviceScanProvider = StreamProvider<List<ScannedDevice>>((ref) async* {
 
   try {
     // Start scanning for real devices
-    await for (final devices in bluetoothService.scanForDevices()) {
+    await for (final results in bluetoothService.scanForDevices()) {
       // Convert Bluetooth devices to ScannedDevice models
-      final scannedDevices = devices.map((device) {
+      final scannedDevices = results.map((result) {
+        final device = result.device;
         return ScannedDevice(
           id: device.remoteId.str,
           name: device.platformName.isNotEmpty
               ? device.platformName
               : 'Unknown Device',
-          rssi: 0, // RSSI will be updated from scan results if available
+          rssi: result.rssi,
           isDemo: false,
         );
       }).toList();

@@ -131,19 +131,11 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
       // Calculate cutoff date
       final cutoffDate = DateTime.now().subtract(Duration(days: retentionDays));
 
-      // Find expired sessions
-      final expiredSessions = await db.getSessionsOlderThan(cutoffDate);
-
-      // Delete each expired session
-      for (final session in expiredSessions) {
-        if (session.id != null) {
-          await db.deleteSession(session.id!);
-        }
-      }
+      final deletedCount = await db.deleteSessionsOlderThan(cutoffDate);
 
       // Log cleanup for debugging
-      if (expiredSessions.isNotEmpty) {
-        _logger.i('Auto-deleted ${expiredSessions.length} expired session(s)');
+      if (deletedCount > 0) {
+        _logger.i('Auto-deleted $deletedCount expired session(s)');
       }
     } catch (e, stackTrace) {
       // Log error but don't block app startup
