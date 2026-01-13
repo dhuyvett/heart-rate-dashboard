@@ -483,6 +483,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     final distance = _currentSession.distanceMeters != null
         ? _formatDistance(_currentSession.distanceMeters!, settings.useMiles)
         : 'N/A';
+    final avgSpeed = _currentSession.distanceMeters != null
+        ? _formatAverageSpeed(
+            _currentSession.distanceMeters!,
+            _currentSession.getDuration(),
+            settings.useMiles,
+          )
+        : 'N/A';
 
     final availableGridWidth = availableWidth.isFinite ? availableWidth : 0.0;
     final columns = _calculateStatsColumns(availableGridWidth);
@@ -535,6 +542,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               value: distance,
               iconColor: Colors.teal,
             ),
+            SessionStatsCard(
+              icon: Icons.speed,
+              label: 'Avg Speed',
+              value: avgSpeed,
+              iconColor: Colors.indigo,
+            ),
           ],
         ),
       ],
@@ -544,6 +557,25 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   String _formatDistance(double meters, bool useMiles) {
     final value = useMiles ? meters / 1609.34 : meters / 1000;
     final unit = useMiles ? 'mi' : 'km';
+    return '${value.toStringAsFixed(1)} $unit';
+  }
+
+  String _formatAverageSpeed(
+    double distanceMeters,
+    Duration duration,
+    bool useMiles,
+  ) {
+    final seconds = duration.inMilliseconds / 1000;
+    if (seconds <= 0) {
+      return 'N/A';
+    }
+    final speedMps = distanceMeters / seconds;
+    return _formatSpeed(speedMps, useMiles);
+  }
+
+  String _formatSpeed(double speedMps, bool useMiles) {
+    final value = useMiles ? speedMps * 2.23694 : speedMps * 3.6;
+    final unit = useMiles ? 'mph' : 'km/h';
     return '${value.toStringAsFixed(1)} $unit';
   }
 
