@@ -94,7 +94,6 @@ class _HeartRateMonitoringScreenState
   int? _lastZoneBpm;
   bool _zoneTrackingPaused = false;
   bool _awaitingResumeReading = false;
-  _GpsAccuracyTier? _gpsAccuracyTier;
 
   /// Threshold for switching between grid and compact statistics display.
   static const double _statsHeightThreshold = 200.0;
@@ -107,7 +106,6 @@ class _HeartRateMonitoringScreenState
 
   /// Throttle interval for refreshing recent readings from the database.
   static const Duration _recentReadingsRefreshInterval = Duration(seconds: 5);
-  static const double _movingSpeedThresholdMps = 0.5;
 
   @override
   void initState() {
@@ -119,10 +117,7 @@ class _HeartRateMonitoringScreenState
     _startSession();
     _setupReconnectionListener();
     _updateWakeLock();
-    if (widget.trackSpeedDistance) {
-      _startGpsTracking(_GpsAccuracyTier.balanced);
-      _startSpeedDecayTimer();
-    }
+    _syncGpsTracking();
   }
 
   @override
@@ -500,7 +495,8 @@ class _HeartRateMonitoringScreenState
     );
   }
 
-  Future<void> _startGpsTracking(_GpsAccuracyTier tier) async {
+  Future<void> _startGpsTracking() async {
+    if (_positionSubscription != null) return;
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
     try {
@@ -516,13 +512,13 @@ class _HeartRateMonitoringScreenState
         return;
       }
 
-      _gpsAccuracyTier = tier;
-      final locationSettings = _locationSettingsForTier(tier);
-
       _positionSubscription?.cancel();
       _positionSubscription =
           Geolocator.getPositionStream(
-            locationSettings: locationSettings,
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.best,
+              distanceFilter: 5,
+            ),
           ).listen(
             _handlePosition,
             onError: (Object error, StackTrace stack) {
@@ -543,27 +539,6 @@ class _HeartRateMonitoringScreenState
     _positionSubscription = null;
     _lastPosition = null;
     _lastPositionTime = null;
-    _gpsAccuracyTier = null;
-  }
-
-  LocationSettings _locationSettingsForTier(_GpsAccuracyTier tier) {
-    switch (tier) {
-      case _GpsAccuracyTier.high:
-        return const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 5,
-        );
-      case _GpsAccuracyTier.balanced:
-        return const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          distanceFilter: 10,
-        );
-      case _GpsAccuracyTier.low:
-        return const LocationSettings(
-          accuracy: LocationAccuracy.low,
-          distanceFilter: 25,
-        );
-    }
   }
 
   void _handlePosition(Position position) {
@@ -609,7 +584,6 @@ class _HeartRateMonitoringScreenState
     ref
         .read(sessionProvider.notifier)
         .updateGpsData(deltaDistanceMeters: deltaDistance, speedMps: speed);
-    _updateGpsTrackingIfNeeded();
   }
 
   void _startSpeedDecayTimer() {
@@ -625,7 +599,6 @@ class _HeartRateMonitoringScreenState
         ref
             .read(sessionProvider.notifier)
             .updateGpsData(deltaDistanceMeters: 0, speedMps: 0);
-        _updateGpsTrackingIfNeeded();
       }
     });
   }
@@ -773,9 +746,6 @@ class _HeartRateMonitoringScreenState
             prevChart != MonitoringChartType.zoneTime) {
           _loadZoneReadings();
         }
-        if (widget.trackSpeedDistance && nextValue != null) {
-          _updateGpsTrackingIfNeeded(settings: nextValue);
-        }
       },
     );
   }
@@ -787,19 +757,20 @@ class _HeartRateMonitoringScreenState
     ) {
       final wasPaused = previous?.isPaused ?? false;
       final isPaused = next.isPaused;
+      final wasActive = previous?.isActive ?? false;
+      final isActive = next.isActive;
       if (!wasPaused && isPaused) {
         _handleSessionPaused();
       } else if (wasPaused && !isPaused) {
         _handleSessionResumed();
       }
+      if (wasPaused != isPaused || wasActive != isActive) {
+        _syncGpsTracking(sessionState: next);
+      }
     });
   }
 
   void _handleSessionPaused() {
-    if (widget.trackSpeedDistance) {
-      _stopGpsTracking();
-      _stopSpeedDecayTimer();
-    }
     _zoneTrackingPaused = true;
     final pausedAt = DateTime.now();
     if (_lastZoneTimestamp != null && _lastZoneBpm != null) {
@@ -827,54 +798,27 @@ class _HeartRateMonitoringScreenState
     _awaitingResumeReading = true;
     _lastZoneTimestamp = DateTime.now();
     _lastZoneBpm = null;
-    if (widget.trackSpeedDistance) {
-      _updateGpsTrackingIfNeeded();
-      _startSpeedDecayTimer();
-    }
   }
 
-  void _updateGpsTrackingIfNeeded({
-    AppSettings? settings,
-    SessionState? sessionState,
-  }) {
-    if (!widget.trackSpeedDistance) return;
-
-    final resolvedSettings =
-        settings ?? ref.read(settingsProvider).asData?.value;
-    final SessionState resolvedSessionState =
-        sessionState ?? ref.read(sessionProvider);
-    if (resolvedSettings == null) return;
-    if (!resolvedSessionState.isActive || resolvedSessionState.isPaused) {
+  void _syncGpsTracking({SessionState? sessionState}) {
+    if (!widget.trackSpeedDistance) {
+      _stopGpsTracking();
+      _stopSpeedDecayTimer();
       return;
     }
 
-    final desiredTier = _determineGpsTier(
-      settings: resolvedSettings,
-      sessionState: resolvedSessionState,
-    );
-    if (_gpsAccuracyTier == desiredTier) return;
+    final SessionState resolvedSessionState =
+        sessionState ?? ref.read(sessionProvider);
+    final shouldTrack =
+        resolvedSessionState.isActive && !resolvedSessionState.isPaused;
+    if (shouldTrack) {
+      _startGpsTracking();
+      _startSpeedDecayTimer();
+      return;
+    }
 
     _stopGpsTracking();
-    _startGpsTracking(desiredTier);
-  }
-
-  _GpsAccuracyTier _determineGpsTier({
-    required AppSettings settings,
-    required SessionState sessionState,
-  }) {
-    final wantsHighAccuracy =
-        settings.visibleSessionStats.contains(SessionStatistic.speed) ||
-        settings.visibleSessionStats.contains(SessionStatistic.distance);
-    if (wantsHighAccuracy) {
-      return _GpsAccuracyTier.high;
-    }
-
-    final speedMps = sessionState.speedMps ?? 0;
-    if (speedMps >= _movingSpeedThresholdMps) {
-      return _GpsAccuracyTier.balanced;
-    }
-
-    return _GpsAccuracyTier.low;
+    _stopSpeedDecayTimer();
   }
 
   void _handleZoneReading(HeartRateData data, SessionState sessionState) {
@@ -1879,8 +1823,6 @@ class _HeartRateMonitoringScreenState
     );
   }
 }
-
-enum _GpsAccuracyTier { low, balanced, high }
 
 class _StatDisplay {
   final IconData icon;
