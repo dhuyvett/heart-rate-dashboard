@@ -44,6 +44,7 @@ class SessionNotifier extends Notifier<SessionState> {
   Future<void> startSession({
     required String deviceName,
     required String sessionName,
+    required bool trackSpeedDistance,
   }) async {
     if (state.isActive) {
       _logger.w('Attempted to start a new session while one is active');
@@ -61,6 +62,7 @@ class SessionNotifier extends Notifier<SessionState> {
       final sessionId = await _databaseService.createSession(
         deviceName: deviceName,
         name: sessionName,
+        trackSpeedDistance: trackSpeedDistance,
       );
       final startTime = DateTime.now();
 
@@ -201,6 +203,8 @@ class SessionNotifier extends Notifier<SessionState> {
   void updateGpsData({
     required double deltaDistanceMeters,
     required double speedMps,
+    DateTime? timestamp,
+    double? altitudeMeters,
   }) {
     if (!state.isActive) return;
     if (deltaDistanceMeters.isNaN || speedMps.isNaN) return;
@@ -212,6 +216,25 @@ class SessionNotifier extends Notifier<SessionState> {
       distanceMeters: _distanceMeters,
       speedMps: _currentSpeedMps,
     );
+
+    final sessionId = state.currentSessionId;
+    if (sessionId != null && timestamp != null) {
+      _databaseService
+          .insertGpsSample(
+            sessionId: sessionId,
+            timestamp: timestamp,
+            speedMps: _currentSpeedMps,
+            altitudeMeters: altitudeMeters,
+          )
+          .catchError((e, stackTrace) {
+            _logger.w(
+              'Error saving GPS sample',
+              error: e,
+              stackTrace: stackTrace,
+            );
+            return 0;
+          });
+    }
   }
 
   /// Ends the current session.

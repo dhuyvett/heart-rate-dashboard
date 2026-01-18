@@ -21,6 +21,7 @@ void main() {
       final sessionId = await DatabaseService.instance.createSession(
         deviceName: 'Test Device',
         name: 'Crashed Session',
+        trackSpeedDistance: false,
       );
 
       await DatabaseService.instance.completeActiveSessionWithLastReading();
@@ -34,6 +35,7 @@ void main() {
       final sessionId = await db.createSession(
         deviceName: 'Test Device',
         name: 'Crashed Session',
+        trackSpeedDistance: false,
       );
 
       final firstReadingTime = DateTime(2024, 1, 1, 12);

@@ -36,7 +36,11 @@ Future<int> _createCompletedSession(
   required int maxHr,
   DateTime? end,
 }) async {
-  final sessionId = await db.createSession(deviceName: deviceName, name: name);
+  final sessionId = await db.createSession(
+    deviceName: deviceName,
+    name: name,
+    trackSpeedDistance: false,
+  );
   await db.endSession(
     sessionId: sessionId,
     avgHr: avgHr,
@@ -76,6 +80,7 @@ void main() {
       final completedSessionId = await db.createSession(
         deviceName: 'Polar H10',
         name: 'Completed',
+        trackSpeedDistance: false,
       );
       await db.endSession(
         sessionId: completedSessionId,
@@ -85,7 +90,11 @@ void main() {
       );
 
       // Create an active session (not completed)
-      await db.createSession(deviceName: 'Garmin HRM', name: 'Active');
+      await db.createSession(
+        deviceName: 'Garmin HRM',
+        name: 'Active',
+        trackSpeedDistance: false,
+      );
 
       // Query completed sessions
       final sessions = await db.getAllCompletedSessions();
@@ -144,6 +153,7 @@ void main() {
       final sessionId = await db.createSession(
         deviceName: 'Test Device',
         name: 'Test Session',
+        trackSpeedDistance: false,
       );
 
       // Add heart rate readings
@@ -183,6 +193,7 @@ void main() {
         final sessionId = await db.createSession(
           deviceName: 'Device $i',
           name: 'Session $i',
+          trackSpeedDistance: false,
         );
         await db.insertHeartRateReading(sessionId, DateTime.now(), 120 + i);
         await db.insertHeartRateReading(sessionId, DateTime.now(), 125 + i);
@@ -318,6 +329,7 @@ void main() {
       final sessionId = await db.createSession(
         deviceName: 'Only Device',
         name: 'Only Session',
+        trackSpeedDistance: false,
       );
       await db.endSession(
         sessionId: sessionId,

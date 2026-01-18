@@ -38,6 +38,7 @@ void main() {
       await notifier.startSession(
         deviceName: 'Test Device',
         sessionName: 'Integration Session',
+        trackSpeedDistance: false,
       );
       final sessionId = container.read(sessionProvider).currentSessionId!;
 
@@ -52,6 +53,7 @@ void main() {
       await notifier.startSession(
         deviceName: 'Test Device',
         sessionName: 'Integration Session',
+        trackSpeedDistance: false,
       );
       final sessionId = container.read(sessionProvider).currentSessionId!;
 

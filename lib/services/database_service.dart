@@ -4,6 +4,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart' as sqlcipher;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/gps_sample.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/workout_session.dart';
 import '../utils/app_logger.dart';
@@ -36,12 +37,13 @@ class DatabaseService {
 
   // Database configuration
   static const String _databaseName = 'heart_rate_dashboard.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   // Table names
   static const String _tableHeartRateReadings = 'heart_rate_readings';
   static const String _tableWorkoutSessions = 'workout_sessions';
   static const String _tableAppSettings = 'app_settings';
+  static const String _tableGpsSamples = 'gps_samples';
 
   // Private constructor for singleton
   DatabaseService._internal();
@@ -163,7 +165,8 @@ class DatabaseService {
         avg_hr INTEGER,
         min_hr INTEGER,
         max_hr INTEGER,
-        distance_meters REAL
+        distance_meters REAL,
+        track_speed_distance INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -171,6 +174,29 @@ class DatabaseService {
     await db.execute('''
       CREATE INDEX idx_session_start_time
       ON $_tableWorkoutSessions (start_time)
+    ''');
+
+    // Create gps_samples table
+    await db.execute('''
+      CREATE TABLE $_tableGpsSamples (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        speed_mps REAL NOT NULL,
+        altitude_meters REAL,
+        FOREIGN KEY (session_id) REFERENCES $_tableWorkoutSessions (id)
+      )
+    ''');
+
+    // Create indexes on gps_samples for fast querying
+    await db.execute('''
+      CREATE INDEX idx_gps_session_id
+      ON $_tableGpsSamples (session_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_gps_timestamp
+      ON $_tableGpsSamples (timestamp)
     ''');
 
     // Create app_settings table
@@ -201,6 +227,34 @@ class DatabaseService {
         'ALTER TABLE $_tableWorkoutSessions ADD COLUMN distance_meters REAL',
       );
     }
+
+    if (oldVersion < 4) {
+      await db.execute('''
+        ALTER TABLE $_tableWorkoutSessions
+        ADD COLUMN track_speed_distance INTEGER NOT NULL DEFAULT 0
+      ''');
+
+      await db.execute('''
+        CREATE TABLE $_tableGpsSamples (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          timestamp INTEGER NOT NULL,
+          speed_mps REAL NOT NULL,
+          altitude_meters REAL,
+          FOREIGN KEY (session_id) REFERENCES $_tableWorkoutSessions (id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_gps_session_id
+        ON $_tableGpsSamples (session_id)
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_gps_timestamp
+        ON $_tableGpsSamples (timestamp)
+      ''');
+    }
   }
 
   /// Creates a new workout session.
@@ -210,12 +264,14 @@ class DatabaseService {
   Future<int> createSession({
     required String deviceName,
     required String name,
+    required bool trackSpeedDistance,
   }) async {
     final db = await database;
     final session = WorkoutSession(
       startTime: DateTime.now(),
       deviceName: deviceName,
       name: name,
+      trackSpeedDistance: trackSpeedDistance,
     );
 
     return await db.insert(_tableWorkoutSessions, session.toMap());
@@ -269,6 +325,29 @@ class DatabaseService {
     return await db.insert(_tableHeartRateReadings, reading.toMap());
   }
 
+  /// Inserts a GPS sample into the database.
+  ///
+  /// [sessionId] is the ID of the session this sample belongs to.
+  /// [timestamp] is when the sample was captured.
+  /// [speedMps] is the speed in meters per second.
+  /// [altitudeMeters] is the altitude in meters above sea level, if available.
+  Future<int> insertGpsSample({
+    required int sessionId,
+    required DateTime timestamp,
+    required double speedMps,
+    double? altitudeMeters,
+  }) async {
+    final db = await database;
+    final sample = GpsSample(
+      sessionId: sessionId,
+      timestamp: timestamp,
+      speedMps: speedMps,
+      altitudeMeters: altitudeMeters,
+    );
+
+    return await db.insert(_tableGpsSamples, sample.toMap());
+  }
+
   /// Retrieves all heart rate readings for a specific session.
   ///
   /// [sessionId] is the ID of the session to query.
@@ -283,6 +362,22 @@ class DatabaseService {
     );
 
     return maps.map((map) => HeartRateReading.fromMap(map)).toList();
+  }
+
+  /// Retrieves all GPS samples for a specific session.
+  ///
+  /// [sessionId] is the ID of the session to query.
+  /// Returns a list of samples ordered by timestamp.
+  Future<List<GpsSample>> getGpsSamplesBySession(int sessionId) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableGpsSamples,
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'timestamp ASC',
+    );
+
+    return maps.map((map) => GpsSample.fromMap(map)).toList();
   }
 
   /// Retrieves heart rate readings for a session within a time range.
@@ -399,6 +494,13 @@ class DatabaseService {
         whereArgs: [sessionId],
       );
 
+      // Delete all GPS samples for this session
+      await txn.delete(
+        _tableGpsSamples,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+
       // Delete the session
       await txn.delete(
         _tableWorkoutSessions,
@@ -417,6 +519,9 @@ class DatabaseService {
     await db.transaction((txn) async {
       // Delete all heart rate readings
       await txn.delete(_tableHeartRateReadings);
+
+      // Delete all GPS samples
+      await txn.delete(_tableGpsSamples);
 
       // Delete all sessions
       await txn.delete(_tableWorkoutSessions);
@@ -465,6 +570,12 @@ class DatabaseService {
       final placeholders = List.filled(ids.length, '?').join(',');
       await txn.delete(
         _tableHeartRateReadings,
+        where: 'session_id IN ($placeholders)',
+        whereArgs: ids,
+      );
+
+      await txn.delete(
+        _tableGpsSamples,
         where: 'session_id IN ($placeholders)',
         whereArgs: ids,
       );

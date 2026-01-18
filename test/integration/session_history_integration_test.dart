@@ -55,6 +55,7 @@ void main() {
         final oldSessionId = await DatabaseService.instance.createSession(
           deviceName: 'Old Device',
           name: 'Old Session',
+          trackSpeedDistance: false,
         );
         final dbInstance = await DatabaseService.instance.database;
         await dbInstance.update(
@@ -78,6 +79,7 @@ void main() {
         final recentSessionId = await DatabaseService.instance.createSession(
           deviceName: 'Recent Device',
           name: 'Recent Session',
+          trackSpeedDistance: false,
         );
         await dbInstance.update(
           'workout_sessions',
@@ -147,6 +149,7 @@ void main() {
         final sessionId = await DatabaseService.instance.createSession(
           deviceName: 'Test Device',
           name: 'Retention Session',
+          trackSpeedDistance: false,
         );
         final dbInstance = await DatabaseService.instance.database;
         await dbInstance.update(
@@ -190,6 +193,7 @@ void main() {
         final sessionId = await DatabaseService.instance.createSession(
           deviceName: 'Test Device',
           name: 'Privacy Session',
+          trackSpeedDistance: false,
         );
 
         // Add multiple readings
@@ -240,6 +244,7 @@ void main() {
         final sessionId = await DatabaseService.instance.createSession(
           deviceName: 'Device $i',
           name: 'Session $i',
+          trackSpeedDistance: false,
         );
         await DatabaseService.instance.insertHeartRateReading(
           sessionId,
@@ -283,6 +288,7 @@ void main() {
           final sessionId = await DatabaseService.instance.createSession(
             deviceName: 'Device $i',
             name: 'Session $i',
+            trackSpeedDistance: false,
           );
           await DatabaseService.instance.endSession(
             sessionId: sessionId,

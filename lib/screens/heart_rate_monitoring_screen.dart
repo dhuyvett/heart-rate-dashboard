@@ -292,6 +292,7 @@ class _HeartRateMonitoringScreenState
             .startSession(
               deviceName: widget.deviceName,
               sessionName: widget.sessionName,
+              trackSpeedDistance: widget.trackSpeedDistance,
             );
       } catch (e) {
         _sessionStarted = false;
@@ -583,7 +584,12 @@ class _HeartRateMonitoringScreenState
 
     ref
         .read(sessionProvider.notifier)
-        .updateGpsData(deltaDistanceMeters: deltaDistance, speedMps: speed);
+        .updateGpsData(
+          deltaDistanceMeters: deltaDistance,
+          speedMps: speed,
+          timestamp: now,
+          altitudeMeters: position.altitude.isFinite ? position.altitude : null,
+        );
   }
 
   void _startSpeedDecayTimer() {
@@ -598,7 +604,12 @@ class _HeartRateMonitoringScreenState
       if (idleSeconds >= 5 && (sessionState.speedMps ?? 0) > 0) {
         ref
             .read(sessionProvider.notifier)
-            .updateGpsData(deltaDistanceMeters: 0, speedMps: 0);
+            .updateGpsData(
+              deltaDistanceMeters: 0,
+              speedMps: 0,
+              timestamp: DateTime.now(),
+              altitudeMeters: null,
+            );
       }
     });
   }
