@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import 'package:intl/intl.dart';
+import '../models/gps_sample.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/workout_session.dart';
@@ -9,6 +11,7 @@ import '../providers/session_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
+import '../widgets/gps_metric_chart.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/session_stats_card.dart';
 import '../widgets/zone_time_bar_chart.dart';
@@ -37,6 +40,7 @@ class SessionDetailScreen extends ConsumerStatefulWidget {
 
 class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   List<HeartRateReading> _readings = [];
+  List<GpsSample> _gpsSamples = [];
   bool _isLoading = true;
   String? _errorMessage;
   late WorkoutSession _currentSession;
@@ -74,6 +78,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         _currentSession.id!,
       );
 
+      final gpsSamples = _currentSession.trackSpeedDistance
+          ? await DatabaseService.instance.getGpsSamplesBySession(
+              _currentSession.id!,
+            )
+          : <GpsSample>[];
+
       // Check for previous and next sessions
       final previousSession = await DatabaseService.instance.getPreviousSession(
         _currentSession.id!,
@@ -85,6 +95,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       if (mounted) {
         setState(() {
           _readings = readings;
+          _gpsSamples = gpsSamples;
           _hasPreviousSession = previousSession != null;
           _hasNextSession = nextSession != null;
           _isLoading = false;
@@ -370,6 +381,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                 child: _buildZoneTimeChart(theme: theme, settings: settings),
               ),
               const SizedBox(height: 16),
+              _buildGpsCharts(theme: theme, settings: settings),
+              const SizedBox(height: 16),
               _buildStatisticsSection(
                 theme: theme,
                 settings: settings,
@@ -382,6 +395,94 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGpsCharts({
+    required ThemeData theme,
+    required AppSettings settings,
+  }) {
+    if (!_currentSession.trackSpeedDistance) {
+      return const SizedBox.shrink();
+    }
+
+    final sessionDuration = _currentSession.getDuration();
+    final windowSeconds = sessionDuration.inSeconds > 0
+        ? sessionDuration.inSeconds
+        : 60;
+    final speedUnitLabel = settings.useMiles ? 'mph' : 'km/h';
+    final altitudeUnitLabel = settings.useMiles ? 'ft' : 'm';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: _chartHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Speed ($speedUnitLabel)',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: GpsMetricChart(
+                  samples: _gpsSamples,
+                  sessionStart: _currentSession.startTime,
+                  windowSeconds: windowSeconds,
+                  lineColor: theme.colorScheme.secondary,
+                  emptyMessage: 'No speed data recorded for this session',
+                  minYFloor: 0,
+                  isCurved: false,
+                  valueSelector: (sample) {
+                    final speedMps = sample.speedMps;
+                    return settings.useMiles
+                        ? speedMps * 2.23694
+                        : speedMps * 3.6;
+                  },
+                  valueFormatter: (value) => value.toStringAsFixed(1),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: _chartHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Altitude ($altitudeUnitLabel)',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: GpsMetricChart(
+                  samples: _gpsSamples,
+                  sessionStart: _currentSession.startTime,
+                  windowSeconds: windowSeconds,
+                  lineColor: theme.colorScheme.tertiary,
+                  emptyMessage: 'No altitude data recorded for this session',
+                  valueSelector: (sample) {
+                    final altitudeMeters = sample.altitudeMeters;
+                    if (altitudeMeters == null) return null;
+                    return settings.useMiles
+                        ? altitudeMeters * 3.28084
+                        : altitudeMeters;
+                  },
+                  valueFormatter: (value) => value.toStringAsFixed(1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -426,16 +527,29 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     required ThemeData theme,
     required AppSettings settings,
   }) {
-    // Handle case where session has no readings
     if (_readings.isEmpty) {
-      return Center(
-        child: Text(
-          'No heart rate data recorded for this session',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Heart Rate',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          textAlign: TextAlign.center,
-        ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Center(
+              child: Text(
+                'No heart rate data recorded for this session',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -448,19 +562,33 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     final zone = HeartRateZoneCalculator.getZoneForBpm(avgHr, settings);
     final color = HeartRateZoneCalculator.getColorForZone(zone);
 
-    return HeartRateChart(
-      readings: _readings,
-      windowSeconds: windowSeconds > 0 ? windowSeconds : 60,
-      lineColor: color,
-      zoneColorResolver: (reading) {
-        final readingZone = HeartRateZoneCalculator.getZoneForBpm(
-          reading.bpm,
-          settings,
-        );
-        return HeartRateZoneCalculator.getColorForZone(readingZone);
-      },
-      referenceTime: _currentSession.endTime,
-      isLiveMode: false,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Heart Rate',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: HeartRateChart(
+            readings: _readings,
+            windowSeconds: windowSeconds > 0 ? windowSeconds : 60,
+            lineColor: color,
+            zoneColorResolver: (reading) {
+              final readingZone = HeartRateZoneCalculator.getZoneForBpm(
+                reading.bpm,
+                settings,
+              );
+              return HeartRateZoneCalculator.getColorForZone(readingZone);
+            },
+            referenceTime: _currentSession.endTime,
+            isLiveMode: false,
+          ),
+        ),
+      ],
     );
   }
 
@@ -480,6 +608,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     final maxHr = _currentSession.maxHr != null
         ? '${_currentSession.maxHr}'
         : 'N/A';
+    final showGpsStats = _currentSession.trackSpeedDistance;
     final distance = _currentSession.distanceMeters != null
         ? _formatDistance(_currentSession.distanceMeters!, settings.useMiles)
         : 'N/A';
@@ -490,9 +619,70 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             settings.useMiles,
           )
         : 'N/A';
+    final altitudeValues = showGpsStats
+        ? _gpsSamples
+              .map((sample) => sample.altitudeMeters)
+              .whereType<double>()
+              .toList()
+        : <double>[];
+    final minAltitude = altitudeValues.isNotEmpty
+        ? _formatAltitude(altitudeValues.reduce(math.min), settings.useMiles)
+        : 'N/A';
+    final maxAltitude = altitudeValues.isNotEmpty
+        ? _formatAltitude(altitudeValues.reduce(math.max), settings.useMiles)
+        : 'N/A';
+
+    final statsCards = <Widget>[
+      SessionStatsCard(icon: Icons.timer, label: 'Duration', value: duration),
+      SessionStatsCard(icon: Icons.favorite, label: 'Average', value: avgHr),
+      SessionStatsCard(
+        icon: Icons.arrow_downward,
+        label: 'Minimum',
+        value: minHr,
+        iconColor: Colors.blue,
+      ),
+      SessionStatsCard(
+        icon: Icons.arrow_upward,
+        label: 'Maximum',
+        value: maxHr,
+        iconColor: Colors.red,
+      ),
+    ];
+
+    if (showGpsStats) {
+      statsCards.addAll([
+        SessionStatsCard(
+          icon: Icons.route,
+          label: 'Distance',
+          value: distance,
+          iconColor: Colors.teal,
+        ),
+        SessionStatsCard(
+          icon: Icons.speed,
+          label: 'Avg Speed',
+          value: avgSpeed,
+          iconColor: Colors.indigo,
+        ),
+        SessionStatsCard(
+          icon: Icons.south,
+          label: 'Min Alt',
+          value: minAltitude,
+          iconColor: Colors.brown,
+        ),
+        SessionStatsCard(
+          icon: Icons.north,
+          label: 'Max Alt',
+          value: maxAltitude,
+          iconColor: Colors.brown,
+        ),
+      ]);
+    }
 
     final availableGridWidth = availableWidth.isFinite ? availableWidth : 0.0;
-    final columns = _calculateStatsColumns(availableGridWidth);
+    final columns = _calculateStatsColumns(
+      availableGridWidth,
+      statsCards.length,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,42 +703,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             mainAxisSpacing: 8,
             mainAxisExtent: _statsCardHeight,
           ),
-          children: [
-            SessionStatsCard(
-              icon: Icons.timer,
-              label: 'Duration',
-              value: duration,
-            ),
-            SessionStatsCard(
-              icon: Icons.favorite,
-              label: 'Average',
-              value: avgHr,
-            ),
-            SessionStatsCard(
-              icon: Icons.arrow_downward,
-              label: 'Minimum',
-              value: minHr,
-              iconColor: Colors.blue,
-            ),
-            SessionStatsCard(
-              icon: Icons.arrow_upward,
-              label: 'Maximum',
-              value: maxHr,
-              iconColor: Colors.red,
-            ),
-            SessionStatsCard(
-              icon: Icons.route,
-              label: 'Distance',
-              value: distance,
-              iconColor: Colors.teal,
-            ),
-            SessionStatsCard(
-              icon: Icons.speed,
-              label: 'Avg Speed',
-              value: avgSpeed,
-              iconColor: Colors.indigo,
-            ),
-          ],
+          children: statsCards,
         ),
       ],
     );
@@ -579,12 +734,19 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     return '${value.toStringAsFixed(1)} $unit';
   }
 
-  int _calculateStatsColumns(double availableWidth) {
+  String _formatAltitude(double meters, bool useMiles) {
+    final value = useMiles ? meters * 3.28084 : meters;
+    final unit = useMiles ? 'ft' : 'm';
+    return '${value.toStringAsFixed(1)} $unit';
+  }
+
+  int _calculateStatsColumns(double availableWidth, int itemCount) {
     if (availableWidth <= 0) {
       return 1;
     }
     final columns = (availableWidth / (_statsCardMinWidth + 8)).floor();
-    return columns.clamp(1, 4);
+    final widthBound = columns.clamp(1, 4);
+    return math.max(1, math.min(widthBound, itemCount));
   }
 
   Widget _buildZoneTimeChart({
@@ -592,19 +754,47 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     required AppSettings settings,
   }) {
     if (_readings.isEmpty) {
-      return Center(
-        child: Text(
-          'No zone data available',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Time in Zone (minutes)',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Center(
+              child: Text(
+                'No zone data available',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
-    return ZoneTimeBarChart(
-      zoneDurations: _calculateZoneDurations(settings),
-      zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Time in Zone (minutes)',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ZoneTimeBarChart(
+            zoneDurations: _calculateZoneDurations(settings),
+            zoneRanges: HeartRateZoneCalculator.getZoneRanges(settings),
+          ),
+        ),
+      ],
     );
   }
 

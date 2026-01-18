@@ -162,13 +162,6 @@ class ZoneTimeBarChart extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Minutes',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-        ),
       ],
     );
   }
