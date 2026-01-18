@@ -514,12 +514,36 @@ class _HeartRateMonitoringScreenState
       }
 
       _positionSubscription?.cancel();
+      final LocationSettings locationSettings;
+      if (Platform.isAndroid && permission == LocationPermission.always) {
+        locationSettings = AndroidSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 5,
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationTitle: 'Recording speed and distance',
+            notificationText:
+                'Location updates keep tracking while the screen is locked.',
+            enableWakeLock: true,
+            setOngoing: true,
+          ),
+        );
+      } else if (Platform.isIOS && permission == LocationPermission.always) {
+        locationSettings = AppleSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 5,
+          pauseLocationUpdatesAutomatically: false,
+          showBackgroundLocationIndicator: true,
+        );
+      } else {
+        locationSettings = const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 5,
+        );
+      }
+
       _positionSubscription =
           Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.best,
-              distanceFilter: 5,
-            ),
+            locationSettings: locationSettings,
           ).listen(
             _handlePosition,
             onError: (Object error, StackTrace stack) {

@@ -157,18 +157,25 @@ class HeartRateChart extends StatelessWidget {
                 reservedSize: 30,
                 interval: windowSeconds / 4,
                 getTitlesWidget: (value, meta) {
+                  String formatMinutes(int seconds) {
+                    final minutes = seconds / 60.0;
+                    return minutes % 1 == 0
+                        ? '${minutes.toStringAsFixed(0)}m'
+                        : '${minutes.toStringAsFixed(1)}m';
+                  }
+
                   if (isLiveMode) {
                     // Live mode: Right = 0s (now), Left = windowSeconds (oldest)
                     final seconds = windowSeconds - value.toInt();
                     return Text(
-                      '${seconds}s',
+                      formatMinutes(seconds),
                       style: theme.textTheme.bodySmall,
                     );
                   } else {
                     // Historical mode: Left = 0s (start), Right = duration (end)
                     final seconds = value.toInt();
                     return Text(
-                      '${seconds}s',
+                      formatMinutes(seconds),
                       style: theme.textTheme.bodySmall,
                     );
                   }
