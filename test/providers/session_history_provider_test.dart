@@ -17,6 +17,7 @@ Future<int> _createCompletedSession(
   final sessionId = await DatabaseService.instance.createSession(
     deviceName: deviceName,
     name: name,
+    trackSpeedDistance: false,
   );
   await DatabaseService.instance.endSession(
     sessionId: sessionId,
@@ -114,6 +115,7 @@ void main() {
       final sessionId = await DatabaseService.instance.createSession(
         deviceName: 'Device 1',
         name: 'Session 1',
+        trackSpeedDistance: false,
       );
       await DatabaseService.instance.endSession(
         sessionId: sessionId,
@@ -144,10 +146,12 @@ void main() {
       final session1Id = await DatabaseService.instance.createSession(
         deviceName: 'Device 1',
         name: 'Session 1',
+        trackSpeedDistance: false,
       );
       final session2Id = await DatabaseService.instance.createSession(
         deviceName: 'Device 2',
         name: 'Session 2',
+        trackSpeedDistance: false,
       );
 
       await DatabaseService.instance.endSession(

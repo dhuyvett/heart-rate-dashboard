@@ -53,6 +53,7 @@ void main() {
       final oldSessionId = await db.createSession(
         deviceName: 'Old Device',
         name: 'Old Session',
+        trackSpeedDistance: false,
       );
       // Manually update the session timestamps to simulate old data
       final dbInstance = await db.database;
@@ -84,6 +85,7 @@ void main() {
       final recentSessionId = await db.createSession(
         deviceName: 'Recent Device',
         name: 'Recent Session',
+        trackSpeedDistance: false,
       );
       await dbInstance.update(
         'workout_sessions',

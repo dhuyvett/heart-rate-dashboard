@@ -82,6 +82,7 @@ class _NoopSessionNotifier extends SessionNotifier {
   Future<void> startSession({
     required String deviceName,
     required String sessionName,
+    required bool trackSpeedDistance,
   }) async {}
 
   @override
@@ -138,6 +139,7 @@ class _FlakySessionNotifier extends SessionNotifier {
   Future<void> startSession({
     required String deviceName,
     required String sessionName,
+    required bool trackSpeedDistance,
   }) async {
     startCalls += 1;
     if (_failNext) {

@@ -42,6 +42,9 @@ class WorkoutSession {
   /// Total distance traveled during the session in meters.
   final double? distanceMeters;
 
+  /// Whether speed/distance tracking was enabled for this session.
+  final bool trackSpeedDistance;
+
   /// Creates a workout session instance.
   WorkoutSession({
     this.id,
@@ -53,6 +56,7 @@ class WorkoutSession {
     this.minHr,
     this.maxHr,
     this.distanceMeters,
+    this.trackSpeedDistance = false,
   });
 
   /// Calculates the duration of this session.
@@ -83,6 +87,7 @@ class WorkoutSession {
       'min_hr': minHr,
       'max_hr': maxHr,
       'distance_meters': distanceMeters,
+      'track_speed_distance': trackSpeedDistance ? 1 : 0,
     };
   }
 
@@ -105,6 +110,7 @@ class WorkoutSession {
       minHr: map['min_hr'] as int?,
       maxHr: map['max_hr'] as int?,
       distanceMeters: (map['distance_meters'] as num?)?.toDouble(),
+      trackSpeedDistance: (map['track_speed_distance'] as int? ?? 0) == 1,
     );
   }
 
@@ -121,6 +127,7 @@ class WorkoutSession {
     int? minHr,
     int? maxHr,
     double? distanceMeters,
+    bool? trackSpeedDistance,
   }) {
     return WorkoutSession(
       id: id ?? this.id,
@@ -132,6 +139,7 @@ class WorkoutSession {
       minHr: minHr ?? this.minHr,
       maxHr: maxHr ?? this.maxHr,
       distanceMeters: distanceMeters ?? this.distanceMeters,
+      trackSpeedDistance: trackSpeedDistance ?? this.trackSpeedDistance,
     );
   }
 
@@ -139,7 +147,8 @@ class WorkoutSession {
   String toString() {
     return 'WorkoutSession(id: $id, startTime: $startTime, endTime: $endTime, '
         'deviceName: $deviceName, name: $name, avgHr: $avgHr, '
-        'minHr: $minHr, maxHr: $maxHr, distanceMeters: $distanceMeters)';
+        'minHr: $minHr, maxHr: $maxHr, distanceMeters: $distanceMeters, '
+        'trackSpeedDistance: $trackSpeedDistance)';
   }
 
   @override
@@ -155,7 +164,8 @@ class WorkoutSession {
         other.avgHr == avgHr &&
         other.minHr == minHr &&
         other.maxHr == maxHr &&
-        other.distanceMeters == distanceMeters;
+        other.distanceMeters == distanceMeters &&
+        other.trackSpeedDistance == trackSpeedDistance;
   }
 
   @override
@@ -170,6 +180,7 @@ class WorkoutSession {
       minHr,
       maxHr,
       distanceMeters,
+      trackSpeedDistance,
     );
   }
 
