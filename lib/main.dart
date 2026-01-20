@@ -10,6 +10,7 @@ import 'services/database_service.dart';
 import 'screens/device_selection_screen.dart';
 import 'screens/disclaimer_screen.dart';
 import 'utils/app_logger.dart';
+import 'utils/route_observer.dart';
 
 void main() {
   // Wrap the entire app with ProviderScope to enable Riverpod state management
@@ -61,6 +62,7 @@ class MyApp extends ConsumerWidget {
       ),
       // Determine initial route based on permissions
       home: const InitialRouteResolver(),
+      navigatorObservers: [appRouteObserver],
     );
   }
 }

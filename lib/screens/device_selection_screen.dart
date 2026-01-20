@@ -9,6 +9,7 @@ import '../providers/heart_rate_provider.dart';
 import '../services/bluetooth_service.dart' as app_bt;
 import '../utils/app_logger.dart';
 import '../utils/error_messages.dart';
+import '../utils/route_observer.dart';
 import '../widgets/device_list_tile.dart';
 import '../widgets/loading_overlay.dart';
 import 'about_screen.dart';
@@ -28,7 +29,8 @@ class DeviceSelectionScreen extends ConsumerStatefulWidget {
       _DeviceSelectionScreenState();
 }
 
-class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
+class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
+    with RouteAware {
   static final _logger = AppLogger.getLogger('DeviceSelectionScreen');
   bool _isScanning = false;
   bool _isConnecting = false;
@@ -42,6 +44,15 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
   void initState() {
     super.initState();
     _initializeBluetoothState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
   }
 
   /// Initializes Bluetooth state checking with error handling.
@@ -62,8 +73,19 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _bluetoothStateSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didPush() {
+    _triggerScanOnVisible();
+  }
+
+  @override
+  void didPopNext() {
+    _triggerScanOnVisible();
   }
 
   /// Checks the current Bluetooth adapter state.
@@ -80,6 +102,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
           _checkingBluetooth = false;
         });
       }
+      _triggerScanOnVisible();
     } catch (e) {
       // Platform not supported or other error - assume Bluetooth is available
       if (mounted) {
@@ -88,6 +111,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
           _checkingBluetooth = false;
         });
       }
+      _triggerScanOnVisible();
     }
   }
 
@@ -101,6 +125,9 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
             setState(() {
               _bluetoothEnabled = state == BluetoothAdapterState.on;
             });
+          }
+          if (state == BluetoothAdapterState.on) {
+            _triggerScanOnVisible();
           }
         },
         onError: (e) {
@@ -116,6 +143,16 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
     } catch (e) {
       // Platform not supported - Bluetooth state tracking unavailable
     }
+  }
+
+  void _triggerScanOnVisible() {
+    if (_checkingBluetooth || !_bluetoothEnabled) return;
+    if (_isScanning || _isConnecting) return;
+
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+
+    _startScan();
   }
 
   /// Requests to turn on Bluetooth.
@@ -188,6 +225,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen> {
 
   /// Starts scanning for Bluetooth devices.
   Future<void> _startScan() async {
+    if (_isScanning || _isConnecting) return;
     setState(() {
       _isScanning = true;
       _errorMessage = null;
