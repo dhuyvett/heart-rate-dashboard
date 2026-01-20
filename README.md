@@ -1,5 +1,7 @@
 # Heart Rate Dashboard
 
+[![Build](https://github.com/dhuyvett/heart-rate-dashboard/actions/workflows/build.yml/badge.svg)](https://github.com/dhuyvett/heart-rate-dashboard/actions/workflows/build.yml)
+
 **Your heart rate data belongs to you.**
 
 Heart Rate Dashboard is a privacy-first heart rate monitoring app that keeps your fitness data where it belongs—on your device. No accounts. No cloud. No tracking.
