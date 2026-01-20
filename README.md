@@ -12,8 +12,9 @@ Modern fitness apps harvest your biometric data, location history, and workout p
 
 - **Zero Network Transmission** — The app makes no network requests. Ever. Your data physically cannot leave your device.
 - **No Accounts Required** — No email, no login, no personally identifiable information collected.
-- **Encrypted Local Storage** — All data stored using SQLCipher encryption on your device.
-- **Minimal Permissions** — Only requests what's essential: Bluetooth access for heart rate monitors.
+- **Encrypted Local Storage** — SQLCipher encryption on Android/iOS; desktop uses unencrypted local SQLite.
+- **Desktop Encryption Notice** — Desktop builds store data unencrypted; the app shows a reminder on first launch.
+- **Minimal Permissions** — Bluetooth access for heart rate monitors; optional location only when tracking speed/distance.
 - **No Analytics or Telemetry** — No usage tracking, no crash reporting services, no advertising SDKs.
 
 ## What It Does
@@ -23,7 +24,10 @@ Connect to any standard Bluetooth heart rate monitor and see your heart rate dis
 **Key Features:**
 - Real-time BPM display with heart rate zone visualization
 - Session statistics (duration, average/min/max heart rate)
+- Session history and detail views
 - Demo mode for testing without hardware
+- Optional GPS speed and distance tracking (mobile)
+- CSV export (planned)
 - Works completely offline
 
 ## Getting Started
@@ -48,7 +52,7 @@ Connect to any standard Bluetooth heart rate monitor and see your heart rate dis
 | ----------------------------- | ---------------- |
 | Android                       | Full BLE support |
 | iOS                           | Full BLE support |
-| Desktop (Linux/macOS/Windows) | Demo mode only   |
+| Desktop (Linux/macOS/Windows) | Full BLE support |
 
 ## License
 

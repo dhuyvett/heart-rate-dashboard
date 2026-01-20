@@ -4,7 +4,6 @@
 ## Current Coverage & Status
 - Unit tests cover crypto (AES/XOR migration), permission handling, stream cleanup, connection timeout/retry guards, async settings loading, and empty session deletion.
 - Integration/widget coverage includes settings and session detail screens, session provider + database flow, reconnection handler race-prevention, and the desktop encryption warning dialog.
-- Recent run: `flutter test test/integration/reconnection_handler_integration_test.dart test/integration/session_provider_integration_test.dart` (pass); analyzer is clean.
 - Known gaps: hardware BLE and permission channel paths are not exercised in CI; InitialRouteResolver + DeviceSelection depend on platform channels and still need manual device validation.
 
 ## Testing Principles

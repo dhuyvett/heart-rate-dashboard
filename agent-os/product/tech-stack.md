@@ -4,7 +4,7 @@
 - **Application Framework:** Flutter SDK ^3.10.0
 - **Language:** Dart (version bundled with Flutter SDK)
 - **Package Manager:** pub (Flutter's package manager)
-- **Platform Support:** Android, iOS, Web, Linux, macOS, Windows (cross-platform)
+- **Platform Support:** Android, iOS, Linux, macOS, Windows (cross-platform)
 
 ## Frontend & UI
 - **UI Framework:** Flutter Material Design
@@ -21,8 +21,8 @@
 - **Alternative:** Provider (simpler option if Riverpod proves too complex)
 
 ## Database & Storage
-- **Local Database:** Sqflite (SQLite for Flutter)
-  - Encrypted database support via sqlcipher_flutter_libs
+- **Local Database:** sqflite_sqlcipher (SQLCipher-backed SQLite on mobile)
+  - Desktop uses sqflite_common_ffi with unencrypted SQLite
   - No network capability, purely local storage
   - Mature, well-tested, and widely used
   - SQL provides flexibility for complex queries on workout data
@@ -42,16 +42,11 @@
   - Platform-agnostic API
 
 ## Mapping (Future GPS Feature)
-- **Map Display:** flutter_map with offline tile caching
-  - Open-source, privacy-friendly
-  - Supports offline map tiles (no required network calls)
-  - Can use OpenStreetMap data downloaded locally
-  - Alternative: Google Maps (if user preference, but less privacy-aligned)
+- **Map Display:** TBD (evaluate offline-friendly options if mapping is added)
 
 ## Data Export & File Handling
-- **CSV Generation:** csv package (pure Dart, no dependencies)
+- **CSV Generation:** csv package (planned)
 - **File System Access:** path_provider (for app directories)
-- **File Picker:** file_picker (for user-selected save locations)
 - **File I/O:** dart:io (built-in, no external dependency)
 
 ## Testing & Quality
@@ -87,7 +82,7 @@
 - **Minimal Dependencies:** Only essential packages; each dependency reviewed for privacy
 - **No Network Permissions:** App requests no internet permission on Android
 - **Local-First Architecture:** All data processing and storage happens on device
-- **Encryption:** Local database encrypted at rest
+- **Encryption:** Local database encrypted at rest on mobile; desktop uses unencrypted SQLite
 - **No Telemetry:** Zero data collection, no usage statistics, no diagnostics transmission
 - **Open Source Preferred:** Prioritize open-source dependencies for transparency
 - **Permission Minimization:** Request only Bluetooth and Location (when GPS feature active)

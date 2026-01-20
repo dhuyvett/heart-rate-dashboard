@@ -152,6 +152,7 @@ flutter test
 ### Testing
 
 Testing standards, coverage notes, and commands live in `TESTING.md`; review it before opening a PR.
+Database schema reference: `DATABASE_SCHEMA.md`.
 
 - **Run all tests**: `flutter test`
 - **Run specific test**: `flutter test test/widget_test.dart`
@@ -162,7 +163,8 @@ Testing standards, coverage notes, and commands live in `TESTING.md`; review it 
 
 ```bash
 # Android
-flutter build apk              # Debug APK
+flutter build apk              # Release APK
+flutter build apk --debug      # Debug APK
 flutter build appbundle        # Release bundle for Play Store
 
 # iOS (requires macOS)
@@ -223,8 +225,12 @@ lib/
 └── utils/             # Helper functions and constants
 
 test/
-├── widget_test.dart   # Widget tests
-├── unit/             # Unit tests
+├── widget_test.dart  # Widget tests
+├── widgets/          # Widget tests
+├── screens/          # Screen/widget tests
+├── services/         # Service tests
+├── providers/        # Provider tests
+├── models/           # Model tests
 └── integration/      # Integration tests
 ```
 
