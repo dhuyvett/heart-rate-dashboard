@@ -88,6 +88,8 @@ class _HeartRateMonitoringScreenState
   DateTime? _pausedAt;
   Position? _lastPosition;
   DateTime? _lastPositionTime;
+  double _smoothedSpeedMps = 0;
+  DateTime? _lastSpeedSampleTime;
   DateTime? _lastRecentReadingsLoad;
   Map<HeartRateZone, Duration> _zoneDurations = _emptyZoneDurations();
   DateTime? _lastZoneTimestamp;
@@ -106,6 +108,18 @@ class _HeartRateMonitoringScreenState
 
   /// Throttle interval for refreshing recent readings from the database.
   static const Duration _recentReadingsRefreshInterval = Duration(seconds: 5);
+
+  /// Smooths GPS speed to reduce spikes/dips from noisy samples.
+  static const double _speedSmoothingAlpha = 0.3;
+
+  /// Hold the last speed briefly when GPS reports zero while moving.
+  static const Duration _speedZeroHoldDuration = Duration(seconds: 6);
+
+  /// Zero speed only after a longer idle gap to avoid drops at low speeds.
+  static const Duration _speedIdleTimeout = Duration(seconds: 12);
+
+  /// Gentle decay while holding speed through zero samples.
+  static const double _speedZeroDecayFactor = 0.85;
 
   @override
   void initState() {
@@ -566,6 +580,8 @@ class _HeartRateMonitoringScreenState
     _positionSubscription = null;
     _lastPosition = null;
     _lastPositionTime = null;
+    _smoothedSpeedMps = 0;
+    _lastSpeedSampleTime = null;
   }
 
   void _handlePosition(Position position) {
@@ -605,6 +621,23 @@ class _HeartRateMonitoringScreenState
       speed = 0;
     }
 
+    if (speed > 0) {
+      _smoothedSpeedMps = _smoothedSpeedMps == 0
+          ? speed
+          : (_speedSmoothingAlpha * speed) +
+                ((1 - _speedSmoothingAlpha) * _smoothedSpeedMps);
+      _lastSpeedSampleTime = now;
+    } else {
+      final lastSample = _lastSpeedSampleTime;
+      if (lastSample != null &&
+          now.difference(lastSample) <= _speedZeroHoldDuration &&
+          _smoothedSpeedMps > 0) {
+        _smoothedSpeedMps *= _speedZeroDecayFactor;
+      } else {
+        _smoothedSpeedMps = 0;
+      }
+    }
+
     _lastPosition = position;
     _lastPositionTime = now;
 
@@ -612,7 +645,7 @@ class _HeartRateMonitoringScreenState
         .read(sessionProvider.notifier)
         .updateGpsData(
           deltaDistanceMeters: deltaDistance,
-          speedMps: speed,
+          speedMps: _smoothedSpeedMps,
           timestamp: now,
           altitudeMeters: position.altitude.isFinite ? position.altitude : null,
         );
@@ -627,7 +660,8 @@ class _HeartRateMonitoringScreenState
       if (lastTime == null) return;
 
       final idleSeconds = DateTime.now().difference(lastTime).inSeconds;
-      if (idleSeconds >= 5 && (sessionState.speedMps ?? 0) > 0) {
+      if (idleSeconds >= _speedIdleTimeout.inSeconds &&
+          (sessionState.speedMps ?? 0) > 0) {
         ref
             .read(sessionProvider.notifier)
             .updateGpsData(
