@@ -188,7 +188,9 @@ class _HeartRateMonitoringScreenState
     _reconnectionHandler.stopMonitoring();
     widget.onChangeDevice?.call();
     await bt.BluetoothService.instance.disconnect();
-    await ref.read(sessionProvider.notifier).endSession();
+    if (!skipDatabase) {
+      await ref.read(sessionProvider.notifier).endSession();
+    }
 
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(

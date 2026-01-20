@@ -31,6 +31,7 @@ class SecureKeyManager {
   static const _keyName = 'hr_db_encryption_key';
   static const _backupKeyName = 'hr_db_encryption_key_backup';
   static const _legacyWarningShown = 'legacy_warning_shown';
+  static const _fallbackDeviceIdKey = 'hr_fallback_device_id';
 
   /// Gets or creates the database encryption key using a hybrid approach.
   ///
@@ -143,32 +144,44 @@ class SecureKeyManager {
 
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        // Use Android ID - unique per device and app installation
-        deviceId = androidInfo.id;
-        _logger.d('Using Android ID for key generation');
+        // Persist the Android build ID as a fallback so it remains stable.
+        deviceId = await _getOrCreateFallbackDeviceId(seed: androidInfo.id);
+        _logger.d('Using Android device identifier for key generation');
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         // Use identifierForVendor - unique per device and vendor
-        deviceId = iosInfo.identifierForVendor ?? _generateFallbackId();
+        final iosId = iosInfo.identifierForVendor;
+        deviceId = (iosId == null || iosId.isEmpty)
+            ? await _getOrCreateFallbackDeviceId()
+            : iosId;
         _logger.d('Using iOS identifierForVendor for key generation');
       } else if (Platform.isLinux) {
         final linuxInfo = await deviceInfo.linuxInfo;
         // Use machine ID on Linux
-        deviceId = linuxInfo.machineId ?? _generateFallbackId();
+        final linuxId = linuxInfo.machineId;
+        deviceId = (linuxId == null || linuxId.isEmpty)
+            ? await _getOrCreateFallbackDeviceId()
+            : linuxId;
         _logger.d('Using Linux machine ID for key generation');
       } else if (Platform.isMacOS) {
         final macInfo = await deviceInfo.macOsInfo;
         // Use system UUID on macOS
-        deviceId = macInfo.systemGUID ?? _generateFallbackId();
+        final macId = macInfo.systemGUID;
+        deviceId = (macId == null || macId.isEmpty)
+            ? await _getOrCreateFallbackDeviceId()
+            : macId;
         _logger.d('Using macOS system GUID for key generation');
       } else if (Platform.isWindows) {
         final windowsInfo = await deviceInfo.windowsInfo;
         // Use device ID on Windows
-        deviceId = windowsInfo.deviceId;
+        final windowsId = windowsInfo.deviceId;
+        deviceId = windowsId.isEmpty
+            ? await _getOrCreateFallbackDeviceId()
+            : windowsId;
         _logger.d('Using Windows device ID for key generation');
       } else {
         // Fallback for unsupported platforms
-        deviceId = _generateFallbackId();
+        deviceId = await _getOrCreateFallbackDeviceId();
         _logger.w('Using fallback ID for unsupported platform');
       }
 
@@ -437,6 +450,28 @@ class SecureKeyManager {
     final random = Random.secure();
     final randomPart = List<int>.generate(16, (_) => random.nextInt(256));
     return '$timestamp:${base64.encode(randomPart)}';
+  }
+
+  static Future<String> _getOrCreateFallbackDeviceId({String? seed}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existing = prefs.getString(_fallbackDeviceIdKey);
+      if (existing != null && existing.isNotEmpty) {
+        return existing;
+      }
+      final newId = (seed == null || seed.isEmpty)
+          ? _generateFallbackId()
+          : seed;
+      await prefs.setString(_fallbackDeviceIdKey, newId);
+      return newId;
+    } catch (e, stackTrace) {
+      _logger.w(
+        'Error storing fallback device ID',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return _generateFallbackId();
+    }
   }
 
   /// Checks if this is a first-time setup (no existing keys).
