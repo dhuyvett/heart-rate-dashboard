@@ -1,9 +1,11 @@
+@Timeout(Duration(seconds: 10))
+library;
+
 // Tests for verifying the app name is correctly configured as "Heart Rate Dashboard".
 //
 // These tests verify:
 // - MaterialApp title is set to "Heart Rate Dashboard"
 // - App builds and runs without errors
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

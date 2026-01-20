@@ -233,12 +233,13 @@ class HeartRateChart extends StatelessWidget {
   ) {
     return readings.map((reading) {
       // Calculate X position (seconds from window start)
-      final xSeconds = reading.timestamp.difference(windowStart).inSeconds;
+      final xSeconds =
+          reading.timestamp.difference(windowStart).inMilliseconds / 1000.0;
 
       // Both modes use the same positioning: older readings have lower X values
       // Live mode: oldest = 0, newest = windowSeconds (with countdown labels)
       // Historical mode: oldest = 0, newest = duration (with count-up labels)
-      return FlSpot(xSeconds.toDouble(), reading.bpm.toDouble());
+      return FlSpot(xSeconds, reading.bpm.toDouble());
     }).toList();
   }
 
@@ -254,10 +255,11 @@ class HeartRateChart extends StatelessWidget {
 
     final opacity = zoneColorOpacity.clamp(0.0, 1.0);
     final coloredSpots = readings.map((reading) {
-      final xSeconds = reading.timestamp.difference(windowStart).inSeconds;
+      final xSeconds =
+          reading.timestamp.difference(windowStart).inMilliseconds / 1000.0;
       final baseColor = zoneColorResolver(reading);
       return _ColoredSpot(
-        FlSpot(xSeconds.toDouble(), reading.bpm.toDouble()),
+        FlSpot(xSeconds, reading.bpm.toDouble()),
         baseColor.withValues(alpha: opacity),
       );
     }).toList();

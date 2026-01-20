@@ -66,6 +66,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        if (!mounted) return;
         setState(() {
           _gpsAvailable = false;
           _checkingGpsAvailability = false;
@@ -75,11 +76,13 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
 
       final permission = await Geolocator.checkPermission();
       final available = permission != LocationPermission.deniedForever;
+      if (!mounted) return;
       setState(() {
         _gpsAvailable = available;
         _checkingGpsAvailability = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _gpsAvailable = false;
         _checkingGpsAvailability = false;
