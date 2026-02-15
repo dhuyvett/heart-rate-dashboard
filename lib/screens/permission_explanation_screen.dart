@@ -195,8 +195,9 @@ class _PermissionExplanationScreenState
                         child: Text(
                           'Location permission is required by Android for '
                           'Bluetooth scanning on Android 11 and below and '
-                          'enables speed/distance stats. Your location is '
-                          'not tracked.',
+                          'enables optional speed/distance stats. Location is '
+                          'used only during active sessions and stored on your '
+                          'device only.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
