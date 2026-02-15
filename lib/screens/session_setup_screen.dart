@@ -111,46 +111,15 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     );
   }
 
-  Future<void> _requestBackgroundLocationIfNeeded() async {
+  Future<void> _requestLocationPermissionIfNeeded() async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
-    final hasAlways = await Permission.locationAlways.isGranted;
-    if (hasAlways) {
-      return;
-    }
-
-    if (!mounted) return;
-    final shouldRequest = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enable background location?'),
-        content: const Text(
-          'To keep speed and altitude recording when your screen is locked, '
-          'we need background location access. This lets the app keep GPS '
-          'updates during an active session. Android will show a '
-          'persistent notification while tracking.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Only while open'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Allow in background'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldRequest != true) {
-      return;
-    }
-
     var whenInUse = await Permission.locationWhenInUse.status;
-    if (!whenInUse.isGranted) {
-      whenInUse = await Permission.locationWhenInUse.request();
+    if (whenInUse.isGranted) {
+      return;
     }
+
+    whenInUse = await Permission.locationWhenInUse.request();
     if (!whenInUse.isGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,21 +130,6 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
           ),
         );
       }
-      return;
-    }
-
-    var always = await Permission.locationAlways.status;
-    if (!always.isGranted) {
-      always = await Permission.locationAlways.request();
-    }
-    if (!always.isGranted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Background location was not granted. Tracking will pause when the screen is locked.',
-          ),
-        ),
-      );
     }
   }
 
@@ -214,7 +168,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                         _trackSpeedDistance = value ?? false;
                       });
                       if (_trackSpeedDistance) {
-                        _requestBackgroundLocationIfNeeded();
+                        _requestLocationPermissionIfNeeded();
                       }
                     }
                   : null,
