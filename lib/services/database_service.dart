@@ -638,6 +638,36 @@ class DatabaseService {
       return;
     }
 
+    double? distanceMeters;
+    final gpsSamples = await db.query(
+      _tableGpsSamples,
+      columns: ['timestamp', 'speed_mps'],
+      where: 'session_id = ?',
+      whereArgs: [activeSession.id],
+      orderBy: 'timestamp ASC',
+    );
+    if (gpsSamples.length >= 2) {
+      double totalMeters = 0;
+      for (var i = 1; i < gpsSamples.length; i++) {
+        final prev = gpsSamples[i - 1];
+        final curr = gpsSamples[i];
+        final prevTime = prev['timestamp'] as int?;
+        final currTime = curr['timestamp'] as int?;
+        final prevSpeed = (prev['speed_mps'] as num?)?.toDouble();
+        final currSpeed = (curr['speed_mps'] as num?)?.toDouble();
+        if (prevTime == null ||
+            currTime == null ||
+            prevSpeed == null ||
+            currSpeed == null) {
+          continue;
+        }
+        final deltaSeconds = (currTime - prevTime) / 1000.0;
+        if (deltaSeconds <= 0) continue;
+        totalMeters += ((prevSpeed + currSpeed) / 2) * deltaSeconds;
+      }
+      distanceMeters = totalMeters;
+    }
+
     final avgHr = (statRow['avg_hr'] as num?)?.round();
     final minHr = (statRow['min_hr'] as num?)?.toInt();
     final maxHr = (statRow['max_hr'] as num?)?.toInt();
@@ -654,6 +684,7 @@ class DatabaseService {
         'avg_hr': avgHr,
         'min_hr': minHr,
         'max_hr': maxHr,
+        if (distanceMeters != null) 'distance_meters': distanceMeters,
       },
       where: 'id = ?',
       whereArgs: [activeSession.id],

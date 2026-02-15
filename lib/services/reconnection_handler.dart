@@ -321,6 +321,7 @@ class ReconnectionHandler implements ReconnectionController {
         lastKnownBpm: _lastKnownBpm,
       ),
     );
+    _bluetoothService.setReconnecting();
 
     try {
       // Attempt to connect

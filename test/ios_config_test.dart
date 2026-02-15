@@ -58,6 +58,37 @@ void main() {
       );
     });
 
+    test('Info.plist contains Bluetooth usage descriptions', () {
+      final infoPlistFile = File('ios/Runner/Info.plist');
+      expect(
+        infoPlistFile.existsSync(),
+        isTrue,
+        reason: 'Info.plist file should exist',
+      );
+
+      final content = infoPlistFile.readAsStringSync();
+
+      expect(
+        content.contains('<key>NSBluetoothAlwaysUsageDescription</key>'),
+        isTrue,
+        reason:
+            'Info.plist should contain NSBluetoothAlwaysUsageDescription key',
+      );
+      expect(
+        content.contains(
+          'Bluetooth access is required to connect to your heart rate monitor.',
+        ),
+        isTrue,
+        reason: 'Bluetooth usage description should be present',
+      );
+      expect(
+        content.contains('<key>NSBluetoothPeripheralUsageDescription</key>'),
+        isTrue,
+        reason:
+            'Info.plist should contain NSBluetoothPeripheralUsageDescription key',
+      );
+    });
+
     test('project.pbxproj contains correct bundle identifier for Runner', () {
       final projectFile = File('ios/Runner.xcodeproj/project.pbxproj');
       expect(

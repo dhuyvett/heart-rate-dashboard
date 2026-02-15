@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/disclaimer_content.dart';
 
 /// First-launch disclaimer explaining the non-medical nature of the app.
 class DisclaimerScreen extends StatelessWidget {
@@ -39,22 +40,10 @@ class DisclaimerScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        'Heart rate levels and ranges in this app are based on '
-                        'publicly available formulas and are estimates only. This '
-                        'application is not a medical device and the information '
-                        'displayed should not be treated as medical advice, '
-                        'diagnosis, or treatment.',
-                        style: theme.textTheme.bodyLarge,
+                      DisclaimerContent(
+                        textStyle: theme.textTheme.bodyLarge,
                         textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Consult your doctor before starting or changing any '
-                        'exercise program. Stop using the app and seek medical '
-                        'attention if you feel unwell.',
-                        style: theme.textTheme.bodyLarge,
-                        textAlign: TextAlign.center,
+                        spacing: 16.0,
                       ),
                     ],
                   ),

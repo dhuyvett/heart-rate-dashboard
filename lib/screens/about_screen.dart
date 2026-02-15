@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/disclaimer_content.dart';
 
 /// About screen displaying app information and credits.
 class AboutScreen extends StatelessWidget {
@@ -66,7 +67,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'A privacy-first heart rate monitoring application for tracking heart rate during workouts.',
+                    'A privacy-first heart rate monitoring application for tracking heart rate during workouts. Requires a BLE heart rate monitor (for example, a Polar H10 chest strap).',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 12),
@@ -86,9 +87,40 @@ class AboutScreen extends StatelessWidget {
                     'Heart rate zone visualization using Hopkins Medicine methodology',
                   ),
                   _buildFeatureItem(theme, 'Local-only encrypted data storage'),
-                  _buildFeatureItem(
-                    theme,
-                    'Cross-platform support (Android, iOS, Web, Desktop)',
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Disclaimer
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Disclaimer',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DisclaimerContent(
+                    textStyle: theme.textTheme.bodyMedium,
+                    textAlign: TextAlign.start,
+                    spacing: 12.0,
                   ),
                 ],
               ),
@@ -118,7 +150,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Your health data is stored locally on your device and is encrypted with SQLCipher. No data is transmitted to external servers.',
+                    'Your data is stored locally on your device and is encrypted with SQLCipher. No data is transmitted to external servers.',
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],

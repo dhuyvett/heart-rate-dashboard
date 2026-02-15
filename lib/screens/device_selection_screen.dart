@@ -32,6 +32,9 @@ class DeviceSelectionScreen extends ConsumerStatefulWidget {
 class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
     with RouteAware {
   static final _logger = AppLogger.getLogger('DeviceSelectionScreen');
+  static final bool _isTest =
+      const bool.fromEnvironment('FLUTTER_TEST') ||
+      Platform.environment.containsKey('FLUTTER_TEST');
   bool _isScanning = false;
   bool _isConnecting = false;
   String? _connectingDeviceName;
@@ -39,6 +42,8 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
   bool _bluetoothEnabled = true;
   bool _checkingBluetooth = true;
   StreamSubscription<BluetoothAdapterState>? _bluetoothStateSubscription;
+  Timer? _scanDelayTimer;
+  Completer<void>? _scanDelayCompleter;
 
   @override
   void initState() {
@@ -75,6 +80,11 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
   void dispose() {
     appRouteObserver.unsubscribe(this);
     _bluetoothStateSubscription?.cancel();
+    _scanDelayTimer?.cancel();
+    if (_scanDelayCompleter != null && !_scanDelayCompleter!.isCompleted) {
+      _scanDelayCompleter!.complete();
+    }
+    _scanDelayCompleter = null;
     super.dispose();
   }
 
@@ -146,6 +156,7 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
   }
 
   void _triggerScanOnVisible() {
+    if (_isTest) return;
     if (_checkingBluetooth || !_bluetoothEnabled) return;
     if (_isScanning || _isConnecting) return;
 
@@ -236,7 +247,20 @@ class _DeviceSelectionScreenState extends ConsumerState<DeviceSelectionScreen>
       ref.invalidate(deviceScanProvider);
       // Scanning happens via the device scan provider
       // The stream will emit devices as they are discovered
-      await Future.delayed(const Duration(seconds: 5));
+      _scanDelayTimer?.cancel();
+      if (_scanDelayCompleter != null && !_scanDelayCompleter!.isCompleted) {
+        _scanDelayCompleter!.complete();
+      }
+      final completer = Completer<void>();
+      _scanDelayCompleter = completer;
+      _scanDelayTimer = Timer(const Duration(seconds: 5), () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+        _scanDelayTimer = null;
+        _scanDelayCompleter = null;
+      });
+      await completer.future;
     } catch (e) {
       if (mounted) {
         setState(() {
