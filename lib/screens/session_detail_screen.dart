@@ -372,13 +372,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               _buildSessionHeader(theme),
               const SizedBox(height: 16),
               SizedBox(
-                height: _chartHeight,
-                child: _buildChart(theme: theme, settings: settings),
+                height: _zoneChartHeight,
+                child: _buildZoneTimeChart(theme: theme, settings: settings),
               ),
               const SizedBox(height: 16),
               SizedBox(
-                height: _zoneChartHeight,
-                child: _buildZoneTimeChart(theme: theme, settings: settings),
+                height: _chartHeight,
+                child: _buildChart(theme: theme, settings: settings),
               ),
               const SizedBox(height: 16),
               _buildGpsCharts(theme: theme, settings: settings),
@@ -422,6 +422,39 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
+                'Altitude ($altitudeUnitLabel)',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: GpsMetricChart(
+                  samples: _gpsSamples,
+                  sessionStart: _currentSession.startTime,
+                  windowSeconds: windowSeconds,
+                  lineColor: theme.colorScheme.tertiary,
+                  emptyMessage: 'No altitude data recorded for this session',
+                  valueSelector: (sample) {
+                    final altitudeMeters = sample.altitudeMeters;
+                    if (altitudeMeters == null) return null;
+                    return settings.useMiles
+                        ? altitudeMeters * 3.28084
+                        : altitudeMeters;
+                  },
+                  valueFormatter: (value) => value.toStringAsFixed(1),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: _chartHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 'Speed ($speedUnitLabel)',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -442,39 +475,6 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                     return settings.useMiles
                         ? speedMps * 2.23694
                         : speedMps * 3.6;
-                  },
-                  valueFormatter: (value) => value.toStringAsFixed(1),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: _chartHeight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Altitude ($altitudeUnitLabel)',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: GpsMetricChart(
-                  samples: _gpsSamples,
-                  sessionStart: _currentSession.startTime,
-                  windowSeconds: windowSeconds,
-                  lineColor: theme.colorScheme.tertiary,
-                  emptyMessage: 'No altitude data recorded for this session',
-                  valueSelector: (sample) {
-                    final altitudeMeters = sample.altitudeMeters;
-                    if (altitudeMeters == null) return null;
-                    return settings.useMiles
-                        ? altitudeMeters * 3.28084
-                        : altitudeMeters;
                   },
                   valueFormatter: (value) => value.toStringAsFixed(1),
                 ),
