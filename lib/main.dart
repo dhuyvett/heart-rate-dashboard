@@ -220,9 +220,19 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
   Future<void> _requestPermissions() async {
     try {
       if (Platform.isAndroid) {
-        await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
-        // Location is optional on Android 12+ but still needed for GPS features.
-        await Permission.locationWhenInUse.request();
+        final requiresLocation = await _requiresAndroidLocationPermission();
+        if (requiresLocation) {
+          await [
+            Permission.bluetoothScan,
+            Permission.bluetoothConnect,
+            Permission.locationWhenInUse,
+          ].request();
+        } else {
+          await [
+            Permission.bluetoothScan,
+            Permission.bluetoothConnect,
+          ].request();
+        }
       } else if (Platform.isIOS) {
         await Permission.bluetooth.request();
       }

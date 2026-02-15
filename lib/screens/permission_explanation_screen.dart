@@ -83,12 +83,20 @@ class _PermissionExplanationScreenState
 
       if (Platform.isAndroid) {
         final requiresLocation = await _requiresAndroidLocationPermission();
-        // Request Android permissions
-        statuses = await [
-          Permission.bluetoothScan,
-          Permission.bluetoothConnect,
-          Permission.locationWhenInUse,
-        ].request();
+        // Request Android permissions. Location is required for BLE scanning
+        // only on Android 11 and below.
+        if (requiresLocation) {
+          statuses = await [
+            Permission.bluetoothScan,
+            Permission.bluetoothConnect,
+            Permission.locationWhenInUse,
+          ].request();
+        } else {
+          statuses = await [
+            Permission.bluetoothScan,
+            Permission.bluetoothConnect,
+          ].request();
+        }
         final bluetoothScanGranted =
             statuses[Permission.bluetoothScan]?.isGranted ?? false;
         final bluetoothConnectGranted =
