@@ -9,6 +9,7 @@ import 'providers/settings_provider.dart';
 import 'services/database_service.dart';
 import 'screens/device_selection_screen.dart';
 import 'screens/disclaimer_screen.dart';
+import 'screens/permission_explanation_screen.dart';
 import 'utils/app_logger.dart';
 import 'utils/route_observer.dart';
 
@@ -73,7 +74,7 @@ class MyApp extends ConsumerWidget {
 /// Navigation flow:
 /// 1. Show a one-time safety disclaimer on first launch.
 /// 2. If permissions granted -> DeviceSelectionScreen
-/// 3. If permissions denied -> permission request prompt
+/// 3. If permissions denied -> PermissionExplanationScreen
 class InitialRouteResolver extends StatefulWidget {
   const InitialRouteResolver({super.key});
 
@@ -217,36 +218,6 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
     }
   }
 
-  Future<void> _requestPermissions() async {
-    try {
-      if (Platform.isAndroid) {
-        final requiresLocation = await _requiresAndroidLocationPermission();
-        if (requiresLocation) {
-          await [
-            Permission.bluetoothScan,
-            Permission.bluetoothConnect,
-            Permission.locationWhenInUse,
-          ].request();
-        } else {
-          await [
-            Permission.bluetoothScan,
-            Permission.bluetoothConnect,
-          ].request();
-        }
-      } else if (Platform.isIOS) {
-        await Permission.bluetooth.request();
-      }
-    } catch (e, stackTrace) {
-      _permLogger.e(
-        'Permission request failed',
-        error: e,
-        stackTrace: stackTrace,
-      );
-    } finally {
-      await _checkPermissions();
-    }
-  }
-
   Future<void> _maybeShowDesktopWarning(BuildContext context) async {
     if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
       return;
@@ -320,34 +291,6 @@ class _InitialRouteResolverState extends State<InitialRouteResolver> {
     }
 
     // Permission denied
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'Bluetooth permission is required to connect to heart rate monitors.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Location access is optional and only used for GPS speed and distance.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _requestPermissions,
-                child: const Text('Request Permission'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return const PermissionExplanationScreen();
   }
 }
