@@ -531,7 +531,7 @@ class _HeartRateMonitoringScreenState
 
       _positionSubscription?.cancel();
       final LocationSettings locationSettings;
-      if (Platform.isAndroid && permission == LocationPermission.always) {
+      if (Platform.isAndroid) {
         locationSettings = AndroidSettings(
           accuracy: LocationAccuracy.best,
           distanceFilter: 5,
