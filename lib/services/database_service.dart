@@ -684,7 +684,7 @@ class DatabaseService {
         'avg_hr': avgHr,
         'min_hr': minHr,
         'max_hr': maxHr,
-        if (distanceMeters != null) 'distance_meters': distanceMeters,
+        'distance_meters': ?distanceMeters,
       },
       where: 'id = ?',
       whereArgs: [activeSession.id],
