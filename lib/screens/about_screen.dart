@@ -1,10 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/disclaimer_content.dart';
 
 /// About screen displaying app information and credits.
-class AboutScreen extends StatelessWidget {
-  const AboutScreen({super.key});
+class AboutScreen extends StatefulWidget {
+  const AboutScreen({super.key, this.packageInfoLoader});
+
+  final Future<PackageInfo> Function()? packageInfoLoader;
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _versionLabel = 'Version';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersionLabel();
+  }
+
+  Future<void> _loadVersionLabel() async {
+    try {
+      final packageInfo =
+          await (widget.packageInfoLoader?.call() ??
+              PackageInfo.fromPlatform());
+      final buildNumber = packageInfo.buildNumber.trim();
+      final suffix = buildNumber.isNotEmpty ? ' ($buildNumber)' : '';
+      final label = 'Version ${packageInfo.version}$suffix';
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _versionLabel = label;
+      });
+    } catch (_) {
+      // Keep a generic fallback when package metadata is unavailable.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +75,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Version 1.0.0',
+                    _versionLabel,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),

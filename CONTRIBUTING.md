@@ -179,10 +179,16 @@ flutter build linux            # or windows, macos
 
 ## CI/CD Release Setup
 
-The GitHub Actions workflow in `.github/workflows/build.yml` is configured as:
-- Pull requests to `main`: run analyze/tests, build a debug APK, and upload it as a workflow artifact.
+Release automation is split across two workflows:
+- `.github/workflows/build.yml`
+  - Pull requests to `main`: run analyze/tests, build a debug APK, and upload
+    it as a workflow artifact.
+  - GitHub Release `created`: build signed Android release artifacts and attach
+    both `app-release.apk` and `app-release.aab` to the release.
+- `.github/workflows/publish-play.yml`
+  - GitHub Release `published`: download `app-release.aab` from release assets
+    and upload it to Google Play.
 - Push/merge to `main`: no workflow run.
-- GitHub Release `published`: build signed Android release artifacts, attach APK to the release, and upload AAB to Google Play.
 
 ### Required GitHub Secrets
 
@@ -228,16 +234,28 @@ Notes:
 - `GCP_PLAY_SA_EMAIL`: service account email
   (for example `play-publisher@my-project.iam.gserviceaccount.com`)
 
+### Release Tag Format
+
+The release workflow requires the GitHub Release tag to be exactly:
+- `v<major>.<minor>.<patch>` (for example `v1.2.3`)
+
+Notes:
+- Tags like `1.2.3` (missing `v`) or `v1.2` are rejected by CI.
+- The workflow uses this tag as the app build name and
+  `github.run_number` as the build number.
+
 ### First-Time Validation Checklist
 
 1. Open a test PR to `main` and confirm the workflow uploads `app-debug.apk` in the run artifacts.
 2. Download and install that debug APK on a device to verify it launches.
 3. Ensure all required GitHub secrets are set and non-empty.
 4. Set repository variable `PLAY_TRACK=internal` for a safe first release upload.
-5. Create a GitHub Release (published) and confirm:
+5. Create a GitHub Release (draft or prerelease) and confirm:
 - `app-release.apk` is attached to the GitHub release.
-- The AAB appears in Play Console on the internal testing track.
-6. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
+- `app-release.aab` is attached to the GitHub release.
+6. Publish the GitHub Release and confirm the AAB appears in Play Console on
+   the internal testing track.
+7. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
 
 ## Code Style Guidelines
 

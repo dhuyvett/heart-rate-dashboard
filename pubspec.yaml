@@ -84,6 +84,9 @@ dependencies:
   # Device information for key derivation
   device_info_plus: ^12.2.0
 
+  # App version/build metadata for About screen
+  package_info_plus: ^9.0.0
+
   # Location services for speed/distance tracking
   geolocator: ^14.0.1
 
