@@ -177,6 +177,68 @@ flutter build web
 flutter build linux            # or windows, macos
 ```
 
+## CI/CD Release Setup
+
+The GitHub Actions workflow in `.github/workflows/build.yml` is configured as:
+- Pull requests to `main`: run analyze/tests, build a debug APK, and upload it as a workflow artifact.
+- Push/merge to `main`: no workflow run.
+- GitHub Release `published`: build signed Android release artifacts, attach APK to the release, and upload AAB to Google Play.
+
+### Required GitHub Secrets
+
+Set these in **GitHub repo -> Settings -> Secrets and variables -> Actions**:
+- `ANDROID_UPLOAD_KEYSTORE_BASE64`
+- `ANDROID_UPLOAD_STORE_PASSWORD`
+- `ANDROID_UPLOAD_KEY_PASSWORD`
+- `ANDROID_UPLOAD_KEY_ALIAS`
+- `GCP_WIF_PROVIDER`
+- `GCP_PLAY_SA_EMAIL`
+
+Optional repo variable:
+- `PLAY_TRACK` (defaults to `internal` if not set)
+
+### Generate `ANDROID_UPLOAD_KEYSTORE_BASE64`
+
+From the directory containing your upload keystore (`.jks`):
+
+```bash
+base64 -w 0 upload-keystore.jks
+```
+
+Copy the output into the `ANDROID_UPLOAD_KEYSTORE_BASE64` secret.
+
+Notes:
+- On macOS, use: `base64 upload-keystore.jks | tr -d '\n'`
+- Keep this key and all passwords private. Do not commit them.
+
+### Configure Play Service Account with Workload Identity Federation
+
+1. In Google Cloud, create a service account for Play publishing.
+2. Create a Workload Identity Pool + Provider that trusts this GitHub repository.
+3. Grant the GitHub principal from that provider permission to impersonate the
+   Play publishing service account (`roles/iam.workloadIdentityUser`).
+4. In Play Console, grant that service account access to this app.
+5. Assign release permissions for your target track:
+- Internal testing only: permission to release to testing tracks.
+- Production releases: permission to release to production.
+6. Set GitHub secrets:
+- `GCP_WIF_PROVIDER`: full provider resource name
+  (for example
+  `projects/123456789/locations/global/workloadIdentityPools/github/providers/repo`)
+- `GCP_PLAY_SA_EMAIL`: service account email
+  (for example `play-publisher@my-project.iam.gserviceaccount.com`)
+
+### First-Time Validation Checklist
+
+1. Open a test PR to `main` and confirm the workflow uploads `app-debug.apk` in the run artifacts.
+2. Download and install that debug APK on a device to verify it launches.
+3. Ensure all required GitHub secrets are set and non-empty.
+4. Set repository variable `PLAY_TRACK=internal` for a safe first release upload.
+5. Create a GitHub Release (published) and confirm:
+- `app-release.apk` is attached to the GitHub release.
+- The AAB appears in Play Console on the internal testing track.
+6. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
+
 ## Code Style Guidelines
 
 This project follows the official Dart style guide and uses `flutter_lints` for code analysis.

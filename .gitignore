@@ -44,4 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android signing files (local/CI generated)
+/android/key.properties
+/android/upload-keystore.jks
+/upload-keystore.jks
+
 .claude/
