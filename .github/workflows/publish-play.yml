@@ -1,0 +1,87 @@
+name: Publish Release to Google Play
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  upload-release-assets-to-play:
+    name: Upload Release AAB to Google Play
+    runs-on: ubuntu-latest
+    env:
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+
+          required_assets=("app-release.apk" "app-release.aab")
+          max_attempts=5
+          sleep_seconds=300
+
+          echo "Waiting for required assets on release ID: $RELEASE_ID"
+          for attempt in $(seq 1 "$max_attempts"); do
+            asset_names="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets | map(.name) | join("\n")')"
+            missing=0
+
+            for asset in "${required_assets[@]}"; do
+              if ! echo "$asset_names" | grep -Fxq "$asset"; then
+                missing=1
+              fi
+            done
+
+            if [ "$missing" -eq 0 ]; then
+              echo "Required assets found on attempt $attempt."
+              break
+            fi
+
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Timed out waiting for required assets on release ID $RELEASE_ID"
+              echo "Assets currently attached:"
+              echo "$asset_names"
+              exit 1
+            fi
+
+            echo "Attempt $attempt/$max_attempts: assets not ready yet, retrying in ${sleep_seconds}s..."
+            sleep "$sleep_seconds"
+          done
+
+          apk_asset_id="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets[] | select(.name=="app-release.apk") | .id')"
+          aab_asset_id="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets[] | select(.name=="app-release.aab") | .id')"
+
+          gh api "repos/$REPO/releases/assets/$apk_asset_id" \
+            -H "Accept: application/octet-stream" > release-assets/app-release.apk
+          gh api "repos/$REPO/releases/assets/$aab_asset_id" \
+            -H "Accept: application/octet-stream" > release-assets/app-release.aab
+
+      - name: Verify expected release assets
+        run: |
+          test -f release-assets/app-release.apk
+          test -f release-assets/app-release.aab
+          echo "Found release assets:"
+          ls -lh release-assets
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_PLAY_SA_EMAIL }}
+
+      - name: Upload App Bundle to Google Play
+        uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: org.dhuyvetter.heart_rate_dashboard
+          releaseFiles: release-assets/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: completed
