@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: create-release-from-main
@@ -19,6 +20,8 @@ jobs:
   create-release:
     name: Build Artifacts and Publish Release
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release_meta.outputs.tag }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
@@ -47,6 +50,11 @@ jobs:
         with:
           release_version: ${{ inputs.release_version }}
           build_number: ${{ github.run_number }}
+
+      - name: Capture release metadata
+        id: release_meta
+        run: |
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create Android signing files
         uses: ./.github/actions/create-android-signing-files
@@ -89,3 +97,44 @@ jobs:
           gh release edit "$TAG" \
             --repo "$REPO" \
             --draft=false
+
+  upload-to-play:
+    name: Upload Release AAB to Google Play
+    runs-on: ubuntu-latest
+    needs: create-release
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      TAG: ${{ needs.create-release.outputs.release_tag }}
+      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+    steps:
+      - name: Download release AAB asset
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh release download "$TAG" \
+            --repo "$REPO" \
+            --pattern "app-release.aab" \
+            --dir release-assets
+
+      - name: Verify expected release assets
+        run: |
+          test -f release-assets/app-release.aab
+          echo "Found release assets:"
+          ls -lh release-assets
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_PLAY_SA_EMAIL }}
+
+      - name: Upload App Bundle to Google Play
+        uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: org.dhuyvetter.heart_rate_dashboard
+          releaseFiles: release-assets/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: completed

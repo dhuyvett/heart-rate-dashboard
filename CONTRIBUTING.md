@@ -179,7 +179,7 @@ flutter build linux            # or windows, macos
 
 ## CI/CD Release Setup
 
-Release automation uses three workflows:
+Release automation uses two workflows:
 - `.github/workflows/build.yml`
   - Trigger: pull requests to `main`
   - Runs analyzer/tests, posts coverage summary/annotation, builds debug APK,
@@ -187,13 +187,13 @@ Release automation uses three workflows:
   - Includes terminal check job: `Builds Succeeded` (for branch protection).
 - `.github/workflows/create-release.yml`
   - Trigger: manual (`workflow_dispatch`) only.
-  - Builds from `main`, resolves release tag, builds signed release APK/AAB,
-    creates a draft release, uploads assets, then publishes the release.
+  - Job 1: builds from `main`, resolves release tag, builds signed release
+    APK/AAB, creates a draft release, uploads assets, then publishes the
+    release.
+  - Job 2: runs after publish in the same workflow, downloads
+    `app-release.aab`, and uploads it to Google Play via Workload Identity
+    Federation.
   - This ordering is required because immutable releases are enabled.
-- `.github/workflows/publish-play.yml`
-  - Trigger: GitHub Release `published`.
-  - Downloads `app-release.aab` from the triggering release and uploads it to
-    Google Play via Workload Identity Federation.
 - Push/merge to `main`: no workflow run.
 
 ### Required GitHub Secrets
@@ -204,7 +204,6 @@ Set these in **GitHub repo -> Settings -> Secrets and variables -> Actions**:
   - `ANDROID_UPLOAD_STORE_PASSWORD`
   - `ANDROID_UPLOAD_KEY_PASSWORD`
   - `ANDROID_UPLOAD_KEY_ALIAS`
-- For `publish-play.yml`:
   - `GCP_WIF_PROVIDER`
   - `GCP_PLAY_SA_EMAIL`
 
@@ -267,8 +266,8 @@ Notes:
 6. Confirm the workflow created and published a release with attached assets:
 - `app-release.apk`
 - `app-release.aab`
-7. Confirm the `publish-play.yml` workflow uploaded the AAB to Play Console on
-   the internal testing track.
+7. Confirm the release workflow uploaded the AAB to Play Console on the
+   internal testing track.
 8. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
 
 ## Code Style Guidelines
