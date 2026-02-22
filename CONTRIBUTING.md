@@ -179,26 +179,34 @@ flutter build linux            # or windows, macos
 
 ## CI/CD Release Setup
 
-Release automation is split across two workflows:
+Release automation uses three workflows:
 - `.github/workflows/build.yml`
-  - Pull requests to `main`: run analyze/tests, build a debug APK, and upload
-    it as a workflow artifact.
-  - GitHub Release `created`: build signed Android release artifacts and attach
-    both `app-release.apk` and `app-release.aab` to the release.
+  - Trigger: pull requests to `main`
+  - Runs analyzer/tests, posts coverage summary/annotation, builds debug APK,
+    and uploads PR artifact.
+  - Includes terminal check job: `Builds Succeeded` (for branch protection).
+- `.github/workflows/create-release.yml`
+  - Trigger: manual (`workflow_dispatch`) only.
+  - Builds from `main`, resolves release tag, builds signed release APK/AAB,
+    creates a draft release, uploads assets, then publishes the release.
+  - This ordering is required because immutable releases are enabled.
 - `.github/workflows/publish-play.yml`
-  - GitHub Release `published`: download `app-release.aab` from release assets
-    and upload it to Google Play.
+  - Trigger: GitHub Release `published`.
+  - Downloads `app-release.aab` from the triggering release and uploads it to
+    Google Play via Workload Identity Federation.
 - Push/merge to `main`: no workflow run.
 
 ### Required GitHub Secrets
 
 Set these in **GitHub repo -> Settings -> Secrets and variables -> Actions**:
-- `ANDROID_UPLOAD_KEYSTORE_BASE64`
-- `ANDROID_UPLOAD_STORE_PASSWORD`
-- `ANDROID_UPLOAD_KEY_PASSWORD`
-- `ANDROID_UPLOAD_KEY_ALIAS`
-- `GCP_WIF_PROVIDER`
-- `GCP_PLAY_SA_EMAIL`
+- For `create-release.yml`:
+  - `ANDROID_UPLOAD_KEYSTORE_BASE64`
+  - `ANDROID_UPLOAD_STORE_PASSWORD`
+  - `ANDROID_UPLOAD_KEY_PASSWORD`
+  - `ANDROID_UPLOAD_KEY_ALIAS`
+- For `publish-play.yml`:
+  - `GCP_WIF_PROVIDER`
+  - `GCP_PLAY_SA_EMAIL`
 
 Optional repo variable:
 - `PLAY_TRACK` (defaults to `internal` if not set)
@@ -236,13 +244,17 @@ Notes:
 
 ### Release Tag Format
 
-The release workflow requires the GitHub Release tag to be exactly:
-- `v<major>.<minor>.<patch>` (for example `v1.2.3`)
+`create-release.yml` supports an optional `release_version` input:
+- `X.Y.Z` or `vX.Y.Z` (for example `1.2.3` or `v1.2.3`)
+
+If `release_version` is not provided:
+- The workflow automatically selects the next patch semantic version based on
+  existing release tags (for example, `v1.4.9` -> `v1.4.10`).
 
 Notes:
-- Tags like `1.2.3` (missing `v`) or `v1.2` are rejected by CI.
-- The workflow uses this tag as the app build name and
-  `github.run_number` as the build number.
+- Invalid versions (for example `v1.2`) are rejected.
+- The workflow uses this tag as the app build name.
+- `github.run_number` is used as the app build number.
 
 ### First-Time Validation Checklist
 
@@ -250,12 +262,14 @@ Notes:
 2. Download and install that debug APK on a device to verify it launches.
 3. Ensure all required GitHub secrets are set and non-empty.
 4. Set repository variable `PLAY_TRACK=internal` for a safe first release upload.
-5. Create a GitHub Release (draft or prerelease) and confirm:
-- `app-release.apk` is attached to the GitHub release.
-- `app-release.aab` is attached to the GitHub release.
-6. Publish the GitHub Release and confirm the AAB appears in Play Console on
+5. Run `create-release.yml` from GitHub Actions:
+- Optionally provide `release_version`; leave empty to auto-select next patch version.
+6. Confirm the workflow created and published a release with attached assets:
+- `app-release.apk`
+- `app-release.aab`
+7. Confirm the `publish-play.yml` workflow uploaded the AAB to Play Console on
    the internal testing track.
-7. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
+8. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
 
 ## Code Style Guidelines
 

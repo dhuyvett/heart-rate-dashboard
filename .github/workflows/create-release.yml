@@ -1,0 +1,91 @@
+name: Create and Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Optional semantic version (for example 1.2.3 or v1.2.3)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: create-release-from-main
+  cancel-in-progress: false
+
+jobs:
+  create-release:
+    name: Build Artifacts and Publish Release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Resolve release tag
+        uses: ./.github/actions/resolve-release-tag
+        with:
+          release_version: ${{ inputs.release_version }}
+          build_number: ${{ github.run_number }}
+
+      - name: Create Android signing files
+        uses: ./.github/actions/create-android-signing-files
+        with:
+          keystore_base64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          store_password: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          key_password: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          key_alias: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-name="$BUILD_NAME" \
+            --build-number="$BUILD_NUMBER"
+
+      - name: Build release App Bundle
+        run: |
+          flutter build appbundle --release \
+            --build-name="$BUILD_NAME" \
+            --build-number="$BUILD_NUMBER"
+
+      - name: Create draft release
+        run: |
+          gh release create "$TAG" \
+            --repo "$REPO" \
+            --target "$COMMIT_SHA" \
+            --title "$TAG" \
+            --notes "Automated release for $TAG." \
+            --draft
+
+      - name: Upload release assets
+        run: |
+          gh release upload "$TAG" \
+            --repo "$REPO" \
+            build/app/outputs/flutter-apk/app-release.apk \
+            build/app/outputs/bundle/release/app-release.aab
+
+      - name: Publish release
+        run: |
+          gh release edit "$TAG" \
+            --repo "$REPO" \
+            --draft=false

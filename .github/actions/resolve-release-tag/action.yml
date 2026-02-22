@@ -1,0 +1,87 @@
+name: Resolve Release Tag
+description: Resolve and validate release tag, then export release metadata to GITHUB_ENV.
+inputs:
+  release_version:
+    description: Optional semantic version input (X.Y.Z or vX.Y.Z)
+    required: false
+    default: ""
+  build_number:
+    description: Build number to export
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Resolve tag
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.release_version }}
+        BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
+      run: |
+        set -euo pipefail
+
+        validate_semver() {
+          local v="$1"
+          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+        }
+
+        if [ -n "${INPUT_VERSION}" ]; then
+          CANDIDATE="${INPUT_VERSION#v}"
+          if ! validate_semver "$CANDIDATE"; then
+            echo "Invalid release_version: ${INPUT_VERSION}"
+            echo "Expected format: X.Y.Z or vX.Y.Z"
+            exit 1
+          fi
+          TAG="v${CANDIDATE}"
+        else
+          max_major=0
+          max_minor=0
+          max_patch=-1
+
+          mapfile -t tags < <(gh api "repos/$REPO/releases?per_page=100" --paginate --jq '.[].tag_name')
+
+          for tag in "${tags[@]}"; do
+            if [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              major="${BASH_REMATCH[1]}"
+              minor="${BASH_REMATCH[2]}"
+              patch="${BASH_REMATCH[3]}"
+
+              if [ "$major" -gt "$max_major" ] || \
+                 { [ "$major" -eq "$max_major" ] && [ "$minor" -gt "$max_minor" ]; } || \
+                 { [ "$major" -eq "$max_major" ] && [ "$minor" -eq "$max_minor" ] && [ "$patch" -gt "$max_patch" ]; }; then
+                max_major="$major"
+                max_minor="$minor"
+                max_patch="$patch"
+              fi
+            fi
+          done
+
+          if [ "$max_patch" -lt 0 ]; then
+            TAG="v0.0.1"
+          else
+            next_patch=$((max_patch + 1))
+            TAG="v${max_major}.${max_minor}.${next_patch}"
+          fi
+        fi
+
+        if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+          echo "Release $TAG already exists."
+          exit 1
+        fi
+
+        if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists."
+          exit 1
+        fi
+
+        BUILD_NAME="${TAG#v}"
+        COMMIT_SHA="$(git rev-parse HEAD)"
+
+        echo "TAG=$TAG" >> "$GITHUB_ENV"
+        echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
+        echo "BUILD_NUMBER=$BUILD_NUMBER_INPUT" >> "$GITHUB_ENV"
+        echo "COMMIT_SHA=$COMMIT_SHA" >> "$GITHUB_ENV"
+
+        echo "Resolved release tag: $TAG"
+        echo "Build name: $BUILD_NAME"
+        echo "Build number: $BUILD_NUMBER_INPUT"
+        echo "Release commit SHA: $COMMIT_SHA"
