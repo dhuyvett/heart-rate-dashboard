@@ -24,48 +24,22 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
 
-          required_assets=("app-release.apk" "app-release.aab")
-          max_attempts=5
-          sleep_seconds=300
+          asset_names="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets | map(.name) | join("\n")')"
+          echo "Assets attached to release ID $RELEASE_ID:"
+          echo "$asset_names"
 
-          echo "Waiting for required assets on release ID: $RELEASE_ID"
-          for attempt in $(seq 1 "$max_attempts"); do
-            asset_names="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets | map(.name) | join("\n")')"
-            missing=0
+          if ! echo "$asset_names" | grep -Fxq "app-release.aab"; then
+            echo "Missing required asset: app-release.aab"
+            exit 1
+          fi
 
-            for asset in "${required_assets[@]}"; do
-              if ! echo "$asset_names" | grep -Fxq "$asset"; then
-                missing=1
-              fi
-            done
-
-            if [ "$missing" -eq 0 ]; then
-              echo "Required assets found on attempt $attempt."
-              break
-            fi
-
-            if [ "$attempt" -eq "$max_attempts" ]; then
-              echo "Timed out waiting for required assets on release ID $RELEASE_ID"
-              echo "Assets currently attached:"
-              echo "$asset_names"
-              exit 1
-            fi
-
-            echo "Attempt $attempt/$max_attempts: assets not ready yet, retrying in ${sleep_seconds}s..."
-            sleep "$sleep_seconds"
-          done
-
-          apk_asset_id="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets[] | select(.name=="app-release.apk") | .id')"
           aab_asset_id="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq '.assets[] | select(.name=="app-release.aab") | .id')"
 
-          gh api "repos/$REPO/releases/assets/$apk_asset_id" \
-            -H "Accept: application/octet-stream" > release-assets/app-release.apk
           gh api "repos/$REPO/releases/assets/$aab_asset_id" \
             -H "Accept: application/octet-stream" > release-assets/app-release.aab
 
       - name: Verify expected release assets
         run: |
-          test -f release-assets/app-release.apk
           test -f release-assets/app-release.aab
           echo "Found release assets:"
           ls -lh release-assets
