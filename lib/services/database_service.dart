@@ -6,6 +6,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/gps_sample.dart';
 import '../models/heart_rate_reading.dart';
+import '../models/session_pause_interval.dart';
 import '../models/workout_session.dart';
 import '../utils/app_logger.dart';
 import '../utils/secure_key_manager.dart';
@@ -37,13 +38,14 @@ class DatabaseService {
 
   // Database configuration
   static const String _databaseName = 'heart_rate_dashboard.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
 
   // Table names
   static const String _tableHeartRateReadings = 'heart_rate_readings';
   static const String _tableWorkoutSessions = 'workout_sessions';
   static const String _tableAppSettings = 'app_settings';
   static const String _tableGpsSamples = 'gps_samples';
+  static const String _tableSessionPauseIntervals = 'session_pause_intervals';
 
   // Private constructor for singleton
   DatabaseService._internal();
@@ -206,6 +208,27 @@ class DatabaseService {
         value TEXT
       )
     ''');
+
+    // Create session pause intervals table
+    await db.execute('''
+      CREATE TABLE $_tableSessionPauseIntervals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        pause_start INTEGER NOT NULL,
+        pause_end INTEGER,
+        FOREIGN KEY (session_id) REFERENCES $_tableWorkoutSessions (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_pause_session_id
+      ON $_tableSessionPauseIntervals (session_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_pause_start
+      ON $_tableSessionPauseIntervals (pause_start)
+    ''');
   }
 
   /// Handles database schema upgrades for future versions.
@@ -255,6 +278,28 @@ class DatabaseService {
         ON $_tableGpsSamples (timestamp)
       ''');
     }
+
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE $_tableSessionPauseIntervals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          pause_start INTEGER NOT NULL,
+          pause_end INTEGER,
+          FOREIGN KEY (session_id) REFERENCES $_tableWorkoutSessions (id)
+        )
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_pause_session_id
+        ON $_tableSessionPauseIntervals (session_id)
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_pause_start
+        ON $_tableSessionPauseIntervals (pause_start)
+      ''');
+    }
   }
 
   /// Creates a new workout session.
@@ -290,10 +335,16 @@ class DatabaseService {
     DateTime? endTime,
   }) async {
     final db = await database;
+    final resolvedEndTime = endTime ?? DateTime.now();
+    await _closeOpenPauseInterval(
+      db: db,
+      sessionId: sessionId,
+      pauseEnd: resolvedEndTime,
+    );
     await db.update(
       _tableWorkoutSessions,
       {
-        'end_time': (endTime ?? DateTime.now()).millisecondsSinceEpoch,
+        'end_time': resolvedEndTime.millisecondsSinceEpoch,
         'avg_hr': avgHr,
         'min_hr': minHr,
         'max_hr': maxHr,
@@ -346,6 +397,46 @@ class DatabaseService {
     );
 
     return await db.insert(_tableGpsSamples, sample.toMap());
+  }
+
+  /// Records when a session was paused.
+  Future<int> startPauseInterval({
+    required int sessionId,
+    DateTime? pauseStart,
+  }) async {
+    final db = await database;
+    return db.insert(_tableSessionPauseIntervals, {
+      'session_id': sessionId,
+      'pause_start': (pauseStart ?? DateTime.now()).millisecondsSinceEpoch,
+      'pause_end': null,
+    });
+  }
+
+  /// Closes the latest open pause interval for a session.
+  Future<void> endLatestPauseInterval({
+    required int sessionId,
+    DateTime? pauseEnd,
+  }) async {
+    final db = await database;
+    await _closeOpenPauseInterval(
+      db: db,
+      sessionId: sessionId,
+      pauseEnd: pauseEnd ?? DateTime.now(),
+    );
+  }
+
+  /// Retrieves completed pause intervals for a specific session.
+  Future<List<SessionPauseInterval>> getPauseIntervalsBySession(
+    int sessionId,
+  ) async {
+    final db = await database;
+    final maps = await db.query(
+      _tableSessionPauseIntervals,
+      where: 'session_id = ? AND pause_end IS NOT NULL',
+      whereArgs: [sessionId],
+      orderBy: 'pause_start ASC',
+    );
+    return maps.map((map) => SessionPauseInterval.fromMap(map)).toList();
   }
 
   /// Retrieves all heart rate readings for a specific session.
@@ -501,6 +592,13 @@ class DatabaseService {
         whereArgs: [sessionId],
       );
 
+      // Delete all pause intervals for this session
+      await txn.delete(
+        _tableSessionPauseIntervals,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+
       // Delete the session
       await txn.delete(
         _tableWorkoutSessions,
@@ -522,6 +620,9 @@ class DatabaseService {
 
       // Delete all GPS samples
       await txn.delete(_tableGpsSamples);
+
+      // Delete all pause intervals
+      await txn.delete(_tableSessionPauseIntervals);
 
       // Delete all sessions
       await txn.delete(_tableWorkoutSessions);
@@ -576,6 +677,12 @@ class DatabaseService {
 
       await txn.delete(
         _tableGpsSamples,
+        where: 'session_id IN ($placeholders)',
+        whereArgs: ids,
+      );
+
+      await txn.delete(
+        _tableSessionPauseIntervals,
         where: 'session_id IN ($placeholders)',
         whereArgs: ids,
       );
@@ -810,5 +917,26 @@ class DatabaseService {
       _database = null;
     }
     _initializationCompleter = null;
+  }
+
+  Future<void> _closeOpenPauseInterval({
+    required Database db,
+    required int sessionId,
+    required DateTime pauseEnd,
+  }) async {
+    await db.rawUpdate(
+      '''
+      UPDATE $_tableSessionPauseIntervals
+      SET pause_end = ?
+      WHERE id = (
+        SELECT id
+        FROM $_tableSessionPauseIntervals
+        WHERE session_id = ? AND pause_end IS NULL
+        ORDER BY pause_start DESC
+        LIMIT 1
+      )
+      ''',
+      [pauseEnd.millisecondsSinceEpoch, sessionId],
+    );
   }
 }

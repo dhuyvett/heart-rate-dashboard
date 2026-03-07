@@ -171,10 +171,25 @@ class SessionNotifier extends Notifier<SessionState> {
     if (!state.isActive || state.isPaused) return;
 
     // Record when pause started
-    _lastPauseTime = DateTime.now();
+    final pauseStartedAt = DateTime.now();
+    _lastPauseTime = pauseStartedAt;
 
     // Update state to paused (duration timer continues but won't update while paused)
     state = state.copyWith(isPaused: true);
+
+    final sessionId = state.currentSessionId;
+    if (sessionId != null) {
+      _databaseService
+          .startPauseInterval(sessionId: sessionId, pauseStart: pauseStartedAt)
+          .catchError((error, stackTrace) {
+            _logger.w(
+              'Error recording pause start',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            return 0;
+          });
+    }
 
     _logger.d('Session paused at $_lastPauseTime');
   }
@@ -184,15 +199,29 @@ class SessionNotifier extends Notifier<SessionState> {
   /// Accumulates the paused time and continues recording heart rate readings.
   void resumeSession() {
     if (!state.isActive || !state.isPaused) return;
+    final resumedAt = DateTime.now();
 
     // Add this pause period to total paused duration
     if (_lastPauseTime != null) {
-      final pauseDuration = DateTime.now().difference(_lastPauseTime!);
+      final pauseDuration = resumedAt.difference(_lastPauseTime!);
       _totalPausedDuration += pauseDuration;
       _logger.d(
         'Session resumed. Pause duration: $pauseDuration, Total paused: $_totalPausedDuration',
       );
       _lastPauseTime = null;
+    }
+
+    final sessionId = state.currentSessionId;
+    if (sessionId != null) {
+      _databaseService
+          .endLatestPauseInterval(sessionId: sessionId, pauseEnd: resumedAt)
+          .catchError((error, stackTrace) {
+            _logger.w(
+              'Error recording pause end',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          });
     }
 
     // Update state to not paused (timer continues and will now update duration)
@@ -244,6 +273,13 @@ class SessionNotifier extends Notifier<SessionState> {
     if (!state.isActive || state.currentSessionId == null) return;
 
     try {
+      final endedAt = DateTime.now();
+
+      if (state.isPaused && _lastPauseTime != null) {
+        _totalPausedDuration += endedAt.difference(_lastPauseTime!);
+        _lastPauseTime = null;
+      }
+
       // Stop timers and subscriptions
       _durationTimer?.cancel();
       _durationTimer = null;
@@ -263,6 +299,7 @@ class SessionNotifier extends Notifier<SessionState> {
           minHr: state.minHr!,
           maxHr: state.maxHr!,
           distanceMeters: state.distanceMeters,
+          endTime: endedAt,
         );
       }
 
