@@ -107,6 +107,7 @@ jobs:
       REPO: ${{ github.repository }}
       TAG: ${{ needs.create-release.outputs.release_tag }}
       PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+      PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
     steps:
       - name: Download release AAB asset
         run: |
@@ -137,4 +138,4 @@ jobs:
           packageName: org.dhuyvetter.heart_rate_dashboard
           releaseFiles: release-assets/app-release.aab
           track: ${{ env.PLAY_TRACK }}
-          status: completed
+          status: ${{ env.PLAY_RELEASE_STATUS }}
