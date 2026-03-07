@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/workout_session.dart';
 import '../providers/session_history_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/database_service.dart';
 import 'session_detail_screen.dart';
 
 /// Session history screen for viewing and managing past workout sessions.
@@ -26,6 +27,8 @@ class SessionHistoryScreen extends ConsumerStatefulWidget {
 class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   /// Date formatter for displaying session date/time.
   final DateFormat _dateFormat = DateFormat('MMM dd, yyyy h:mm a');
+  final Map<int, Duration> _activeDurationsBySessionId = <int, Duration>{};
+  ProviderSubscription<List<WorkoutSession>>? _sessionHistoryListener;
 
   @override
   void initState() {
@@ -34,6 +37,17 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(sessionHistoryProvider.notifier).loadSessions();
     });
+    _sessionHistoryListener = ref.listenManual<List<WorkoutSession>>(
+      sessionHistoryProvider,
+      (previous, next) => _loadActiveDurations(next),
+      fireImmediately: true,
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionHistoryListener?.close();
+    super.dispose();
   }
 
   /// Formats duration as HH:MM:SS.
@@ -295,7 +309,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   /// Builds a single session list item with swipe-to-delete.
   Widget _buildSessionListItem(WorkoutSession session, bool useMiles) {
     final theme = Theme.of(context);
-    final duration = session.getDuration();
+    final duration = _resolveActiveDuration(session);
     final dateTimeStr = _dateFormat.format(session.startTime);
     final distance = session.distanceMeters != null
         ? _formatDistance(session.distanceMeters!, useMiles)
@@ -355,5 +369,50 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         ],
       ),
     );
+  }
+
+  Duration _resolveActiveDuration(WorkoutSession session) {
+    final sessionId = session.id;
+    if (sessionId == null) {
+      return session.getDuration();
+    }
+    return _activeDurationsBySessionId[sessionId] ?? session.getDuration();
+  }
+
+  Future<void> _loadActiveDurations(List<WorkoutSession> sessions) async {
+    final sessionIds = sessions
+        .map((session) => session.id)
+        .whereType<int>()
+        .toList();
+
+    if (sessionIds.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _activeDurationsBySessionId.clear();
+      });
+      return;
+    }
+
+    try {
+      final pausedDurationsBySession = await DatabaseService.instance
+          .getPausedDurationsBySessionIds(sessionIds);
+      final resolved = <int, Duration>{};
+      for (final session in sessions) {
+        final sessionId = session.id;
+        if (sessionId == null) continue;
+        final wallClock = session.getDuration();
+        final paused = pausedDurationsBySession[sessionId] ?? Duration.zero;
+        final active = wallClock - paused;
+        resolved[sessionId] = active.isNegative ? Duration.zero : active;
+      }
+      if (!mounted) return;
+      setState(() {
+        _activeDurationsBySessionId
+          ..clear()
+          ..addAll(resolved);
+      });
+    } catch (_) {
+      // Keep wall-clock fallback when paused-duration lookup is unavailable.
+    }
   }
 }

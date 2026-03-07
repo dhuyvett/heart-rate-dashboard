@@ -30,6 +30,7 @@ class SessionNotifier extends Notifier<SessionState> {
   // Pause/resume tracking
   Duration _totalPausedDuration = Duration.zero;
   DateTime? _lastPauseTime;
+  Future<void> _pauseIntervalWriteChain = Future.value();
 
   @override
   SessionState build() {
@@ -84,6 +85,7 @@ class SessionNotifier extends Notifier<SessionState> {
       // Reset pause tracking
       _totalPausedDuration = Duration.zero;
       _lastPauseTime = null;
+      _pauseIntervalWriteChain = Future.value();
 
       // Start duration timer (updates every second)
       _durationTimer?.cancel();
@@ -179,16 +181,18 @@ class SessionNotifier extends Notifier<SessionState> {
 
     final sessionId = state.currentSessionId;
     if (sessionId != null) {
-      _databaseService
-          .startPauseInterval(sessionId: sessionId, pauseStart: pauseStartedAt)
-          .catchError((error, stackTrace) {
-            _logger.w(
-              'Error recording pause start',
-              error: error,
-              stackTrace: stackTrace,
-            );
-            return 0;
-          });
+      _enqueuePauseIntervalWrite(() async {
+        await _databaseService.startPauseInterval(
+          sessionId: sessionId,
+          pauseStart: pauseStartedAt,
+        );
+      }, operation: 'pause start').catchError((error, stackTrace) {
+        _logger.w(
+          'Error recording pause start',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      });
     }
 
     _logger.d('Session paused at $_lastPauseTime');
@@ -213,15 +217,18 @@ class SessionNotifier extends Notifier<SessionState> {
 
     final sessionId = state.currentSessionId;
     if (sessionId != null) {
-      _databaseService
-          .endLatestPauseInterval(sessionId: sessionId, pauseEnd: resumedAt)
-          .catchError((error, stackTrace) {
-            _logger.w(
-              'Error recording pause end',
-              error: error,
-              stackTrace: stackTrace,
-            );
-          });
+      _enqueuePauseIntervalWrite(() async {
+        await _databaseService.endLatestPauseInterval(
+          sessionId: sessionId,
+          pauseEnd: resumedAt,
+        );
+      }, operation: 'pause end').catchError((error, stackTrace) {
+        _logger.w(
+          'Error recording pause end',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      });
     }
 
     // Update state to not paused (timer continues and will now update duration)
@@ -275,6 +282,9 @@ class SessionNotifier extends Notifier<SessionState> {
     try {
       final endedAt = DateTime.now();
 
+      // Ensure pause interval writes are fully flushed before ending session.
+      await _pauseIntervalWriteChain;
+
       if (state.isPaused && _lastPauseTime != null) {
         _totalPausedDuration += endedAt.difference(_lastPauseTime!);
         _lastPauseTime = null;
@@ -312,6 +322,7 @@ class SessionNotifier extends Notifier<SessionState> {
       // Reset pause tracking
       _totalPausedDuration = Duration.zero;
       _lastPauseTime = null;
+      _pauseIntervalWriteChain = Future.value();
     } catch (e, stackTrace) {
       // Log error for debugging
       _logger.e('Error ending session', error: e, stackTrace: stackTrace);
@@ -336,6 +347,26 @@ class SessionNotifier extends Notifier<SessionState> {
       );
       rethrow;
     }
+  }
+
+  Future<void> _enqueuePauseIntervalWrite(
+    Future<void> Function() action, {
+    required String operation,
+  }) {
+    _pauseIntervalWriteChain = _pauseIntervalWriteChain
+        .catchError((_) {
+          // Keep chain alive if an earlier write failed.
+        })
+        .then((_) => action())
+        .catchError((error, stackTrace) {
+          _logger.w(
+            'Pause interval write failed ($operation)',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        });
+
+    return _pauseIntervalWriteChain;
   }
 }
 

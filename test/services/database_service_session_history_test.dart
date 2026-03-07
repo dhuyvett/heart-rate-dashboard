@@ -229,6 +229,54 @@ void main() {
       expect(intervals.first.pauseEnd, equals(sessionEnd));
     });
 
+    test(
+      'getPausedDurationsBySessionIds returns grouped paused durations',
+      () async {
+        final sessionId1 = await db.createSession(
+          deviceName: 'Device 1',
+          name: 'Session 1',
+          trackSpeedDistance: false,
+        );
+        final sessionId2 = await db.createSession(
+          deviceName: 'Device 2',
+          name: 'Session 2',
+          trackSpeedDistance: false,
+        );
+
+        final base = DateTime(2026, 1, 1, 10, 0, 0);
+        await db.startPauseInterval(sessionId: sessionId1, pauseStart: base);
+        await db.endLatestPauseInterval(
+          sessionId: sessionId1,
+          pauseEnd: base.add(const Duration(seconds: 30)),
+        );
+        await db.startPauseInterval(
+          sessionId: sessionId1,
+          pauseStart: base.add(const Duration(minutes: 1)),
+        );
+        await db.endLatestPauseInterval(
+          sessionId: sessionId1,
+          pauseEnd: base.add(const Duration(minutes: 1, seconds: 45)),
+        );
+
+        await db.startPauseInterval(
+          sessionId: sessionId2,
+          pauseStart: base.add(const Duration(minutes: 2)),
+        );
+        await db.endLatestPauseInterval(
+          sessionId: sessionId2,
+          pauseEnd: base.add(const Duration(minutes: 2, seconds: 15)),
+        );
+
+        final paused = await db.getPausedDurationsBySessionIds([
+          sessionId1,
+          sessionId2,
+        ]);
+
+        expect(paused[sessionId1], const Duration(seconds: 75));
+        expect(paused[sessionId2], const Duration(seconds: 15));
+      },
+    );
+
     test('deleteAllSessions removes all sessions and readings', () async {
       // Create multiple sessions with readings
       for (var i = 0; i < 3; i++) {

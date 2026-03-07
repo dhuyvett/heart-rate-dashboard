@@ -73,5 +73,32 @@ void main() {
       expect(saved.maxHr, equals(110));
       expect(readings.length, equals(2));
     });
+
+    test('flushes pause write queue before endSession', () async {
+      final notifier = container.read(sessionProvider.notifier);
+      await notifier.startSession(
+        deviceName: 'Test Device',
+        sessionName: 'Pause Race Session',
+        trackSpeedDistance: false,
+      );
+      final sessionId = container.read(sessionProvider).currentSessionId!;
+
+      await notifier.handleReadingForTest(100);
+      notifier.pauseSession();
+      await notifier.endSession();
+
+      final saved = await DatabaseService.instance.getSessionById(sessionId);
+      final intervals = await DatabaseService.instance
+          .getPauseIntervalsBySession(sessionId);
+
+      expect(saved, isNotNull);
+      expect(saved!.endTime, isNotNull);
+      expect(intervals.length, equals(1));
+      expect(intervals.first.pauseEnd, equals(saved.endTime));
+      expect(
+        intervals.first.pauseEnd.isBefore(intervals.first.pauseStart),
+        isFalse,
+      );
+    });
   });
 }
