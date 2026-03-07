@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,14 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final hasLocationSupport =
           await widget.locationSupportChecker?.call() ??
-          await (() async {
-            // Detect whether location APIs are supported on this
-            // device/platform. Do not require permission/service at this stage
-            // so fresh installs can still configure GPS-based stats before
-            // starting a session.
-            await Geolocator.checkPermission();
-            return true;
-          })();
+          await _detectLocationSupportForPlatform();
 
       if (!mounted) return;
       setState(() {
@@ -86,6 +80,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _hasLocation = false;
       });
     }
+  }
+
+  Future<bool> _detectLocationSupportForPlatform() async {
+    // Desktop: location service availability is a better support signal than
+    // permission status.
+    if (defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows) {
+      return Geolocator.isLocationServiceEnabled();
+    }
+
+    // Mobile/Web: don't require permission at settings time so fresh installs
+    // can still configure GPS-based stats before first session.
+    await Geolocator.checkPermission();
+    return true;
   }
 
   /// Updates the age setting.

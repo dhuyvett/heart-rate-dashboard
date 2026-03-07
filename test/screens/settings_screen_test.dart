@@ -154,5 +154,55 @@ void main() {
         expect(speedWidget.onChanged, isNotNull);
       },
     );
+
+    testWidgets('disables GPS stats when location is unsupported', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final fakeNotifier = FakeSettingsNotifier(const AppSettings());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [settingsProvider.overrideWith(() => fakeNotifier)],
+          child: MaterialApp(
+            home: SettingsScreen(locationSupportChecker: () async => false),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.dragUntilVisible(
+        find.text('Monitoring Statistics'),
+        find.byType(ListView),
+        const Offset(0, -400),
+      );
+
+      expect(
+        find.textContaining('GPS not supported on this device'),
+        findsWidgets,
+      );
+
+      final speedTile = find.byWidgetPredicate(
+        (w) =>
+            w is CheckboxListTile &&
+            ((w.title as Text?)?.data?.startsWith('Speed') ?? false),
+      );
+      expect(speedTile, findsOneWidget);
+      final speedWidget = tester.widget<CheckboxListTile>(speedTile);
+      expect(speedWidget.onChanged, isNull);
+
+      final useMilesTile = find.byWidgetPredicate(
+        (w) =>
+            w is SwitchListTile &&
+            (w.title as Text?)?.data == 'Use Miles for Speed & Distance',
+      );
+      expect(useMilesTile, findsOneWidget);
+      final useMilesWidget = tester.widget<SwitchListTile>(useMilesTile);
+      expect(useMilesWidget.onChanged, isNull);
+    });
   });
 }
