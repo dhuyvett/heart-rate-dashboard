@@ -18,9 +18,9 @@ assignees: ""
 ## Screenshots or recordings
 
 ## Environment
+- Bluetooth HR monitor (brand/model):
 - Device:
-- OS:
+- OS (name + version):
 - App version:
-- Flutter version:
 
 ## Additional context

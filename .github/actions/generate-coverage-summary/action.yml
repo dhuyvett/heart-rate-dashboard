@@ -13,8 +13,17 @@ runs:
 
         LINES_FOUND=$(awk -F: '/^LF:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
         LINES_HIT=$(awk -F: '/^LH:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
-        BRANCHES_FOUND=$(awk -F: '/^BRF:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
-        BRANCHES_HIT=$(awk -F: '/^BRH:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
+        # Flutter/Dart coverage often emits BRDA lines without BRF/BRH totals.
+        # Prefer BRF/BRH when available, otherwise derive from BRDA.
+        BRF_TOTAL=$(awk -F: '/^BRF:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
+        BRH_TOTAL=$(awk -F: '/^BRH:/{sum+=$2} END {print sum+0}' coverage/lcov.info)
+        if [ "$BRF_TOTAL" -gt 0 ]; then
+          BRANCHES_FOUND="$BRF_TOTAL"
+          BRANCHES_HIT="$BRH_TOTAL"
+        else
+          BRANCHES_FOUND=$(awk -F'[:,]' '/^BRDA:/{sum+=1} END {print sum+0}' coverage/lcov.info)
+          BRANCHES_HIT=$(awk -F'[:,]' '/^BRDA:/{if ($5 != "0" && $5 != "-") sum+=1} END {print sum+0}' coverage/lcov.info)
+        fi
 
         if [ "$LINES_FOUND" -gt 0 ]; then
           LINE_PCT=$(awk "BEGIN {printf \"%.2f\", ($LINES_HIT/$LINES_FOUND)*100}")
