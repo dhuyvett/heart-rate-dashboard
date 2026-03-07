@@ -114,5 +114,45 @@ void main() {
       expect(find.text('Must be between 1 and 3650 days'), findsNothing);
       expect(fakeNotifier.lastRetentionDays, 90);
     });
+
+    testWidgets(
+      'keeps GPS stats toggleable before permission is granted on supported devices',
+      (tester) async {
+        tester.view.physicalSize = const Size(1400, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final fakeNotifier = FakeSettingsNotifier(const AppSettings());
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [settingsProvider.overrideWith(() => fakeNotifier)],
+            child: MaterialApp(
+              home: SettingsScreen(locationSupportChecker: () async => true),
+            ),
+          ),
+        );
+
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.dragUntilVisible(
+          find.text('Monitoring Statistics'),
+          find.byType(ListView),
+          const Offset(0, -400),
+        );
+
+        expect(
+          find.textContaining('GPS not supported on this device'),
+          findsNothing,
+        );
+
+        final speedTile = find.byWidgetPredicate(
+          (w) => w is CheckboxListTile && (w.title as Text?)?.data == 'Speed',
+        );
+        expect(speedTile, findsOneWidget);
+        final speedWidget = tester.widget<CheckboxListTile>(speedTile);
+        expect(speedWidget.onChanged, isNotNull);
+      },
+    );
   });
 }
