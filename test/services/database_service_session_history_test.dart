@@ -187,6 +187,48 @@ void main() {
       expect(readingsAfter.length, equals(0));
     });
 
+    test('stores and retrieves pause intervals for a session', () async {
+      final sessionId = await db.createSession(
+        deviceName: 'Pause Device',
+        name: 'Pause Session',
+        trackSpeedDistance: false,
+      );
+      final pauseStart = DateTime(2026, 1, 1, 10, 0, 0);
+      final pauseEnd = pauseStart.add(const Duration(minutes: 2, seconds: 30));
+
+      await db.startPauseInterval(sessionId: sessionId, pauseStart: pauseStart);
+      await db.endLatestPauseInterval(sessionId: sessionId, pauseEnd: pauseEnd);
+
+      final intervals = await db.getPauseIntervalsBySession(sessionId);
+      expect(intervals.length, equals(1));
+      expect(intervals.first.pauseStart, equals(pauseStart));
+      expect(intervals.first.pauseEnd, equals(pauseEnd));
+    });
+
+    test('endSession closes any open pause interval', () async {
+      final sessionId = await db.createSession(
+        deviceName: 'Pause Device',
+        name: 'Pause Session',
+        trackSpeedDistance: false,
+      );
+      final pauseStart = DateTime(2026, 1, 1, 10, 0, 0);
+      final sessionEnd = pauseStart.add(const Duration(minutes: 5));
+
+      await db.startPauseInterval(sessionId: sessionId, pauseStart: pauseStart);
+      await db.endSession(
+        sessionId: sessionId,
+        avgHr: 140,
+        minHr: 100,
+        maxHr: 170,
+        endTime: sessionEnd,
+      );
+
+      final intervals = await db.getPauseIntervalsBySession(sessionId);
+      expect(intervals.length, equals(1));
+      expect(intervals.first.pauseStart, equals(pauseStart));
+      expect(intervals.first.pauseEnd, equals(sessionEnd));
+    });
+
     test('deleteAllSessions removes all sessions and readings', () async {
       // Create multiple sessions with readings
       for (var i = 0; i < 3; i++) {

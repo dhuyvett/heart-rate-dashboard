@@ -11,6 +11,10 @@ class GpsMetricChart extends StatelessWidget {
   /// Session start time used to anchor the X-axis.
   final DateTime sessionStart;
 
+  /// Optional mapper to convert sample timestamps into active elapsed seconds.
+  /// Use this to clip paused intervals out of the chart timeline.
+  final double Function(DateTime timestamp)? elapsedSecondsMapper;
+
   /// Total session duration in seconds.
   final int windowSeconds;
 
@@ -40,6 +44,7 @@ class GpsMetricChart extends StatelessWidget {
     required this.valueFormatter,
     required this.lineColor,
     required this.emptyMessage,
+    this.elapsedSecondsMapper,
     this.minYFloor,
     this.isCurved = true,
     super.key,
@@ -59,6 +64,7 @@ class GpsMetricChart extends StatelessWidget {
       final value = valueSelector(sample);
       if (value == null) continue;
       final deltaSeconds =
+          elapsedSecondsMapper?.call(sample.timestamp) ??
           sample.timestamp.difference(sessionStart).inMilliseconds / 1000;
       final x = deltaSeconds.clamp(0, windowSeconds).toDouble();
       points.add(FlSpot(x, value));

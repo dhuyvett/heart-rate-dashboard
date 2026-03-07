@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/heart_rate_reading.dart';
@@ -33,6 +34,15 @@ class HeartRateChart extends StatelessWidget {
   /// for calculating the visible window. Useful for pausing the chart.
   final DateTime? referenceTime;
 
+  /// Optional mapper to convert reading timestamps into active elapsed seconds.
+  /// Use this to clip paused intervals out of the chart timeline.
+  final double Function(DateTime timestamp)? elapsedSecondsMapper;
+
+  /// Optional reference elapsed seconds for live window positioning.
+  /// When omitted and [elapsedSecondsMapper] is provided, this is derived from
+  /// [referenceTime] or DateTime.now().
+  final double? referenceElapsedSeconds;
+
   /// Whether to display as a live scrolling chart (true) or historical chart (false).
   /// Live mode: New data appears on right, old data shifts left, labels right-to-left (0s at right).
   /// Historical mode: Oldest data on left, newest on right, labels left-to-right (0s at left).
@@ -46,6 +56,8 @@ class HeartRateChart extends StatelessWidget {
     this.zoneColorResolver,
     this.zoneColorOpacity = 1.0,
     this.referenceTime,
+    this.elapsedSecondsMapper,
+    this.referenceElapsedSeconds,
     this.isLiveMode = true,
     super.key,
   });
@@ -66,26 +78,89 @@ class HeartRateChart extends StatelessWidget {
       );
     }
 
-    // Filter readings and calculate window based on mode
-    final List<HeartRateReading> visibleReadings;
-    final DateTime windowStart;
+    final elapsedMapper = elapsedSecondsMapper;
+    final List<_ChartPoint> points;
+    final double minX;
+    final double maxX;
 
-    if (isLiveMode) {
-      // Live mode: Show recent data within time window from now
-      final now = referenceTime ?? DateTime.now();
-      windowStart = now.subtract(Duration(seconds: windowSeconds));
-      visibleReadings = readings
-          .where((r) => r.timestamp.isAfter(windowStart))
+    if (elapsedMapper == null) {
+      // Filter readings and calculate window based on wall-clock timestamps.
+      final List<HeartRateReading> visibleReadings;
+      final DateTime windowStart;
+
+      if (isLiveMode) {
+        final now = referenceTime ?? DateTime.now();
+        windowStart = now.subtract(Duration(seconds: windowSeconds));
+        visibleReadings = readings
+            .where((r) => r.timestamp.isAfter(windowStart))
+            .toList();
+      } else {
+        visibleReadings = readings;
+        windowStart = readings.first.timestamp;
+      }
+
+      points = visibleReadings
+          .map(
+            (reading) => _ChartPoint(
+              reading: reading,
+              x:
+                  reading.timestamp.difference(windowStart).inMilliseconds /
+                  1000,
+            ),
+          )
           .toList();
+      minX = 0;
+      maxX = windowSeconds.toDouble();
     } else {
-      // Historical mode: Show all readings, use first reading as start
-      visibleReadings = readings;
-      windowStart = readings.isNotEmpty
-          ? readings.first.timestamp
-          : DateTime.now();
+      // Filter readings and calculate window based on active elapsed seconds.
+      final allPoints =
+          readings
+              .map(
+                (reading) => _ChartPoint(
+                  reading: reading,
+                  x: elapsedMapper(reading.timestamp),
+                ),
+              )
+              .where((point) => point.x.isFinite)
+              .toList()
+            ..sort((a, b) => a.x.compareTo(b.x));
+
+      if (allPoints.isEmpty) {
+        return Center(
+          child: Text(
+            'No recent data',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        );
+      }
+
+      if (isLiveMode) {
+        final referenceElapsed =
+            referenceElapsedSeconds ??
+            elapsedMapper(referenceTime ?? DateTime.now());
+        final start = (referenceElapsed - windowSeconds).clamp(
+          0.0,
+          double.infinity,
+        );
+        points = allPoints
+            .where((point) => point.x >= start && point.x <= referenceElapsed)
+            .map(
+              (point) =>
+                  _ChartPoint(reading: point.reading, x: point.x - start),
+            )
+            .toList();
+        minX = 0;
+        maxX = windowSeconds.toDouble();
+      } else {
+        points = allPoints;
+        minX = 0;
+        maxX = windowSeconds.toDouble();
+      }
     }
 
-    if (visibleReadings.isEmpty) {
+    if (points.isEmpty) {
       return Center(
         child: Text(
           'No recent data',
@@ -96,11 +171,8 @@ class HeartRateChart extends StatelessWidget {
       );
     }
 
-    // Convert readings to chart spots
-    final spots = _createSpots(visibleReadings, windowStart, isLiveMode);
-
     // Calculate Y-axis bounds
-    final allBpm = visibleReadings.map((r) => r.bpm).toList();
+    final allBpm = points.map((point) => point.reading.bpm).toList();
     final minBpm = allBpm.reduce((a, b) => a < b ? a : b);
     final maxBpm = allBpm.reduce((a, b) => a > b ? a : b);
 
@@ -114,13 +186,13 @@ class HeartRateChart extends StatelessWidget {
         LineChartData(
           minY: yMin,
           maxY: yMax,
-          minX: 0,
-          maxX: windowSeconds.toDouble(),
+          minX: minX,
+          maxX: maxX,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: true,
             horizontalInterval: 20,
-            verticalInterval: windowSeconds / 4,
+            verticalInterval: math.max(windowSeconds / 4, 1),
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
@@ -198,7 +270,12 @@ class HeartRateChart extends StatelessWidget {
           lineBarsData: zoneColorResolver == null
               ? [
                   LineChartBarData(
-                    spots: spots,
+                    spots: points
+                        .map(
+                          (point) =>
+                              FlSpot(point.x, point.reading.bpm.toDouble()),
+                        )
+                        .toList(),
                     isCurved: true,
                     color: lineColor,
                     barWidth: 3,
@@ -211,8 +288,7 @@ class HeartRateChart extends StatelessWidget {
                   ),
                 ]
               : _createZoneLineBars(
-                  visibleReadings,
-                  windowStart,
+                  points,
                   zoneColorResolver!,
                   zoneColorOpacity,
                 ),
@@ -221,45 +297,20 @@ class HeartRateChart extends StatelessWidget {
     );
   }
 
-  /// Converts heart rate readings to chart spots.
-  ///
-  /// In live mode: Newest data on right, oldest on left (standard positioning)
-  /// In historical mode: Oldest on left, newest on right (standard positioning)
-  /// Y-axis values are BPM values.
-  List<FlSpot> _createSpots(
-    List<HeartRateReading> readings,
-    DateTime windowStart,
-    bool isLiveMode,
-  ) {
-    return readings.map((reading) {
-      // Calculate X position (seconds from window start)
-      final xSeconds =
-          reading.timestamp.difference(windowStart).inMilliseconds / 1000.0;
-
-      // Both modes use the same positioning: older readings have lower X values
-      // Live mode: oldest = 0, newest = windowSeconds (with countdown labels)
-      // Historical mode: oldest = 0, newest = duration (with count-up labels)
-      return FlSpot(xSeconds, reading.bpm.toDouble());
-    }).toList();
-  }
-
   List<LineChartBarData> _createZoneLineBars(
-    List<HeartRateReading> readings,
-    DateTime windowStart,
+    List<_ChartPoint> points,
     Color Function(HeartRateReading reading) zoneColorResolver,
     double zoneColorOpacity,
   ) {
-    if (readings.isEmpty) {
+    if (points.isEmpty) {
       return const [];
     }
 
     final opacity = zoneColorOpacity.clamp(0.0, 1.0);
-    final coloredSpots = readings.map((reading) {
-      final xSeconds =
-          reading.timestamp.difference(windowStart).inMilliseconds / 1000.0;
-      final baseColor = zoneColorResolver(reading);
+    final coloredSpots = points.map((point) {
+      final baseColor = zoneColorResolver(point.reading);
       return _ColoredSpot(
-        FlSpot(xSeconds, reading.bpm.toDouble()),
+        FlSpot(point.x, point.reading.bpm.toDouble()),
         baseColor.withValues(alpha: opacity),
       );
     }).toList();
@@ -311,4 +362,11 @@ class _ColoredSpot {
   final Color color;
 
   const _ColoredSpot(this.spot, this.color);
+}
+
+class _ChartPoint {
+  final HeartRateReading reading;
+  final double x;
+
+  const _ChartPoint({required this.reading, required this.x});
 }

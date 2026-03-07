@@ -10,6 +10,7 @@ import '../models/heart_rate_data.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/heart_rate_zone.dart';
 import '../models/monitoring_chart_type.dart';
+import '../models/session_pause_interval.dart';
 import '../models/session_statistic.dart';
 import '../models/session_state.dart';
 import '../providers/bluetooth_provider.dart';
@@ -22,6 +23,7 @@ import '../services/database_service.dart';
 import '../services/reconnection_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/heart_rate_zone_calculator.dart';
+import '../utils/session_timeline.dart';
 import '../widgets/compact_stats_row.dart';
 import '../widgets/connection_status_indicator.dart';
 import '../widgets/battery_level_icon.dart';
@@ -86,6 +88,7 @@ class _HeartRateMonitoringScreenState
   ProviderSubscription<SessionState>? _sessionListener;
   ReconnectionState _reconnectionState = ReconnectionState.idle();
   DateTime? _pausedAt;
+  final List<SessionPauseInterval> _completedPauseIntervals = [];
   Position? _lastPosition;
   DateTime? _lastPositionTime;
   double _smoothedSpeedMps = 0;
@@ -344,6 +347,8 @@ class _HeartRateMonitoringScreenState
       if (widget.loadRecentReadings) {
         _loadRecentReadings();
       }
+      _completedPauseIntervals.clear();
+      _pausedAt = null;
       final settings = ref.read(settingsProvider).asData?.value;
       if (settings?.monitoringChartType == MonitoringChartType.zoneTime) {
         await _loadZoneReadings();
@@ -1351,6 +1356,37 @@ class _HeartRateMonitoringScreenState
           },
           zoneColorOpacity: zoneOpacity,
           referenceTime: sessionState.isPaused ? _pausedAt : null,
+          elapsedSecondsMapper: (timestamp) {
+            final sessionStart = sessionState.startTime;
+            if (sessionStart == null) {
+              return 0;
+            }
+            return activeElapsedSecondsAt(
+              sessionStart: sessionStart,
+              timestamp: timestamp,
+              pauseIntervals: _effectivePauseIntervals(
+                sessionId: sessionState.currentSessionId,
+                timelineEnd: timestamp,
+              ),
+            );
+          },
+          referenceElapsedSeconds: (() {
+            final sessionStart = sessionState.startTime;
+            if (sessionStart == null) {
+              return 0.0;
+            }
+            final reference = sessionState.isPaused && _pausedAt != null
+                ? _pausedAt!
+                : DateTime.now();
+            return activeElapsedSecondsAt(
+              sessionStart: sessionStart,
+              timestamp: reference,
+              pauseIntervals: _effectivePauseIntervals(
+                sessionId: sessionState.currentSessionId,
+                timelineEnd: reference,
+              ),
+            );
+          })(),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1496,6 +1532,17 @@ class _HeartRateMonitoringScreenState
               onPressed: () {
                 final notifier = ref.read(sessionProvider.notifier);
                 if (sessionState.isPaused) {
+                  final resumedAt = DateTime.now();
+                  final pausedAt = _pausedAt;
+                  if (pausedAt != null && resumedAt.isAfter(pausedAt)) {
+                    _completedPauseIntervals.add(
+                      SessionPauseInterval(
+                        sessionId: sessionState.currentSessionId ?? -1,
+                        pauseStart: pausedAt,
+                        pauseEnd: resumedAt,
+                      ),
+                    );
+                  }
                   notifier.resumeSession();
                   setState(() {
                     _pausedAt = null;
@@ -1740,6 +1787,24 @@ class _HeartRateMonitoringScreenState
         ),
       ],
     );
+  }
+
+  List<SessionPauseInterval> _effectivePauseIntervals({
+    required int? sessionId,
+    required DateTime timelineEnd,
+  }) {
+    final intervals = List<SessionPauseInterval>.from(_completedPauseIntervals)
+      ..sort((a, b) => a.pauseStart.compareTo(b.pauseStart));
+    if (_pausedAt != null && timelineEnd.isAfter(_pausedAt!)) {
+      intervals.add(
+        SessionPauseInterval(
+          sessionId: sessionId ?? -1,
+          pauseStart: _pausedAt!,
+          pauseEnd: timelineEnd,
+        ),
+      );
+    }
+    return intervals;
   }
 
   /// Builds the active BPM display with heart rate data.

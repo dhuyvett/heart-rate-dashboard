@@ -6,11 +6,13 @@ import 'package:intl/intl.dart';
 import '../models/gps_sample.dart';
 import '../models/heart_rate_reading.dart';
 import '../models/heart_rate_zone.dart';
+import '../models/session_pause_interval.dart';
 import '../models/workout_session.dart';
 import '../providers/session_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 import '../utils/heart_rate_zone_calculator.dart';
+import '../utils/session_timeline.dart';
 import '../widgets/gps_metric_chart.dart';
 import '../widgets/heart_rate_chart.dart';
 import '../widgets/session_stats_card.dart';
@@ -41,6 +43,7 @@ class SessionDetailScreen extends ConsumerStatefulWidget {
 class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   List<HeartRateReading> _readings = [];
   List<GpsSample> _gpsSamples = [];
+  List<SessionPauseInterval> _pauseIntervals = [];
   bool _isLoading = true;
   String? _errorMessage;
   late WorkoutSession _currentSession;
@@ -83,6 +86,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               _currentSession.id!,
             )
           : <GpsSample>[];
+      final pauseIntervals = await DatabaseService.instance
+          .getPauseIntervalsBySession(_currentSession.id!);
 
       // Check for previous and next sessions
       final previousSession = await DatabaseService.instance.getPreviousSession(
@@ -96,6 +101,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         setState(() {
           _readings = readings;
           _gpsSamples = gpsSamples;
+          _pauseIntervals = pauseIntervals;
           _hasPreviousSession = previousSession != null;
           _hasNextSession = nextSession != null;
           _isLoading = false;
@@ -406,7 +412,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       return const SizedBox.shrink();
     }
 
-    final sessionDuration = _currentSession.getDuration();
+    final sessionDuration = _activeSessionDuration();
     final windowSeconds = sessionDuration.inSeconds > 0
         ? sessionDuration.inSeconds
         : 60;
@@ -433,6 +439,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                   samples: _gpsSamples,
                   sessionStart: _currentSession.startTime,
                   windowSeconds: windowSeconds,
+                  elapsedSecondsMapper: _activeElapsedSecondsAt,
                   lineColor: theme.colorScheme.tertiary,
                   emptyMessage: 'No altitude data recorded for this session',
                   valueSelector: (sample) {
@@ -466,6 +473,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                   samples: _gpsSamples,
                   sessionStart: _currentSession.startTime,
                   windowSeconds: windowSeconds,
+                  elapsedSecondsMapper: _activeElapsedSecondsAt,
                   lineColor: theme.colorScheme.secondary,
                   emptyMessage: 'No speed data recorded for this session',
                   minYFloor: 0,
@@ -554,7 +562,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
 
     // Calculate session duration in seconds for chart window
-    final sessionDuration = _currentSession.getDuration();
+    final sessionDuration = _activeSessionDuration();
     final windowSeconds = sessionDuration.inSeconds;
 
     // Determine chart color based on average heart rate
@@ -585,6 +593,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               return HeartRateZoneCalculator.getColorForZone(readingZone);
             },
             referenceTime: _currentSession.endTime,
+            elapsedSecondsMapper: _activeElapsedSecondsAt,
+            referenceElapsedSeconds: windowSeconds.toDouble(),
             isLiveMode: false,
           ),
         ),
@@ -598,7 +608,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     required AppSettings settings,
     required double availableWidth,
   }) {
-    final duration = _formatDuration(_currentSession.getDuration());
+    final activeDuration = _activeSessionDuration();
+    final duration = _formatDuration(activeDuration);
     final avgHr = _currentSession.avgHr != null
         ? '${_currentSession.avgHr}'
         : 'N/A';
@@ -615,7 +626,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     final avgSpeed = _currentSession.distanceMeters != null
         ? _formatAverageSpeed(
             _currentSession.distanceMeters!,
-            _currentSession.getDuration(),
+            activeDuration,
             settings.useMiles,
           )
         : 'N/A';
@@ -812,8 +823,10 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
     final sessionStart = _currentSession.startTime;
     if (sessionStart.isBefore(sortedReadings.first.timestamp)) {
-      final initialGap = sortedReadings.first.timestamp.difference(
-        sessionStart,
+      final initialGap = activeDurationInRange(
+        rangeStart: sessionStart,
+        rangeEnd: sortedReadings.first.timestamp,
+        pauseIntervals: _pauseIntervals,
       );
       if (!initialGap.isNegative && initialGap.inMilliseconds > 0) {
         final zone = HeartRateZoneCalculator.getZoneForBpm(
@@ -827,7 +840,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     for (var i = 0; i < sortedReadings.length - 1; i++) {
       final current = sortedReadings[i];
       final next = sortedReadings[i + 1];
-      final delta = next.timestamp.difference(current.timestamp);
+      final delta = activeDurationInRange(
+        rangeStart: current.timestamp,
+        rangeEnd: next.timestamp,
+        pauseIntervals: _pauseIntervals,
+      );
       if (delta.isNegative || delta.inMilliseconds == 0) {
         continue;
       }
@@ -836,7 +853,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
 
     final sessionEnd = _currentSession.endTime ?? sortedReadings.last.timestamp;
-    final tailGap = sessionEnd.difference(sortedReadings.last.timestamp);
+    final tailGap = activeDurationInRange(
+      rangeStart: sortedReadings.last.timestamp,
+      rangeEnd: sessionEnd,
+      pauseIntervals: _pauseIntervals,
+    );
     if (!tailGap.isNegative && tailGap.inMilliseconds > 0) {
       final zone = HeartRateZoneCalculator.getZoneForBpm(
         sortedReadings.last.bpm,
@@ -846,5 +867,22 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
 
     return durations;
+  }
+
+  Duration _activeSessionDuration() {
+    final end = _currentSession.endTime ?? DateTime.now();
+    return activeDurationInRange(
+      rangeStart: _currentSession.startTime,
+      rangeEnd: end,
+      pauseIntervals: _pauseIntervals,
+    );
+  }
+
+  double _activeElapsedSecondsAt(DateTime timestamp) {
+    return activeElapsedSecondsAt(
+      sessionStart: _currentSession.startTime,
+      timestamp: timestamp,
+      pauseIntervals: _pauseIntervals,
+    );
   }
 }
