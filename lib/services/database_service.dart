@@ -439,6 +439,39 @@ class DatabaseService {
     return maps.map((map) => SessionPauseInterval.fromMap(map)).toList();
   }
 
+  /// Retrieves total paused durations grouped by session ID.
+  ///
+  /// Returns only completed pause intervals (`pause_end IS NOT NULL`).
+  Future<Map<int, Duration>> getPausedDurationsBySessionIds(
+    List<int> sessionIds,
+  ) async {
+    if (sessionIds.isEmpty) {
+      return const <int, Duration>{};
+    }
+
+    final db = await database;
+    final placeholders = List.filled(sessionIds.length, '?').join(',');
+    final rows = await db.rawQuery('''
+      SELECT
+        session_id,
+        SUM(pause_end - pause_start) AS paused_ms
+      FROM $_tableSessionPauseIntervals
+      WHERE session_id IN ($placeholders)
+        AND pause_end IS NOT NULL
+      GROUP BY session_id
+      ''', sessionIds);
+
+    final result = <int, Duration>{};
+    for (final row in rows) {
+      final sessionId = row['session_id'] as int?;
+      final pausedMs = (row['paused_ms'] as num?)?.toInt() ?? 0;
+      if (sessionId != null && pausedMs > 0) {
+        result[sessionId] = Duration(milliseconds: pausedMs);
+      }
+    }
+    return result;
+  }
+
   /// Retrieves all heart rate readings for a specific session.
   ///
   /// [sessionId] is the ID of the session to query.
@@ -781,8 +814,15 @@ class DatabaseService {
     final lastTimestamp =
         (statRow['last_timestamp'] as int?) ??
         activeSession.startTime.millisecondsSinceEpoch;
+    final recoveredEndTime = DateTime.fromMillisecondsSinceEpoch(lastTimestamp);
 
     if (avgHr == null || minHr == null || maxHr == null) return;
+
+    await _closeOpenPauseInterval(
+      db: db,
+      sessionId: activeSession.id!,
+      pauseEnd: recoveredEndTime,
+    );
 
     await db.update(
       _tableWorkoutSessions,

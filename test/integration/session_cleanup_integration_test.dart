@@ -60,5 +60,33 @@ void main() {
       );
       expect(await db.getCurrentSession(), isNull);
     });
+
+    test(
+      'closes open pause interval when recovering interrupted active session',
+      () async {
+        final db = DatabaseService.instance;
+        final sessionId = await db.createSession(
+          deviceName: 'Test Device',
+          name: 'Paused Crashed Session',
+          trackSpeedDistance: false,
+        );
+
+        final readingTime = DateTime(2024, 1, 1, 12, 0, 10);
+        final pauseStart = DateTime(2024, 1, 1, 12, 0, 5);
+
+        await db.insertHeartRateReading(sessionId, readingTime, 120);
+        await db.startPauseInterval(
+          sessionId: sessionId,
+          pauseStart: pauseStart,
+        );
+
+        await db.completeActiveSessionWithLastReading();
+
+        final intervals = await db.getPauseIntervalsBySession(sessionId);
+        expect(intervals.length, equals(1));
+        expect(intervals.first.pauseStart, equals(pauseStart));
+        expect(intervals.first.pauseEnd, equals(readingTime));
+      },
+    );
   });
 }
