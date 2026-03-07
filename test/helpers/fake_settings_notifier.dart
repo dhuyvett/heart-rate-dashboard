@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:heart_rate_dashboard/models/app_settings.dart';
 import 'package:heart_rate_dashboard/models/max_hr_calculation_method.dart';
+import 'package:heart_rate_dashboard/models/session_statistic.dart';
 import 'package:heart_rate_dashboard/models/sex.dart';
 import 'package:heart_rate_dashboard/providers/settings_provider.dart';
 
@@ -20,6 +21,8 @@ class FakeSettingsNotifier extends SettingsNotifier {
   int? lastCustomMaxHr;
   int? lastRetentionDays;
   bool? lastShowDemoDevice;
+  List<SessionStatistic>? lastVisibleSessionStats;
+  bool? lastUseMiles;
 
   @override
   Future<AppSettings> build() async => _initial;
@@ -94,5 +97,21 @@ class FakeSettingsNotifier extends SettingsNotifier {
       (state.asData?.value ?? _initial).copyWith(showDemoDevice: enabled),
     );
     lastShowDemoDevice = enabled;
+  }
+
+  @override
+  Future<void> updateVisibleSessionStats(List<SessionStatistic> stats) async {
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(visibleSessionStats: stats),
+    );
+    lastVisibleSessionStats = stats;
+  }
+
+  @override
+  Future<void> updateUseMiles(bool useMiles) async {
+    state = AsyncData(
+      (state.asData?.value ?? _initial).copyWith(useMiles: useMiles),
+    );
+    lastUseMiles = useMiles;
   }
 }

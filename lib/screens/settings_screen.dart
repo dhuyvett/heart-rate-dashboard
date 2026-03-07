@@ -21,7 +21,11 @@ import 'max_hr_info_screen.dart';
 ///
 /// All changes are saved immediately to the encrypted database.
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({this.locationSupportChecker, super.key});
+
+  /// Optional override for determining whether location features are supported.
+  /// Intended for tests.
+  final Future<bool> Function()? locationSupportChecker;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -61,15 +65,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _checkLocationSupport() async {
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      final permission = await Geolocator.checkPermission();
+      final hasLocationSupport =
+          await widget.locationSupportChecker?.call() ??
+          await (() async {
+            // Detect whether location APIs are supported on this
+            // device/platform. Do not require permission/service at this stage
+            // so fresh installs can still configure GPS-based stats before
+            // starting a session.
+            await Geolocator.checkPermission();
+            return true;
+          })();
+
       if (!mounted) return;
       setState(() {
-        _hasLocation =
-            serviceEnabled &&
-            (permission == LocationPermission.always ||
-                permission == LocationPermission.whileInUse ||
-                permission == LocationPermission.unableToDetermine);
+        _hasLocation = hasLocationSupport;
       });
     } catch (_) {
       if (!mounted) return;
@@ -745,7 +754,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             .contains(stat);
                         return CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
-                          value: isSelected && enabled,
+                          value: isSelected,
                           onChanged: !enabled
                               ? null
                               : (checked) {
@@ -755,7 +764,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 },
                           title: Text(
                             _statLabel(stat) +
-                                (!enabled ? ' (GPS not available)' : ''),
+                                (!enabled
+                                    ? ' (GPS not supported on this device)'
+                                    : ''),
                           ),
                           secondary: Icon(_statIcon(stat)),
                         );
@@ -767,7 +778,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: Text(
                           _hasLocation
                               ? 'Switch between miles and kilometers for GPS-based stats.'
-                              : 'GPS not available.',
+                              : 'GPS not supported on this device.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.6,
