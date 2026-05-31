@@ -4,9 +4,10 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
@@ -24,11 +25,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
 
       - name: Get dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Run analyzer
         run: flutter analyze
@@ -61,11 +62,11 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
 
       - name: Get dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build debug APK
         run: flutter build apk --debug

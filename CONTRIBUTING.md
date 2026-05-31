@@ -179,22 +179,34 @@ flutter build linux            # or windows, macos
 
 ## CI/CD Release Setup
 
-Release automation uses two workflows:
+Release automation uses three workflows:
 - `.github/workflows/build.yml`
-  - Trigger: pull requests to `main`
+  - Trigger: pull requests to `main` and pushes to `main`
   - Runs analyzer/tests, posts coverage summary/annotation, builds debug APK,
-    and uploads PR artifact.
+    and uploads a PR debug APK artifact.
   - Includes terminal check job: `Builds Succeeded` (for branch protection).
 - `.github/workflows/create-release.yml`
   - Trigger: manual (`workflow_dispatch`) only.
-  - Job 1: builds from `main`, resolves release tag, builds signed release
-    APK/AAB, creates a draft release, uploads assets, then publishes the
+  - Builds from `main`, enforces `pubspec.lock`, runs analyzer/tests, resolves
+    the release tag, generates release notes, builds signed release APK/AAB,
+    creates or reuses a draft GitHub release, uploads assets, uploads the AAB to
+    Google Play via Workload Identity Federation, then publishes the GitHub
     release.
-  - Job 2: runs after publish in the same workflow, downloads
-    `app-release.aab`, and uploads it to Google Play via Workload Identity
-    Federation.
-  - This ordering is required because immutable releases are enabled.
-- Push/merge to `main`: no workflow run.
+  - The GitHub release remains a reusable draft until the Play upload succeeds,
+    so failed Play uploads can be retried with the same version.
+- `.github/workflows/promote-to-production.yml`
+  - Trigger: manual (`workflow_dispatch`) only.
+  - Promotes an already verified Play release from `beta`, `internal`, or
+    `alpha` to `production` using the Play Developer API.
+  - Reuses the selected source track version code and release notes instead of
+    uploading a new AAB.
+
+Recommended production gate:
+- Run `create-release.yml` with `play_track=beta` or `internal`.
+- Verify the test build in Play Console.
+- Run `promote-to-production.yml` with the verified source track. Leave
+  `version_code` blank to promote the latest active source version, or provide
+  the exact verified version code.
 
 ### Required GitHub Secrets
 
@@ -208,7 +220,8 @@ Set these in **GitHub repo -> Settings -> Secrets and variables -> Actions**:
   - `GCP_PLAY_SA_EMAIL`
 
 Optional repo variable:
-- `PLAY_TRACK` (defaults to `internal` if not set)
+- None required for the release workflow. The manual inputs select the Play
+  track and status. `promote-to-production.yml` uses the same WIF secrets.
 
 ### Generate `ANDROID_UPLOAD_KEYSTORE_BASE64`
 
@@ -232,7 +245,8 @@ Notes:
    Play publishing service account (`roles/iam.workloadIdentityUser`).
 4. In Play Console, grant that service account access to this app.
 5. Assign release permissions for your target track:
-- Internal testing only: permission to release to testing tracks.
+- Open testing and other testing tracks: permission to release to testing
+  tracks.
 - Production releases: permission to release to production.
 6. Set GitHub secrets:
 - `GCP_WIF_PROVIDER`: full provider resource name
@@ -243,8 +257,11 @@ Notes:
 
 ### Release Tag Format
 
-`create-release.yml` supports an optional `release_version` input:
+`create-release.yml` supports these optional manual inputs:
 - `X.Y.Z` or `vX.Y.Z` (for example `1.2.3` or `v1.2.3`)
+- `play_track` choice: `beta`, `internal`, `alpha`, or `production`
+- `play_release_status` choice: `completed`, `draft`, `inProgress`, or
+  `halted`
 
 If `release_version` is not provided:
 - The workflow automatically selects the next patch semantic version based on
@@ -254,21 +271,32 @@ Notes:
 - Invalid versions (for example `v1.2`) are rejected.
 - The workflow uses this tag as the app build name.
 - `github.run_number` is used as the app build number.
+- Release notes are generated from commit messages since the previous semantic
+  GitHub release. The same notes are attached to the GitHub release and uploaded
+  to Play as concise `en-US` "What's new" notes.
 
 ### First-Time Validation Checklist
 
 1. Open a test PR to `main` and confirm the workflow uploads `app-debug.apk` in the run artifacts.
 2. Download and install that debug APK on a device to verify it launches.
 3. Ensure all required GitHub secrets are set and non-empty.
-4. Set repository variable `PLAY_TRACK=internal` for a safe first release upload.
+4. Confirm the workflow inputs match your intended target:
+- Open testing releases use `play_track=beta` and
+  `play_release_status=completed`.
+- Production releases use `play_track=production` only after the test build has
+  been verified in Play Console.
 5. Run `create-release.yml` from GitHub Actions:
 - Optionally provide `release_version`; leave empty to auto-select next patch version.
+- Select `play_track` and `play_release_status`.
 6. Confirm the workflow created and published a release with attached assets:
 - `app-release.apk`
 - `app-release.aab`
 7. Confirm the release workflow uploaded the AAB to Play Console on the
-   internal testing track.
-8. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
+   open testing track.
+8. For production, run `promote-to-production.yml` after Play verification to
+   promote the exact verified testing build without uploading a new AAB. Use
+   `create-release.yml` with `play_track=production` only when intentionally
+   deploying a newly built release straight to production.
 
 ## Code Style Guidelines
 
