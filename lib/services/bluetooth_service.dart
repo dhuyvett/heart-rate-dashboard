@@ -249,7 +249,7 @@ class BluetoothService {
 
       // Connect to the device
       await device
-          .connect(license: License.free, autoConnect: false, mtu: null)
+          .connect(license: License.nonprofit, autoConnect: false, mtu: null)
           .timeout(
             connectionTimeout,
             onTimeout: () {
