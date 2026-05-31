@@ -65,7 +65,7 @@ dependencies:
 
   # SQLite FFI for desktop platforms
   sqflite_common_ffi: ^2.3.0
-  wakelock_plus: ^1.4.0
+  wakelock_plus: ^1.5.2
 
   # Date formatting
   intl: ^0.20.2
