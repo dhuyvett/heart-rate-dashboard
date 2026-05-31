@@ -1,0 +1,97 @@
+name: Generate Release Notes
+description: Generate concise GitHub and Play release notes from commit history.
+outputs:
+  notes_file:
+    description: Path to the GitHub release notes file.
+    value: ${{ steps.notes.outputs.notes_file }}
+  whatsnew_dir:
+    description: Path to the Google Play whatsnew directory.
+    value: ${{ steps.notes.outputs.whatsnew_dir }}
+runs:
+  using: composite
+  steps:
+    - name: Generate notes
+      id: notes
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        mkdir -p release-notes/whatsnew
+
+        release_tags="$(
+          gh api "repos/$REPO/releases?per_page=100" --paginate \
+            --jq '.[].tag_name'
+        )"
+        previous_tag="$(
+          printf '%s\n' "$release_tags" |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+            grep -vx "$TAG" |
+            sort -V |
+            tail -n 1 || true
+        )"
+
+        if [ -n "$previous_tag" ]; then
+          range="$previous_tag..HEAD"
+          heading="Changes since $previous_tag"
+        else
+          range="HEAD"
+          heading="Initial release notes"
+        fi
+
+        mapfile -t commits < <(
+          git log "$range" --no-merges --pretty=format:'%s' |
+            sed -E \
+              -e 's/^[[:space:]]+//' \
+              -e 's/^[a-z]+(\([^)]+\))?!?:[[:space:]]*//' \
+              -e 's/^Bump[[:space:]]+/Update /' |
+            awk 'NF && !seen[$0]++'
+        )
+
+        if [ "${#commits[@]}" -eq 0 ]; then
+          commits=("Maintenance updates and dependency refreshes.")
+        fi
+
+        {
+          echo "## $TAG"
+          echo
+          echo "$heading:"
+          for commit in "${commits[@]}"; do
+            echo "- $commit"
+          done
+        } > release-notes/github.md
+
+        {
+          echo "What's new in $TAG:"
+          count=0
+          for commit in "${commits[@]}"; do
+            if [ "$count" -ge 5 ]; then
+              remaining=$((${#commits[@]} - count))
+              echo "- Plus $remaining more maintenance updates."
+              break
+            fi
+            echo "- $commit"
+            count=$((count + 1))
+          done
+        } > release-notes/whatsnew/whatsnew-en-US
+
+        python3 - <<'PY'
+        from pathlib import Path
+
+        path = Path("release-notes/whatsnew/whatsnew-en-US")
+        text = path.read_text().strip()
+        if len(text) <= 500:
+            raise SystemExit(0)
+
+        lines = text.splitlines()
+        shortened = [lines[0]]
+        for line in lines[1:]:
+            candidate = "\n".join(shortened + [line])
+            if len(candidate) > 470:
+                break
+            shortened.append(line)
+        shortened.append("- Additional fixes and maintenance updates.")
+        path.write_text("\n".join(shortened)[:500].rstrip() + "\n")
+        PY
+
+        echo "notes_file=release-notes/github.md" >> "$GITHUB_OUTPUT"
+        echo "whatsnew_dir=release-notes/whatsnew" >> "$GITHUB_OUTPUT"
