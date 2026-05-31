@@ -1,0 +1,129 @@
+name: Promote Play Release to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_track:
+        description: "Verified Play testing track"
+        required: true
+        default: "beta"
+        type: choice
+        options:
+          - beta
+          - internal
+          - alpha
+      version_code:
+        description: "Optional versionCode to promote; latest active source version is used when blank"
+        required: false
+        type: string
+      play_release_status:
+        description: "Production release status"
+        required: true
+        default: "completed"
+        type: choice
+        options:
+          - completed
+          - draft
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: promote-play-release-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote Verified Build
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: org.dhuyvetter.heart_rate_dashboard
+      SOURCE_TRACK: ${{ inputs.source_track }}
+      TARGET_TRACK: production
+      VERSION_CODE: ${{ inputs.version_code }}
+      PLAY_RELEASE_STATUS: ${{ inputs.play_release_status }}
+    steps:
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_PLAY_SA_EMAIL }}
+
+      - name: Promote source track release to production
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+
+          api_root="https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}"
+          auth_header="Authorization: Bearer ${ACCESS_TOKEN}"
+
+          edit_json="$(
+            curl --fail-with-body -sS \
+              -X POST \
+              -H "$auth_header" \
+              "${api_root}/edits"
+          )"
+          edit_id="$(jq -r '.id' <<< "$edit_json")"
+
+          source_json="$(
+            curl --fail-with-body -sS \
+              -H "$auth_header" \
+              "${api_root}/edits/${edit_id}/tracks/${SOURCE_TRACK}"
+          )"
+
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE="$(
+              jq -r '[.releases[]? |
+                select(.status == "completed" or .status == "inProgress") |
+                .versionCodes[]? |
+                tonumber] | max // empty' <<< "$source_json"
+            )"
+          fi
+
+          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "No valid versionCode found on ${SOURCE_TRACK}."
+            exit 1
+          fi
+
+          release_payload="$(
+            jq \
+              --arg vc "$VERSION_CODE" \
+              --arg status "$PLAY_RELEASE_STATUS" \
+              '(.releases[]? |
+                select((.versionCodes // []) | index($vc))) as $source |
+                if $source == null then
+                  empty
+                else
+                  {
+                    releases: [{
+                      name: ($source.name // ("version " + $vc)),
+                      versionCodes: [$vc],
+                      status: $status,
+                      releaseNotes: ($source.releaseNotes // [])
+                    }]
+                  }
+                end' <<< "$source_json"
+          )"
+
+          if [ -z "$release_payload" ]; then
+            echo "Version code ${VERSION_CODE} was not found on ${SOURCE_TRACK}."
+            exit 1
+          fi
+
+          curl --fail-with-body -sS \
+            -X PUT \
+            -H "$auth_header" \
+            -H "Content-Type: application/json" \
+            --data "$release_payload" \
+            "${api_root}/edits/${edit_id}/tracks/${TARGET_TRACK}"
+
+          curl --fail-with-body -sS \
+            -X POST \
+            -H "$auth_header" \
+            "${api_root}/edits/${edit_id}:commit"
+
+          echo "Promoted versionCode ${VERSION_CODE} from ${SOURCE_TRACK} to production."

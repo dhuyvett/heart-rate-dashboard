@@ -27,6 +27,19 @@
 
 ## Commit & Pull Request Guidelines
 - Commit messages: imperative, `type: summary` (types: feat, fix, docs, style, refactor, test, chore).
+- Release notes are generated from commit subjects, so write summaries that are
+  useful to users after the `type:` prefix is removed.
+- Prefer concise, outcome-focused subjects, for example `fix: preserve paused
+  workout duration after restart` or `feat: add GPS distance to session
+  history`.
+- Avoid vague subjects such as `fix bug`, `update stuff`, `cleanup`,
+  `changes`, or `WIP`; avoid internal-only details unless they affect released
+  behavior.
+- For dependency/tooling-only commits, make the user impact clear when possible,
+  for example `chore: update Android release signing action`.
+- Keep the first line under 72 characters when practical; put issue numbers,
+  migration notes, and detailed rationale in the commit body instead of the
+  subject.
 - Before pushing: `flutter analyze`, `dart format .`, `flutter test` (add coverage when touching critical logic).
 - PRs: include what/why, linked issue (if any), test results, and screenshots/gifs for UI changes or new flows.
 - Keep changes scoped; avoid mixing refactors with features unless necessary and noted.

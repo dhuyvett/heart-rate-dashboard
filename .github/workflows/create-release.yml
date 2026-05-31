@@ -8,15 +8,25 @@ on:
         required: false
         type: string
       play_track:
-        description: "Optional Play track override (for example beta, internal, production)"
-        required: false
-        default: ""
-        type: string
+        description: "Google Play track to deploy"
+        required: true
+        default: "beta"
+        type: choice
+        options:
+          - beta
+          - internal
+          - alpha
+          - production
       play_release_status:
-        description: "Optional Play release status override (for example completed, draft, inProgress, halted)"
-        required: false
-        default: ""
-        type: string
+        description: "Google Play release status"
+        required: true
+        default: "completed"
+        type: choice
+        options:
+          - completed
+          - draft
+          - inProgress
+          - halted
 
 permissions:
   contents: write
@@ -28,17 +38,23 @@ concurrency:
 
 jobs:
   create-release:
-    name: Build Artifacts and Publish Release
+    name: Test, Build, Upload, and Publish
     runs-on: ubuntu-latest
-    outputs:
-      release_tag: ${{ steps.release_meta.outputs.tag }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
+      PLAY_TRACK: ${{ inputs.play_track }}
+      PLAY_RELEASE_STATUS: ${{ inputs.play_release_status }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
+          fetch-depth: 0
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld libsqlite3-dev
 
       - name: Set up Java
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -53,18 +69,24 @@ jobs:
           cache: true
 
       - name: Get dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: Run analyzer
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --coverage --branch-coverage
 
       - name: Resolve release tag
+        id: release_meta
         uses: ./.github/actions/resolve-release-tag
         with:
           release_version: ${{ inputs.release_version }}
           build_number: ${{ github.run_number }}
 
-      - name: Capture release metadata
-        id: release_meta
-        run: |
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Generate release notes
+        id: release_notes
+        uses: ./.github/actions/generate-release-notes
 
       - name: Create Android signing files
         uses: ./.github/actions/create-android-signing-files
@@ -86,53 +108,32 @@ jobs:
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
 
-      - name: Create draft release
+      - name: Create or update draft release
         run: |
-          gh release create "$TAG" \
-            --repo "$REPO" \
-            --target "$COMMIT_SHA" \
-            --title "$TAG" \
-            --notes "Automated release for $TAG." \
-            --draft
+          set -euo pipefail
+          if [ "$RELEASE_EXISTS" = "true" ]; then
+            gh release edit "$TAG" \
+              --repo "$REPO" \
+              --target "$COMMIT_SHA" \
+              --title "$TAG" \
+              --notes-file "${{ steps.release_notes.outputs.notes_file }}" \
+              --draft=true
+          else
+            gh release create "$TAG" \
+              --repo "$REPO" \
+              --target "$COMMIT_SHA" \
+              --title "$TAG" \
+              --notes-file "${{ steps.release_notes.outputs.notes_file }}" \
+              --draft
+          fi
 
       - name: Upload release assets
         run: |
           gh release upload "$TAG" \
             --repo "$REPO" \
+            --clobber \
             build/app/outputs/flutter-apk/app-release.apk \
             build/app/outputs/bundle/release/app-release.aab
-
-      - name: Publish release
-        run: |
-          gh release edit "$TAG" \
-            --repo "$REPO" \
-            --draft=false
-
-  upload-to-play:
-    name: Upload Release AAB to Google Play
-    runs-on: ubuntu-latest
-    needs: create-release
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPO: ${{ github.repository }}
-      TAG: ${{ needs.create-release.outputs.release_tag }}
-      PLAY_TRACK: ${{ inputs.play_track || vars.PLAY_TRACK || 'beta' }}
-      PLAY_RELEASE_STATUS: ${{ inputs.play_release_status || vars.PLAY_RELEASE_STATUS || 'completed' }}
-    steps:
-      - name: Download release AAB asset
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets
-          gh release download "$TAG" \
-            --repo "$REPO" \
-            --pattern "app-release.aab" \
-            --dir release-assets
-
-      - name: Verify expected release assets
-        run: |
-          test -f release-assets/app-release.aab
-          echo "Found release assets:"
-          ls -lh release-assets
 
       - name: Authenticate to Google Cloud (WIF)
         id: auth
@@ -146,6 +147,14 @@ jobs:
         with:
           serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
           packageName: org.dhuyvetter.heart_rate_dashboard
-          releaseFiles: release-assets/app-release.aab
-          track: ${{ env.PLAY_TRACK }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          tracks: ${{ env.PLAY_TRACK }}
           status: ${{ env.PLAY_RELEASE_STATUS }}
+          releaseName: ${{ steps.release_meta.outputs.tag }}
+          whatsNewDirectory: ${{ steps.release_notes.outputs.whatsnew_dir }}
+
+      - name: Publish release
+        run: |
+          gh release edit "$TAG" \
+            --repo "$REPO" \
+            --draft=false

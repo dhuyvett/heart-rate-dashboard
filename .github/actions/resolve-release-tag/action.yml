@@ -8,10 +8,21 @@ inputs:
   build_number:
     description: Build number to export
     required: true
+outputs:
+  tag:
+    description: Resolved release tag.
+    value: ${{ steps.resolve.outputs.tag }}
+  build_name:
+    description: App build name derived from the release tag.
+    value: ${{ steps.resolve.outputs.build_name }}
+  build_number:
+    description: App build number.
+    value: ${{ steps.resolve.outputs.build_number }}
 runs:
   using: composite
   steps:
     - name: Resolve tag
+      id: resolve
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.release_version }}
@@ -63,12 +74,21 @@ runs:
           fi
         fi
 
-        if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-          echo "Release $TAG already exists."
-          exit 1
+        RELEASE_EXISTS=false
+        RELEASE_DRAFT=false
+
+        if release_draft="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.draft' 2>/dev/null)"; then
+          RELEASE_EXISTS=true
+          RELEASE_DRAFT="$release_draft"
+          if [ "$release_draft" != "true" ]; then
+            echo "Published release $TAG already exists."
+            exit 1
+          fi
+          echo "Draft release $TAG already exists and will be reused."
         fi
 
-        if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+        if [ "$RELEASE_EXISTS" != "true" ] && \
+           gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
           echo "Tag $TAG already exists."
           exit 1
         fi
@@ -80,6 +100,11 @@ runs:
         echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
         echo "BUILD_NUMBER=$BUILD_NUMBER_INPUT" >> "$GITHUB_ENV"
         echo "COMMIT_SHA=$COMMIT_SHA" >> "$GITHUB_ENV"
+        echo "RELEASE_EXISTS=$RELEASE_EXISTS" >> "$GITHUB_ENV"
+        echo "RELEASE_DRAFT=$RELEASE_DRAFT" >> "$GITHUB_ENV"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
+        echo "build_number=$BUILD_NUMBER_INPUT" >> "$GITHUB_OUTPUT"
 
         echo "Resolved release tag: $TAG"
         echo "Build name: $BUILD_NAME"
