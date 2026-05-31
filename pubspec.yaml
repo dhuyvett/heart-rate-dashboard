@@ -80,7 +80,7 @@ dependencies:
   logger: ^2.6.2
 
   # Secure storage for encryption keys
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^10.3.1
 
   # Device information for key derivation
   device_info_plus: ^12.2.0
