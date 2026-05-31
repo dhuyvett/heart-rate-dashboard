@@ -7,6 +7,16 @@ on:
         description: "Optional semantic version (for example 1.2.3 or v1.2.3)"
         required: false
         type: string
+      play_track:
+        description: "Optional Play track override (for example beta, internal, production)"
+        required: false
+        default: ""
+        type: string
+      play_release_status:
+        description: "Optional Play release status override (for example completed, draft, inProgress, halted)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -106,8 +116,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       TAG: ${{ needs.create-release.outputs.release_tag }}
-      PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
-      PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+      PLAY_TRACK: ${{ inputs.play_track || vars.PLAY_TRACK || 'beta' }}
+      PLAY_RELEASE_STATUS: ${{ inputs.play_release_status || vars.PLAY_RELEASE_STATUS || 'completed' }}
     steps:
       - name: Download release AAB asset
         run: |

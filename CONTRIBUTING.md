@@ -208,7 +208,8 @@ Set these in **GitHub repo -> Settings -> Secrets and variables -> Actions**:
   - `GCP_PLAY_SA_EMAIL`
 
 Optional repo variable:
-- `PLAY_TRACK` (defaults to `internal` if not set)
+- `PLAY_TRACK` (defaults to `beta`, the open testing track, if not set)
+- `PLAY_RELEASE_STATUS` (defaults to `completed` if not set)
 
 ### Generate `ANDROID_UPLOAD_KEYSTORE_BASE64`
 
@@ -232,7 +233,8 @@ Notes:
    Play publishing service account (`roles/iam.workloadIdentityUser`).
 4. In Play Console, grant that service account access to this app.
 5. Assign release permissions for your target track:
-- Internal testing only: permission to release to testing tracks.
+- Open testing and other testing tracks: permission to release to testing
+  tracks.
 - Production releases: permission to release to production.
 6. Set GitHub secrets:
 - `GCP_WIF_PROVIDER`: full provider resource name
@@ -243,8 +245,10 @@ Notes:
 
 ### Release Tag Format
 
-`create-release.yml` supports an optional `release_version` input:
+`create-release.yml` supports these optional manual inputs:
 - `X.Y.Z` or `vX.Y.Z` (for example `1.2.3` or `v1.2.3`)
+- `play_track` to override the Play destination for one run
+- `play_release_status` to override the Play release status for one run
 
 If `release_version` is not provided:
 - The workflow automatically selects the next patch semantic version based on
@@ -254,21 +258,31 @@ Notes:
 - Invalid versions (for example `v1.2`) are rejected.
 - The workflow uses this tag as the app build name.
 - `github.run_number` is used as the app build number.
+- If `play_track` is left blank, the workflow falls back to `PLAY_TRACK`, then
+  `beta`.
+- If `play_release_status` is left blank, the workflow falls back to
+  `PLAY_RELEASE_STATUS`, then `completed`.
 
 ### First-Time Validation Checklist
 
 1. Open a test PR to `main` and confirm the workflow uploads `app-debug.apk` in the run artifacts.
 2. Download and install that debug APK on a device to verify it launches.
 3. Ensure all required GitHub secrets are set and non-empty.
-4. Set repository variable `PLAY_TRACK=internal` for a safe first release upload.
+4. Confirm the default Play configuration matches your intended target:
+- Open testing releases use `PLAY_TRACK=beta` and
+  `PLAY_RELEASE_STATUS=completed`.
+- Override `PLAY_TRACK` only when intentionally shipping to another track.
 5. Run `create-release.yml` from GitHub Actions:
 - Optionally provide `release_version`; leave empty to auto-select next patch version.
+- Optionally set `play_track` or `play_release_status` to override Play
+  publishing for that run only.
 6. Confirm the workflow created and published a release with attached assets:
 - `app-release.apk`
 - `app-release.aab`
 7. Confirm the release workflow uploaded the AAB to Play Console on the
-   internal testing track.
-8. After successful internal validation, switch `PLAY_TRACK` to your intended track (for example `production`) when ready.
+   open testing track.
+8. If you later need a different destination, override `PLAY_TRACK`
+   explicitly (for example `internal` or `production`).
 
 ## Code Style Guidelines
 
