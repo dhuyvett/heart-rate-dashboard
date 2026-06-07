@@ -65,7 +65,7 @@ dependencies:
 
   # SQLite FFI for desktop platforms
   sqflite_common_ffi: ^2.3.0
-  wakelock_plus: ^1.4.0
+  wakelock_plus: ^1.6.1
 
   # Date formatting
   intl: ^0.20.2
@@ -83,10 +83,10 @@ dependencies:
   flutter_secure_storage: ^10.0.0
 
   # Device information for key derivation
-  device_info_plus: ^12.2.0
+  device_info_plus: ^13.1.0
 
   # App version/build metadata for About screen
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.1.0
 
   # Location services for speed/distance tracking
   geolocator: ^14.0.1
