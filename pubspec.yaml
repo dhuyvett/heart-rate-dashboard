@@ -61,7 +61,7 @@ dependencies:
   path: ^1.9.0
 
   # Path provider for desktop database location
-  path_provider: ^2.1.0
+  path_provider: ^2.1.6
 
   # SQLite FFI for desktop platforms
   sqflite_common_ffi: ^2.3.0
