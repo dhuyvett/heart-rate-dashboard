@@ -20,7 +20,8 @@ version: 1.0.0+1
 
 environment:
   sdk: ^3.10.0
-  flutter: ^3.41.6
+  # This needs to be an exact version and not a range because it is used in setting up flutter in github workflows.
+  flutter: 3.47.1
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
