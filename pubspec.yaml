@@ -20,7 +20,7 @@ version: 1.0.0+1
 
 environment:
   sdk: ^3.10.0
-  flutter: 3.41.6
+  flutter: ^3.41.6
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -55,7 +55,7 @@ dependencies:
   csv: ^8.0.0
 
   # Permission management
-  permission_handler: ^12.0.1
+  permission_handler: ^13.0.1
 
   # Path utilities
   path: ^1.9.0
@@ -80,13 +80,13 @@ dependencies:
   logger: ^2.6.2
 
   # Secure storage for encryption keys
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^11.0.0
 
   # Device information for key derivation
-  device_info_plus: ^12.2.0
+  device_info_plus: ^13.2.0
 
   # App version/build metadata for About screen
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.2.1
 
   # Location services for speed/distance tracking
   geolocator: ^14.0.1
